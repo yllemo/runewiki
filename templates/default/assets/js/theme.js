@@ -1,0 +1,113 @@
+/**
+ * templates/default/assets/js/theme.js
+ * Ljust/mörkt läge (localStorage) + dropdown-menyer i huvudmenyn,
+ * i stil med goteborg-dw-template.
+ */
+
+function gbgApplyThemeIcon(theme) {
+  var moon = document.querySelector('.gbg-icon-moon');
+  var sun  = document.querySelector('.gbg-icon-sun');
+  if (moon && sun) {
+    moon.hidden = theme === 'dark';
+    sun.hidden  = theme !== 'dark';
+  }
+
+  // Header-logotypen byter bakgrund med ljust/mörkt läge (vit / nästan
+  // svart) — visa den logga (ljust/mörkt-variant) som faktiskt syns mot
+  // den bakgrunden. Sidfoten är alltid mörk och har bara en egen logga,
+  // ingen växling där. Se config.php:s 'header_logo'/'header_logo_dark'.
+  var logoLight = document.querySelector('.gbg-logo-light');
+  var logoDark  = document.querySelector('.gbg-logo-dark');
+  if (logoLight && logoDark) {
+    logoLight.hidden = theme === 'dark';
+    logoDark.hidden  = theme !== 'dark';
+  }
+}
+
+function gbgSetTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem('theme', theme); } catch (e) {}
+  gbgApplyThemeIcon(theme);
+  // Låter andra skript (t.ex. assets/js/mermaid.js på wikisidor, eller
+  // chat/index.php:s egen mermaid-rendering) rita om redan renderade
+  // Mermaid-diagram i det nya läget utan att sidan behöver laddas om.
+  window.dispatchEvent(new CustomEvent('gbg-theme-change', { detail: { theme: theme } }));
+}
+
+function gbgToggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme');
+  gbgSetTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  var saved = 'light';
+  try { saved = localStorage.getItem('theme') || 'light'; } catch (e) {}
+  gbgSetTheme(saved);
+
+  var toggleBtn = document.getElementById('gbg-theme-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', gbgToggleTheme);
+  }
+
+  // ── Dropdown-menyer (sök / meny) i huvudmenyn ──────────────────────
+  var dropdowns = Array.prototype.slice.call(document.querySelectorAll('.gbg-dropdown'));
+
+  function closeAll(except) {
+    dropdowns.forEach(function (dd) {
+      if (dd === except) return;
+      dd.classList.remove('is-open');
+      var btn = dd.querySelector('.gbg-tool-btn');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  dropdowns.forEach(function (dd) {
+    var btn = dd.querySelector('.gbg-tool-btn');
+    var menu = dd.querySelector('.gbg-dropdown-menu');
+    if (!btn || !menu) return;
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = !dd.classList.contains('is-open');
+      closeAll(dd);
+      closeNav();
+      dd.classList.toggle('is-open', willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (willOpen) {
+        var input = menu.querySelector('input[type="search"]');
+        if (input) input.focus();
+      }
+    });
+  });
+
+  document.addEventListener('click', function () { closeAll(null); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeAll(null); closeNav(); }
+  });
+
+  // ── Hamburgermeny för huvudnavigeringen (_topbar.md/config/menu.php) —
+  // bara synlig under mobilbrytpunkten (se style.css). ──────────────────
+  var navToggle = document.getElementById('gbg-nav-toggle');
+  var navLinks  = document.getElementById('gbg-nav-links');
+
+  function closeNav() {
+    if (!navToggle || !navLinks) return;
+    navLinks.classList.remove('is-open');
+    navToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  if (navToggle && navLinks) {
+    navToggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = !navLinks.classList.contains('is-open');
+      closeAll(null);
+      navLinks.classList.toggle('is-open', willOpen);
+      navToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+    document.addEventListener('click', function (e) {
+      if (!navLinks.contains(e.target) && e.target !== navToggle && !navToggle.contains(e.target)) {
+        closeNav();
+      }
+    });
+  }
+});

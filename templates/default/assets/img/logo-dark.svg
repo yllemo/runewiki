@@ -1,0 +1,10 @@
+<!-- templates/default/assets/img/logo-dark.svg
+     Platshållare för MÖRKT läge — ersätt med en ljus variant av er
+     riktiga logotyp. Till skillnad från logo.svg (en solid blå platta,
+     tänkt för det ljusa lägets vita header) är den här genomskinlig med
+     ljus text, tänkt att synas mot headerns mörka bakgrund i mörkt läge.
+     Byts enklast via /admin/ ("Webbplats"-fliken → Header, mörkt läge). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 211 70" width="211" height="70" role="img" aria-label="Wiki-logotyp (mörkt läge)">
+  <text x="0" y="42" font-family="'Open Sans', Arial, sans-serif" font-weight="700" font-size="22" fill="#ffffff">RuneWiki</text>
+  <rect x="0" y="52" width="40" height="4" rx="2" fill="#479EF5"/>
+</svg>

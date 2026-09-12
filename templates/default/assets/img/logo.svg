@@ -1,0 +1,7 @@
+<!-- templates/default/assets/img/logo.svg
+     Platshållare — ersätt med Göteborgs Stads officiella logotyp-SVG.
+     Fristående blå platta (fungerar på vit header, blå meny och mörk sidfot). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 211 70" width="211" height="70" role="img" aria-label="Wiki-logotyp">
+  <rect width="211" height="70" fill="#0077bc" rx="6"/>
+  <text x="16" y="42" font-family="'Open Sans', Arial, sans-serif" font-weight="700" font-size="22" fill="#ffffff">RuneWiki</text>
+</svg>

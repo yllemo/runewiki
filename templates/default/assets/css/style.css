@@ -1,0 +1,1203 @@
+/**
+ * templates/default/assets/css/style.css
+ *
+ * Tema i stil med goteborg-dw-template (DokuWiki): vitt topphuvud, blå
+ * huvudmeny, ljust brödsmulefält, kort-baserat innehåll och mörk sidfot.
+ * Färgpaletten är identisk med Göteborgs Stads grafiska profil.
+ */
+
+:root {
+  /* Göteborgs Stads färgpalett — konstanta varumärkesfärger */
+  --gs-blue:        #0077BC; /* Göteborgsblå (primär) */
+  --gs-navbar-blue:  #006298; /* Mörkare blå — huvudmenyns bakgrund */
+  --gs-light-blue:  #479EF5;
+  --gs-green:       #00753B;
+  --gs-purple:      #712082;
+  --gs-red:         #C31C55;
+  --gs-orange:      #D85512;
+
+  /* Light mode */
+  --bg-color:       #FFFFFF;
+  --bg-card:        #FFFFFF;
+  --bg-subtle:      #F4F9FC;
+  --bg-breadcrumb:  #F5F5F5;
+  --bg-footer:      #333333;
+  --bg-footer-bar:  #262626;
+  --text-color:     #333333;
+  --text-secondary: #6E6E6E;
+  --border-color:   #E2E2E2;
+  --link-color:     #0077BC;
+  --link-hover:     #006298;
+  --accent:         #0077BC;
+  --accent-hover:   #006298;
+
+  --shadow-sm: 0 2px 5px rgba(0, 0, 0, .06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .12);
+  --radius: 4px;
+}
+
+[data-theme="dark"] {
+  --bg-color:       #1A1A1A;
+  --bg-card:        #242424;
+  --bg-subtle:      #202020;
+  --bg-breadcrumb:  #161616;
+  --bg-footer:      #141414;
+  --bg-footer-bar:  #0d0d0d;
+  --text-color:     #FFFFFF;
+  --text-secondary: #C7CDCF;
+  --border-color:   #404040;
+  --link-color:     #479EF5;
+  --link-hover:     #7EC1FF;
+  --accent:         #009EB4; /* primärfärgen tonas om till turkos i mörkt läge */
+  --accent-hover:   #0077BC;
+
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, .4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, .5);
+  /* --gs-blue, --gs-navbar-blue och övriga GS-färger förblir konstanta */
+}
+
+* { box-sizing: border-box; }
+
+/* Skyddsnät mot horisontell scroll på mobil om ett långt ord/URL/kodblock
+   ändå skulle sticka ut — själva sidan ska aldrig behöva scrolla i sidled,
+   bara enskilda element som medvetet tillåter det (t.ex. <pre>). */
+html, body { height: 100%; overflow-x: hidden; }
+
+body {
+  margin: 0;
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+}
+
+.gbg-site { min-height: 100%; display: flex; flex-direction: column; }
+
+.gbg-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--text-color);
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
+p, li, .gbg-tagline, .gbg-site-title { overflow-wrap: break-word; }
+
+a { color: var(--link-color); text-decoration: none; transition: color .15s; }
+a:hover { color: var(--link-hover); text-decoration: underline; }
+
+img { max-width: 100%; border-radius: var(--radius); }
+
+/* ── Topphuvud ─────────────────────────────────────────────────── */
+
+.gbg-topbar {
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1.1rem 0;
+}
+
+.gbg-topbar-inner { display: flex; align-items: center; }
+
+.gbg-brand { display: flex; align-items: center; gap: 1.5rem; color: inherit; }
+.gbg-brand:hover { text-decoration: none; }
+
+.gbg-logo { height: 56px; width: auto; display: block; border-radius: 4px; flex-shrink: 0; }
+/* [hidden] är annars bara en UA-regel (lägre prioritet än author-CSS ovan)
+   — utan denna skulle BÅDA logotyperna visas överlappande på samma gång. */
+.gbg-logo[hidden] { display: none; }
+
+.gbg-brand-text { display: flex; flex-direction: column; }
+
+.gbg-site-title {
+  font-weight: 700;
+  font-size: 2.5rem;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  color: var(--text-color);
+}
+
+.gbg-tagline {
+  font-size: 0.9rem;
+  font-weight: normal;
+  color: var(--text-color);
+  opacity: 0.8;
+  margin-top: 0.2rem;
+  line-height: 1.2;
+}
+
+@media (max-width: 768px) {
+  .gbg-tagline { display: none; }
+  .gbg-site-title { font-size: 1.75rem; }
+}
+
+/* ── Blå huvudmeny ─────────────────────────────────────────────── */
+
+.gbg-navbar { background: var(--gs-navbar-blue); }
+
+.gbg-navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  min-height: 50px;
+  gap: 0.5rem;
+}
+
+.gbg-nav-links { display: flex; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; }
+
+/* Hamburgare för huvudnavigeringen — bara synlig under mobilbrytpunkten
+   (se @media nedan). Samma runda knappstil som .gbg-tool-btn. */
+.gbg-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.gbg-nav-toggle:hover { background: rgba(255, 255, 255, .22); }
+.gbg-nav-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.gbg-nav-links a {
+  display: block;
+  padding: 0.85rem 1rem;
+  color: rgba(255, 255, 255, .92);
+  font-size: 0.9rem;
+  border-bottom: 3px solid transparent;
+  transition: background-color .12s, border-color .12s;
+}
+
+.gbg-nav-links a:hover { background: rgba(255, 255, 255, .1); text-decoration: none; color: #fff; }
+
+.gbg-nav-links a.is-active { border-bottom-color: var(--gs-light-blue); color: #fff; font-weight: 600; }
+
+.gbg-tools { display: flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0; position: relative; }
+
+.gbg-dropdown { position: relative; }
+
+.gbg-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color .12s;
+}
+
+.gbg-tool-btn:hover { background: rgba(255, 255, 255, .22); }
+
+.gbg-tool-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.gbg-icon-sun, .gbg-icon-moon { display: block; }
+.gbg-icon-sun[hidden], .gbg-icon-moon[hidden] { display: none; }
+
+/* AI Chat — synlig, klickbar knapp bredvid sök-/menyikonerna (inte gömd i
+   en dropdown), så man kan chatta med den öppna sidan med ett klick. */
+.gbg-ai-chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 36px;
+  padding: 0 0.9rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color .12s;
+}
+
+.gbg-ai-chat-btn:hover { background: rgba(255, 255, 255, .25); text-decoration: none; color: #fff; }
+
+.gbg-ai-chat-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 560px) {
+  .gbg-ai-chat-btn { width: 36px; height: 36px; padding: 0; border-radius: 50%; justify-content: center; }
+  .gbg-ai-chat-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+}
+
+.gbg-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* Inloggad användare + utloggningsknapp i toppbaren (visas bara när
+   auth_enabled = true i config.php). */
+.gbg-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, .92);
+  padding: 0 0.2rem;
+}
+
+.gbg-user-name {
+  display: inline-block;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Formuläret ska inte bryta flex-radens layout — knappen inuti beter sig
+   som om den låg direkt i .gbg-tools. */
+.gbg-logout-form { display: contents; }
+
+/* ── /?do=login och andra formulär (t.ex. /admin/) — text-/lösenordsfält ── */
+.gbg-login { max-width: 24rem; }
+
+.gbg-login-error {
+  padding: 0.6rem 0.9rem;
+  background: rgba(195, 28, 85, .1);
+  color: var(--gs-red);
+  border-left: 3px solid var(--gs-red);
+  border-radius: 0 4px 4px 0;
+}
+
+.gbg-admin-success {
+  padding: 0.6rem 0.9rem;
+  background: rgba(0, 117, 59, .1);
+  color: var(--gs-green);
+  border-left: 3px solid var(--gs-green);
+  border-radius: 0 4px 4px 0;
+}
+
+.gbg-form label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; font-weight: 500; }
+
+.gbg-form input[type="text"],
+.gbg-form input[type="password"] {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.95rem;
+}
+
+.gbg-form input[type="text"]:focus,
+.gbg-form input[type="password"]:focus { outline: none; border-color: var(--accent); }
+
+.gbg-form .gbg-btn { align-self: flex-start; }
+
+.gbg-checkbox-label { flex-direction: row !important; align-items: center; gap: 0.5rem !important; }
+
+/* ── /admin/ — enkel adminpanel (flikar: lösenord/användare/texter/webbplats) ── */
+.gbg-admin-lead { color: var(--text-secondary); }
+
+.gbg-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1.25rem 0 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.75rem;
+}
+
+.gbg-admin-tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.gbg-admin-tab:hover { border-color: var(--accent); }
+.gbg-admin-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.gbg-admin-panel[hidden] { display: none; }
+
+.gbg-admin-fieldset {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1rem 1.1rem 1.2rem;
+  margin: 0 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gbg-admin-fieldset legend { padding: 0 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; }
+
+.gbg-admin-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gbg-admin-logo-row:last-of-type { border-bottom: none; }
+
+.gbg-admin-logo-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.gbg-admin-logo-preview img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.4rem;
+}
+
+.gbg-admin-logo-preview span { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
+
+.gbg-admin-logo-form { flex: 1; min-width: 220px; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 0.6rem !important; }
+
+.gbg-admin-logo-actions { display: flex; gap: 0.5rem; }
+
+.gbg-admin-user-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+
+.gbg-admin-user-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gbg-admin-user-list li form { margin-left: auto; }
+
+.gbg-admin-flag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--gs-orange);
+  background: rgba(216, 85, 18, .12);
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+}
+
+.gbg-dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  min-width: 220px;
+  background: var(--bg-card);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  padding: 0.6rem;
+  z-index: 60;
+}
+
+.gbg-dropdown.is-open .gbg-dropdown-menu { display: block; }
+
+.gbg-dropdown-menu a.gbg-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 4px;
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+.gbg-dropdown-menu a.gbg-dropdown-item:hover { background: var(--bg-subtle); text-decoration: none; }
+
+.gbg-dropdown-menu a.gbg-dropdown-item svg {
+  width: 16px; height: 16px; flex-shrink: 0;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+}
+
+.gbg-search-form { display: flex; }
+
+.gbg-search-form input[type="search"] {
+  flex: 1;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px 0 0 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.gbg-search-form input[type="search"]:focus { border-color: var(--accent); }
+
+.gbg-search-form button {
+  padding: 0.45rem 0.8rem;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  background: var(--gs-blue);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.gbg-search-form button:hover { background: var(--gs-navbar-blue); }
+
+/* ── Brödsmulefält ─────────────────────────────────────────────── */
+
+.gbg-breadcrumbs { background: var(--bg-breadcrumb); border-bottom: 1px solid var(--border-color); }
+
+.gbg-breadcrumb-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.gbg-breadcrumb-sep { opacity: .6; }
+
+.gbg-breadcrumb-current { color: var(--text-color); font-weight: 600; }
+
+/* ── Huvudlayout: sidopanel + innehåll ────────────────────────────── */
+
+.gbg-main {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.75rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 1.75rem auto;
+  padding: 0 1.5rem;
+}
+
+.gbg-sidebar { width: 260px; flex-shrink: 0; }
+
+.gbg-content { flex: 1; min-width: 0; }
+
+.gbg-main--full .gbg-content { width: 100%; }
+
+.gbg-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem 1.75rem;
+}
+
+.gbg-sidebar-card h1, .gbg-sidebar-card h2, .gbg-sidebar-card h3 {
+  font-size: 1rem;
+  margin-top: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gbg-sidebar-card ul { padding-left: 1.15rem; margin: 0.5rem 0; }
+.gbg-sidebar-card li { margin-bottom: 0.35rem; font-size: 0.9rem; }
+
+/* ── Sidverktyg, titel, metadata ──────────────────────────────────── */
+
+.gbg-page-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.gbg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+
+.gbg-btn:hover { text-decoration: none; }
+
+.gbg-btn svg { flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; }
+
+.gbg-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.gbg-btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+
+.gbg-btn-outline { background: transparent; border-color: var(--border-color); color: var(--text-color); }
+.gbg-btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+.gbg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.5rem;
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-subtle);
+  border-left: 3px solid var(--gs-blue);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.83rem;
+}
+
+.gbg-meta li { display: flex; align-items: baseline; gap: 0.3rem; color: var(--text-secondary); }
+
+.gbg-fm-key { font-weight: 600; color: var(--text-secondary); }
+.gbg-fm-key::after { content: ':'; }
+.gbg-fm-val { color: var(--text-color); }
+.gbg-fm-val time { font-style: normal; }
+
+.gbg-page-id { margin-top: 2rem; font-size: 0.8rem; color: var(--text-secondary); }
+
+/* ── Taggar (badges) ──────────────────────────────────────────────── */
+
+.gbg-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.gbg-tag,
+.tag {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  background: var(--gs-blue);
+  color: #fff !important;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.gbg-tag:hover, .tag:hover { background: var(--gs-navbar-blue); text-decoration: none; }
+
+/* ── Wikilänkar (genereras av Parser.php) ────────────────────────── */
+
+a.wikilink-exists { color: var(--link-color); }
+
+a.wikilink-new {
+  color: var(--gs-red);
+  border-bottom: 1px dashed var(--gs-red);
+  text-decoration: none;
+}
+a.wikilink-new:hover { color: var(--gs-red); text-decoration: none; opacity: .8; }
+
+a.interwiki {
+  color: var(--link-color);
+  border-bottom: 1px dotted var(--border-color);
+  text-decoration: none;
+}
+
+a.media-download {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+/* ── Alerts / meddelanderutor ─────────────────────────────────────── */
+
+.gbg-alert {
+  padding: 0.9rem 1.1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.gbg-alert-info {
+  background: var(--bg-subtle);
+  border-left: 3px solid var(--gs-blue);
+}
+
+.gbg-alert-info .gbg-btn { margin-top: 0.6rem; }
+
+/* ── Sök & media ──────────────────────────────────────────────────── */
+
+.gbg-result-list { list-style: none; padding: 0; }
+.gbg-result-item { margin-bottom: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); }
+.gbg-result-item:last-child { border-bottom: none; }
+.gbg-result-item p { margin: 0.3rem 0 0; color: var(--text-secondary); }
+
+.gbg-form { display: flex; flex-direction: column; gap: 0.75rem; max-width: 40rem; }
+.gbg-upload-status { padding: 0.6rem 0.9rem; background: var(--bg-subtle); border-left: 3px solid var(--gs-green); border-radius: 0 4px 4px 0; }
+.gbg-media-empty { color: var(--text-secondary); }
+
+.gbg-media-ns-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 2rem 0 0;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 1.1rem;
+}
+.gbg-media-ns-heading:first-of-type { margin-top: 1.25rem; }
+
+/* ── /media — rutnät med bildminiatyrer + ikonkort för övriga filtyper ── */
+.gbg-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.gbg-media-item {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-color);
+}
+
+.gbg-media-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-subtle);
+}
+
+.gbg-media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.gbg-media-icon { font-size: 2.5rem; opacity: 0.7; }
+
+.gbg-media-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem 0.2rem;
+}
+
+.gbg-media-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.gbg-media-size { font-size: 0.75rem; color: var(--text-secondary); flex-shrink: 0; }
+
+.gbg-media-embed {
+  margin: 0.2rem 0.6rem 0.6rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.72rem;
+  background: var(--bg-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Redigera / Monaco ────────────────────────────────────────────── */
+
+.gbg-editor-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.gbg-editor-toolbar label { font-weight: 600; font-size: 0.9rem; }
+
+.gbg-monaco-container {
+  height: 60vh;
+  min-height: 400px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gbg-edit-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }
+
+.gbg-hint { font-size: 0.85rem; color: var(--text-secondary); }
+.gbg-hint code { font-size: 0.82rem; }
+
+/* ── Brödtext (Markdown-render) ───────────────────────────────────── */
+
+.wiki-body pre, pre {
+  background: var(--bg-subtle);
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.wiki-body code, code {
+  background: var(--bg-subtle);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+pre code { background: none; padding: 0; }
+
+blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid var(--border-color); padding: 0.5rem 0.75rem; text-align: left; }
+th { background: var(--bg-subtle); }
+
+/* ── Sidindex-band (ovanför sidfoten) ─────────────────────────────── */
+
+.gbg-index-band {
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gbg-index-toggle {
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 0.7rem 0;
+  list-style: none;
+}
+
+.gbg-index-toggle::-webkit-details-marker { display: none; }
+
+.gbg-index-band > .gbg-container > details > summary.gbg-index-toggle::before {
+  content: '›';
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 1.1em;
+  line-height: 1;
+  transition: transform .15s;
+}
+
+.gbg-index-band > .gbg-container > details[open] > summary.gbg-index-toggle::before { transform: rotate(90deg); }
+
+.gbg-index-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem 2rem;
+  padding: 0.5rem 0 1.25rem;
+}
+
+.gbg-index-ns-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-color);
+  margin-bottom: 0.3rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.gbg-index-ns-label::-webkit-details-marker { display: none; }
+
+.gbg-index-group ul {
+  list-style: none;
+  padding: 0 0 0 1.1rem;
+  margin: 0;
+  border-left: 2px solid var(--border-color);
+}
+
+.gbg-index-group li { line-height: 1.9; }
+.gbg-index-group li a { font-size: 0.83rem; }
+
+/* "Visa fler"-disclosure för sidor utöver gränsen i en grupp */
+.gbg-index-more { margin: 0.3rem 0 0 1.1rem; }
+
+.gbg-index-more > summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--link-color);
+  padding: 0.2rem 0;
+}
+
+.gbg-index-more > summary::-webkit-details-marker { display: none; }
+.gbg-index-more > summary::before { content: '+ '; }
+.gbg-index-more[open] > summary::before { content: '– '; }
+.gbg-index-more > summary:hover { text-decoration: underline; }
+
+/* ── Mörk sidfot ──────────────────────────────────────────────────── */
+
+.gbg-footer { background: var(--bg-footer); color: #fff; margin-top: auto; }
+
+.gbg-footer-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  padding: 2.5rem 1.5rem 1.5rem;
+}
+
+.gbg-footer-brand { flex: 2; min-width: 220px; }
+.gbg-footer-logo { height: 44px; margin-bottom: 0.75rem; }
+.gbg-footer-brand p { color: rgba(255, 255, 255, .75); margin: 0; }
+
+.gbg-footer-links { flex: 1; min-width: 160px; }
+.gbg-footer-links h2 { color: #fff; font-size: 1rem; margin: 0 0 0.9rem; }
+.gbg-footer-links ul { list-style: none; padding: 0; margin: 0; }
+.gbg-footer-links li { margin-bottom: 0.55rem; }
+.gbg-footer-links a { color: rgba(255, 255, 255, .85); }
+.gbg-footer-links a:hover { color: #fff; }
+
+.gbg-footer-bar {
+  background: var(--bg-footer-bar);
+  border-top: 1px solid rgba(255, 255, 255, .1);
+  padding: 0.85rem 0;
+}
+
+.gbg-footer-bar p { margin: 0; font-size: 0.82rem; color: rgba(255, 255, 255, .7); text-align: center; }
+.gbg-footer-bar a { color: rgba(255, 255, 255, .85); }
+.gbg-footer-bar a:hover { color: #fff; }
+
+/* ── Responsivt ───────────────────────────────────────────────────── */
+
+@media (max-width: 767.98px) {
+  .gbg-main { flex-direction: column; }
+  .gbg-sidebar { width: 100%; }
+
+  /* Huvudnavigeringen (_topbar.md/config/menu.php) döljs bakom en
+     hamburgare (.gbg-nav-toggle, se JS i theme.js) och fälls ut som en
+     egen full bredd-rad under toppbaren istället för att trängas ihop
+     eller radbryta mitt i verktygsraden. */
+  .gbg-navbar-inner { flex-wrap: wrap; justify-content: space-between; }
+  .gbg-nav-toggle { display: flex; }
+  .gbg-nav-links {
+    display: none;
+    order: 10;
+    width: 100%;
+    flex-direction: column;
+    margin-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, .15);
+  }
+  .gbg-nav-links.is-open { display: flex; }
+  .gbg-nav-links li { width: 100%; }
+  .gbg-nav-links a { border-bottom: 1px solid rgba(255, 255, 255, .12); }
+  .gbg-nav-links li:last-child a { border-bottom: none; }
+
+  /* Verktygsraden (AI Chat, sök, tema, meny, admin, inlogg/utlogg) ska
+     kunna radbryta utan att klämmas ihop eller tvinga fram horisontell
+     scroll. */
+  .gbg-tools { flex-wrap: wrap; justify-content: flex-end; row-gap: 0.5rem; }
+  .gbg-search-form input[type="search"] { width: 140px; }
+
+  /* Lite mindre sidmarginal ger mer plats åt innehållet på smala skärmar. */
+  .gbg-container { padding: 0 1rem; }
+  .gbg-content-card { padding: 1.1rem 1.1rem; }
+
+  /* Adminpanelens flikrad blir en horisontellt skrollbar rad istället för
+     att radbryta till flera rader med text som klipps av. */
+  .gbg-admin-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 0.6rem; }
+  .gbg-admin-tab { flex-shrink: 0; }
+
+  .gbg-admin-logo-form input[type="file"] { max-width: 100%; min-width: 0; }
+}
+
+@media (max-width: 420px) {
+  .gbg-container { padding: 0 0.85rem; }
+  .gbg-site-title { font-size: 1.45rem; }
+  .gbg-logo { height: 44px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Chat UI (chat/index.php) — samma tema, header och footer som wikin.
+   Allt scopat under .chat-app; alla färger kommer från variablerna ovan.
+   ══════════════════════════════════════════════════════════════════ */
+
+.chat-app { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+/* ── Verktygsrad ovanför chatten (meny/nedladdning/inställningar) ── */
+
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  flex-shrink: 0;
+}
+
+.chat-toolbar-title { font-weight: 700; font-size: 0.95rem; color: var(--text-color); }
+
+.icon-btn {
+  background: var(--bg-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  width: 34px; height: 34px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.spacer { flex: 1; }
+.menu-btn { display: none; }
+
+/* ── Generiska knappar (delas av chatten och kan återanvändas av teman) ── */
+
+button { font-family: inherit; cursor: pointer; }
+
+.btn { border-radius: var(--radius); border: none; padding: 0.55rem 1rem; font-size: 0.95rem; font-weight: 600; transition: filter .15s, background .15s; }
+.btn:hover { filter: brightness(1.05); }
+.btn:active { filter: brightness(.95); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { filter: none; background: var(--accent-hover); }
+.btn-secondary { background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); }
+.btn-ghost { background: transparent; color: var(--text-color); border: 1px solid transparent; padding: .4rem .6rem; }
+.btn-ghost:hover { background: rgba(127,127,127,.12); }
+.btn-danger { background: transparent; color: var(--gs-red); border: 1px solid var(--gs-red); }
+.btn-danger:hover { background: var(--gs-red); color: #fff; }
+
+/* ── Layout: sidopanel (skills/filer) + chattyta ── */
+
+.layout { flex: 1; display: flex; min-height: 0; position: relative; }
+
+aside#sidebar {
+  width: 340px; flex-shrink: 0;
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border-color);
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+}
+.aside-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 1rem;
+  overscroll-behavior: contain; scrollbar-gutter: stable;
+}
+.layout > main { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+/* ── Dropzone / skill-väljare ── */
+
+.dropzone {
+  border: 2px dashed var(--border-color); border-radius: 8px; padding: 1.4rem 1rem; text-align: center;
+  background: var(--bg-color); transition: border-color .15s, background .15s; cursor: pointer;
+}
+.dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--bg-subtle); }
+.dropzone .big { font-size: 1.6rem; margin-bottom: .3rem; }
+.dropzone p { margin: .2rem 0; font-size: .88rem; color: var(--text-secondary); }
+.dropzone strong { color: var(--text-color); }
+.file-actions { display: flex; gap: .5rem; margin-top: .7rem; flex-wrap: wrap; }
+.file-actions .btn { flex: 1; font-size: .82rem; padding: .45rem .4rem; min-width: 90px; }
+
+.builtin-list { display: flex; flex-direction: column; gap: .4rem; margin-top: .4rem; }
+.builtin-item { display: flex; align-items: flex-start; gap: .6rem; text-align: left; width: 100%; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: .6rem .7rem; color: var(--text-color); transition: border-color .15s, background .15s; }
+.builtin-item:hover { border-color: var(--accent); background: var(--bg-subtle); }
+.builtin-item .ico { font-size: 1.1rem; line-height: 1.3; flex-shrink: 0; }
+.builtin-item .txt { min-width: 0; }
+.builtin-item .bname { font-weight: 700; font-size: .88rem; margin-bottom: .1rem; }
+.builtin-item .bdesc { font-size: .76rem; color: var(--text-secondary); line-height: 1.35; }
+
+.skill-picker-summary { display: none; align-items: center; gap: .65rem; padding: .6rem .7rem; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 7px; }
+.skill-picker-summary .ico { font-size: 1.1rem; flex-shrink: 0; }
+.skill-picker-summary .selected-skill { flex: 1; min-width: 0; }
+.skill-picker-summary .label { display: block; font-size: .68rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+.skill-picker-summary .name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; font-weight: 700; color: var(--text-color); }
+.skill-picker-summary .btn { padding: .38rem .6rem; font-size: .78rem; flex-shrink: 0; }
+aside#sidebar.has-skill:not(.picker-open) .skill-picker-controls { display: none; }
+aside#sidebar.has-skill:not(.picker-open) .skill-picker-summary { display: flex; }
+
+.section-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .8px; color: var(--text-secondary); margin: 1.3rem 0 .5rem; font-weight: 700; }
+.skill-meta { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 6px; padding: .8rem .9rem; margin-top: .4rem; }
+.skill-meta h3 { margin: 0 0 .3rem; font-size: 1rem; color: var(--accent); }
+.skill-meta p { margin: 0; font-size: .85rem; color: var(--text-secondary); }
+
+.file-list { list-style: none; margin: .3rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.file-item { display: flex; align-items: center; gap: .55rem; padding: .45rem .6rem; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 5px; font-size: .84rem; }
+.file-item input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
+.file-item .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.file-item .fname:hover { color: var(--accent); text-decoration: underline; }
+.file-item .fsize { color: var(--text-secondary); font-size: .74rem; flex-shrink: 0; }
+.file-item.binary { opacity: .6; }
+.file-item.binary input { visibility: hidden; }
+.ctx-bar { margin-top: .7rem; font-size: .78rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; }
+.ctx-bar .num { font-weight: 700; color: var(--text-color); }
+
+/* ── Chattyta ── */
+
+.chat-scroll { flex: 1; overflow-y: auto; padding: 1.4rem; display: flex; flex-direction: column; gap: 1rem; }
+.empty-state { margin: auto; text-align: center; max-width: 430px; color: var(--text-secondary); }
+.empty-state .ico { font-size: 2.6rem; margin-bottom: .6rem; }
+.empty-state h2 { color: var(--text-color); margin: .2rem 0 .6rem; font-weight: 700; }
+.empty-state .hint { display: inline-flex; gap: .4rem; align-items: center; background: var(--bg-subtle); border: 1px solid var(--border-color); padding: .5rem .8rem; border-radius: 6px; font-size: .85rem; margin-top: .3rem; }
+
+.msg { display: flex; gap: .7rem; max-width: 820px; width: 100%; margin: 0 auto; }
+.msg .avatar { width: 34px; height: 34px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700; color: #fff; }
+.msg.user .avatar { background: var(--text-secondary); }
+.msg.assistant .avatar, .msg.system .avatar { background: var(--accent); }
+.msg .body { flex: 1; min-width: 0; }
+.msg .name { font-size: .74rem; color: var(--text-secondary); font-weight: 700; margin-bottom: .2rem; }
+.bubble { padding: .7rem .95rem; border-radius: 8px; font-size: .95rem; overflow-wrap: break-word; }
+.msg.user .bubble { background: var(--accent); color: #fff; }
+.msg.assistant .bubble, .msg.system .bubble { background: var(--bg-subtle); border: 1px solid var(--border-color); }
+.content-result-list { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.content-result-list li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.content-result-list code { font-size: .78rem; color: var(--text-secondary); }
+.content-excerpt { display: block; width: 100%; font-size: .82rem; color: var(--text-secondary); margin-top: .15rem; }
+.content-add-btn { padding: .25rem .6rem; font-size: .76rem; font-weight: 600; border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 4px; cursor: pointer; }
+.content-add-btn:hover { background: var(--accent); color: #fff; }
+.content-add-btn:disabled { opacity: .6; cursor: default; }
+.content-remove-btn { padding: .25rem .6rem; font-size: .76rem; font-weight: 600; border: 1px solid var(--gs-red); background: transparent; color: var(--gs-red); border-radius: 4px; cursor: pointer; }
+.content-remove-btn:hover { background: var(--gs-red); color: #fff; }
+.content-remove-btn:disabled { opacity: .6; cursor: default; }
+.content-result-list li.removed { opacity: .55; text-decoration: line-through; }
+.content-result-list .fname { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem; }
+.tag-cloud { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+button.tag-pick-btn { border: none; cursor: pointer; }
+button.tag-pick-btn:hover { background: var(--accent-hover); }
+.tag-count { opacity: .8; font-weight: 400; }
+.bubble p { margin: .4rem 0; }
+.bubble p:first-child { margin-top: 0; } .bubble p:last-child { margin-bottom: 0; }
+.bubble pre { background: rgba(0,0,0,.06); padding: .7rem; border-radius: 5px; overflow-x: auto; font-size: .85rem; }
+[data-theme="dark"] .bubble pre { background: rgba(255,255,255,.07); }
+.bubble code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .86em; }
+.bubble :not(pre) > code { background: rgba(0,0,0,.07); padding: .1rem .35rem; border-radius: 3px; }
+[data-theme="dark"] .bubble :not(pre) > code { background: rgba(255,255,255,.1); }
+.bubble table { border-collapse: collapse; width: 100%; font-size: .85rem; margin: .4rem 0; }
+.bubble th, .bubble td { border: 1px solid var(--border-color); padding: .35rem .5rem; text-align: left; }
+.bubble a { color: var(--link-color); }
+.cursor-blink::after { content: '▋'; animation: chat-blink 1s steps(2) infinite; color: var(--accent); }
+@keyframes chat-blink { 50% { opacity: 0; } }
+
+/* Kodblock & Mermaid i chattsvar */
+.cb-block, .mmd-block { border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; margin: .6rem 0; background: var(--bg-color); }
+.cb-bar { display: flex; align-items: center; gap: .5rem; padding: .35rem .55rem; background: var(--bg-subtle); border-bottom: 1px solid var(--border-color); }
+.cb-lang { font-size: .7rem; text-transform: uppercase; letter-spacing: .6px; font-weight: 700; color: var(--text-secondary); font-family: ui-monospace, Menlo, Consolas, monospace; }
+.cb-seg { display: flex; gap: .25rem; }
+.cb-seg button { padding: .2rem .6rem; font-size: .74rem; font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); border-radius: 4px; }
+.cb-seg button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cb-copy { padding: .2rem .6rem; font-size: .74rem; font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); border-radius: 4px; }
+.cb-copy:hover { border-color: var(--accent); }
+.cb-copy.copied, .copied { color: var(--gs-green) !important; border-color: var(--gs-green) !important; }
+.cb-block .cb-pre, .mmd-block .cb-pre { margin: 0; border: none; border-radius: 0; background: transparent; padding: .7rem .85rem; overflow-x: auto; font-size: .85rem; }
+.mmd-diagram { background: #ffffff; padding: .9rem; overflow-x: auto; text-align: center; }
+.mmd-diagram svg { max-width: 100%; height: auto; }
+.mmd-err { background: rgba(195,28,85,.1); color: var(--gs-red); border: 1px solid var(--gs-red); border-radius: 5px; padding: .6rem .8rem; font-size: .82rem; text-align: left; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* ── Komposer ── */
+
+.composer { border-top: 1px solid var(--border-color); padding: .9rem 1.1rem; background: var(--bg-color); flex-shrink: 0; }
+.composer .row { display: flex; gap: .6rem; align-items: flex-end; max-width: 820px; margin: 0 auto; }
+.composer textarea {
+  flex: 1; resize: none; border: 1px solid var(--border-color); border-radius: 8px; padding: .7rem .9rem;
+  font-family: inherit; font-size: .95rem; background: var(--bg-color); color: var(--text-color); line-height: 1.4; max-height: 160px;
+}
+.composer textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.send-btn { width: 46px; height: 46px; border-radius: 8px; background: var(--accent); color: #fff; border: none; font-size: 1.2rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.send-btn.stop { background: var(--gs-red); }
+.composer .meta { max-width: 820px; margin: .4rem auto 0; font-size: .74rem; color: var(--text-secondary); display: flex; justify-content: space-between; }
+
+/* ── Modaler (inställningar / filförhandsvisning) ── */
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+.overlay.open { display: flex; }
+.modal { background: var(--bg-color); border-radius: 10px; width: 560px; max-width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-md); }
+.modal-head { display: flex; align-items: center; padding: 1.1rem 1.3rem; border-bottom: 1px solid var(--border-color); position: sticky; top: 0; background: var(--bg-color); z-index: 1; }
+.modal-head h2 { margin: 0; font-size: 1.15rem; color: var(--accent); }
+.modal-body { padding: 1.3rem; }
+.field { margin-bottom: 1.1rem; }
+.field label { display: block; font-size: .82rem; font-weight: 700; margin-bottom: .35rem; }
+.field .help { font-size: .76rem; color: var(--text-secondary); margin-top: .3rem; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: .6rem .7rem; border: 1px solid var(--border-color); border-radius: 5px;
+  font-family: inherit; font-size: .92rem; background: var(--bg-color); color: var(--text-color);
+}
+.field textarea { resize: vertical; min-height: 90px; line-height: 1.4; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.preset-tabs { display: flex; gap: .4rem; margin-bottom: 1.1rem; }
+.preset-tabs button { flex: 1; padding: .55rem; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); border-radius: 5px; font-size: .85rem; font-weight: 600; }
+.preset-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.model-row { display: flex; gap: .5rem; }
+.model-row select { flex: 1; }
+.test-result { margin-top: .6rem; font-size: .84rem; padding: .55rem .7rem; border-radius: 5px; display: none; }
+.test-result.show { display: block; }
+.test-result.ok { background: rgba(0,117,59,.12); color: var(--gs-green); border: 1px solid var(--gs-green); }
+.test-result.err { background: rgba(195,28,85,.1); color: var(--gs-red); border: 1px solid var(--gs-red); }
+.modal-foot { display: flex; gap: .6rem; justify-content: flex-end; padding: 1rem 1.3rem; border-top: 1px solid var(--border-color); position: sticky; bottom: 0; background: var(--bg-color); }
+.note { background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: 6px; padding: .7rem .85rem; font-size: .8rem; color: var(--text-secondary); margin-bottom: 1.1rem; }
+.note strong { color: var(--text-color); }
+.note code { background: rgba(0,0,0,.07); padding: .05rem .3rem; border-radius: 3px; font-family: ui-monospace, monospace; font-size: .85em; }
+[data-theme="dark"] .note code { background: rgba(255,255,255,.1); }
+
+.modal.wide { width: 820px; }
+.fv-head .path { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95rem; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 480px; }
+.fv-head .sz { font-size: .78rem; color: var(--text-secondary); margin-left: .6rem; flex-shrink: 0; }
+.fv-toolbar { display: flex; gap: .4rem; padding: .7rem 1.3rem; border-bottom: 1px solid var(--border-color); align-items: center; }
+.fv-toolbar .seg { display: flex; gap: .3rem; }
+.fv-toolbar .seg button { padding: .35rem .8rem; font-size: .8rem; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); border-radius: 4px; font-weight: 600; }
+.fv-toolbar .seg button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fv-body { padding: 1.3rem; overflow: auto; max-height: calc(90vh - 170px); }
+.fv-pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .84rem; line-height: 1.55; background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem; }
+.fv-md { font-size: .95rem; }
+.fv-md h1, .fv-md h2, .fv-md h3 { color: var(--text-color); border-bottom: 1px solid var(--border-color); padding-bottom: .3rem; }
+.fv-md pre { background: var(--bg-subtle); padding: .8rem; border-radius: 5px; overflow-x: auto; }
+.fv-md code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .86em; }
+.fv-md :not(pre) > code { background: rgba(0,0,0,.07); padding: .1rem .35rem; border-radius: 3px; }
+[data-theme="dark"] .fv-md :not(pre) > code { background: rgba(255,255,255,.1); }
+.fv-md table { border-collapse: collapse; width: 100%; margin: .5rem 0; }
+.fv-md th, .fv-md td { border: 1px solid var(--border-color); padding: .4rem .6rem; text-align: left; }
+.fv-md a { color: var(--link-color); }
+.fv-img { display: flex; justify-content: center; align-items: center; background: repeating-conic-gradient(rgba(127,127,127,.12) 0% 25%, transparent 0% 50%) 50%/22px 22px; border-radius: 6px; padding: 1rem; }
+.fv-img img { max-width: 100%; max-height: 60vh; border-radius: 4px; }
+.fv-empty { text-align: center; color: var(--text-secondary); padding: 2.5rem 1rem; line-height: 1.8; }
+
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #fff; padding: .7rem 1.1rem; border-radius: 6px; font-size: .88rem; box-shadow: var(--shadow-md); z-index: 120; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Responsivt ── */
+@media (max-width: 820px) {
+  aside#sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 15; width: min(340px, 92vw); transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow-md); }
+  aside#sidebar.open { transform: translateX(0); }
+  .menu-btn { display: flex !important; }
+  .aside-scroll { padding: .75rem; }
+  .dropzone { padding: 1rem .75rem; }
+  .chat-scroll { padding: 1rem .75rem; }
+  .composer { padding: .7rem .75rem; }
+  .chat-toolbar { padding: .5rem .75rem; }
+  .skill-meta p { display: none; }
+  .skill-meta { padding: .6rem .7rem; }
+}

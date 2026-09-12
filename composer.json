@@ -1,0 +1,14 @@
+{
+    "name": "ylltec/runewiki",
+    "description": "RuneWiki — databasfri, fri och öppen wiki-motor i PHP med Markdown-filer, namespaces, mediauppladdning, plugins och teman.",
+    "version": "0.2.0",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "ext-mbstring": "*"
+    },
+    "autoload": {
+        "classmap": ["core/", "plugins/"]
+    }
+}

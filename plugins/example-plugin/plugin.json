@@ -1,0 +1,10 @@
+{
+    "name": "example-plugin",
+    "version": "0.2.0",
+    "description": "Visar 'Senast ändrad: datum' längst ner på varje sida. Används som boilerplate för egna plugins.",
+    "author": "",
+    "hooks": ["page_view"],
+    "options": {
+        "date_format": "Y-m-d"
+    }
+}

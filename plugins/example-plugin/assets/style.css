@@ -1,0 +1,3 @@
+/* plugins/example-plugin/assets/style.css
+   Läggs hit om pluginet behöver egna stilar.
+   Länka in den från plugin.php via page_view-hooken eller direkt i layout.php. */

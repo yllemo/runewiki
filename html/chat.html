@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="sv" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKILL Chat</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlNLSUxMIENoYXQiPgogIDxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE0IiBmaWxsPSIjMDA3N2JjIi8+CiAgPHBhdGggZD0iTTIwIDQ0IEwyMCA1MyBMMzEgNDQgWiIgZmlsbD0iI2ZmZmZmZiIvPgogIDxyZWN0IHg9IjEyIiB5PSIxNSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjMwIiByeD0iNyIgZmlsbD0iI2ZmZmZmZiIvPgogIDxyZWN0IHg9IjE4IiB5PSIyMiIgd2lkdGg9IjI4IiBoZWlnaHQ9IjQiIHJ4PSIyIiBmaWxsPSIjMDA3N2JjIi8+CiAgPHJlY3QgeD0iMTgiIHk9IjI5LjUiIHdpZHRoPSIyOCIgaGVpZ2h0PSI0IiByeD0iMiIgZmlsbD0iIzhDQzVENCIvPgogIDxyZWN0IHg9IjE4IiB5PSIzNyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjQiIHJ4PSIyIiBmaWxsPSIjMDA3N2JjIi8+Cjwvc3ZnPgo=">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root{
+  --gs-blue:#0077bc;
+  --bg-color:#FFFFFE; --bg-footer:#F5F5F5; --bg-nav:#F4F9FC; --bg-info:#F2F9F9;
+  --text-color:#333333; --text-secondary:#6E6E6E; --link-color:#005799; --border-color:#979797;
+  --border-soft:#e2e6e9; --bubble-user:#0077bc; --bubble-ai:#F2F9F9;
+  --success:#5a8b3b; --warning:#f2a900; --error:#d24723; --info:#008391;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.04);
+}
+[data-theme="dark"]{
+  --bg-color:#1F1F1F; --bg-footer:#121212; --bg-nav:#141414; --bg-info:#282828;
+  --text-color:#FFFFFF; --text-secondary:#E3E8E9; --link-color:#479EF5; --border-color:#666666;
+  --border-soft:#333; --bubble-ai:#282828;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family:'Goteborg',Arial,Helvetica,sans-serif; font-size:16px; line-height:1.5;
+  color:var(--text-color); background:var(--bg-color); display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden;
+}
+button{font-family:inherit; cursor:pointer}
+.btn{border-radius:4px; border:none; padding:.55rem 1rem; font-size:.95rem; font-weight:600; transition:filter .15s,background .15s}
+.btn:hover{filter:brightness(1.05)}
+.btn:active{filter:brightness(.95)}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+.btn-primary{background:var(--gs-blue); color:#fff}
+.btn-secondary{background:var(--bg-color); color:var(--text-color); border:1px solid var(--border-color)}
+.btn-ghost{background:transparent; color:var(--text-color); border:1px solid transparent; padding:.4rem .6rem}
+.btn-ghost:hover{background:rgba(127,127,127,.12)}
+
+/* Header */
+header{
+  background:var(--gs-blue); color:#fff; display:flex; align-items:center; gap:.9rem;
+  padding:0 1.1rem; height:60px; flex-shrink:0; box-shadow:var(--shadow); z-index:20;
+}
+.brand{font-weight:700; letter-spacing:.2px}
+.brand .sub{opacity:.85; font-weight:400; font-size:.85rem; margin-left:.5rem; border-left:1px solid rgba(255,255,255,.4); padding-left:.6rem}
+header .spacer{flex:1}
+header .badge{
+  background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.25); color:#fff;
+  font-size:.78rem; padding:.3rem .65rem; border-radius:999px; display:flex; align-items:center; gap:.4rem; max-width:340px; overflow:hidden;
+}
+header .badge .dot{width:8px; height:8px; border-radius:50%; background:#ffd666; flex-shrink:0}
+header .badge.ok .dot{background:#a6e07a}
+header .badge.err .dot{background:#ffb3a3}
+header .badge span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.icon-btn{background:rgba(255,255,255,.12); color:#fff; border:none; width:38px; height:38px; border-radius:4px; font-size:1.1rem; display:flex; align-items:center; justify-content:center}
+.icon-btn:hover{background:rgba(255,255,255,.24)}
+
+/* Layout */
+.layout{flex:1; display:flex; min-height:0}
+aside{
+  width:340px; flex-shrink:0; background:var(--bg-nav); border-right:1px solid var(--border-soft);
+  display:flex; flex-direction:column; min-height:0; overflow:hidden;
+}
+.aside-scroll{
+  flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding:1rem;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y;
+  scrollbar-gutter:stable;
+}
+main{flex:1; display:flex; flex-direction:column; min-height:0; min-width:0}
+
+/* Dropzone */
+.dropzone{
+  border:2px dashed var(--border-color); border-radius:8px; padding:1.4rem 1rem; text-align:center;
+  background:var(--bg-color); transition:border-color .15s,background .15s; cursor:pointer;
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--gs-blue); background:var(--bg-info)}
+.dropzone .big{font-size:1.6rem; margin-bottom:.3rem}
+.dropzone p{margin:.2rem 0; font-size:.88rem; color:var(--text-secondary)}
+.dropzone strong{color:var(--text-color)}
+.file-actions{display:flex; gap:.5rem; margin-top:.7rem; flex-wrap:wrap}
+.file-actions .btn{flex:1; font-size:.82rem; padding:.45rem .4rem; min-width:90px}
+
+.builtin-list{display:flex; flex-direction:column; gap:.4rem; margin-top:.4rem}
+.builtin-item{display:flex; align-items:flex-start; gap:.6rem; text-align:left; width:100%; background:var(--bg-color); border:1px solid var(--border-soft); border-radius:6px; padding:.6rem .7rem; color:var(--text-color); transition:border-color .15s,background .15s}
+.builtin-item:hover{border-color:var(--gs-blue); background:var(--bg-info)}
+.builtin-item .ico{font-size:1.1rem; line-height:1.3; flex-shrink:0}
+.builtin-item .txt{min-width:0}
+.builtin-item .bname{font-weight:700; font-size:.88rem; margin-bottom:.1rem}
+.builtin-item .bdesc{font-size:.76rem; color:var(--text-secondary); line-height:1.35}
+
+.skill-picker-summary{display:none; align-items:center; gap:.65rem; padding:.6rem .7rem; background:var(--bg-color); border:1px solid var(--border-soft); border-radius:7px}
+.skill-picker-summary .ico{font-size:1.1rem; flex-shrink:0}
+.skill-picker-summary .selected-skill{flex:1; min-width:0}
+.skill-picker-summary .label{display:block; font-size:.68rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.6px; font-weight:700}
+.skill-picker-summary .name{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.88rem; font-weight:700; color:var(--text-color)}
+.skill-picker-summary .btn{padding:.38rem .6rem; font-size:.78rem; flex-shrink:0}
+aside.has-skill:not(.picker-open) .skill-picker-controls{display:none}
+aside.has-skill:not(.picker-open) .skill-picker-summary{display:flex}
+
+.section-title{font-size:.72rem; text-transform:uppercase; letter-spacing:.8px; color:var(--text-secondary); margin:1.3rem 0 .5rem; font-weight:700}
+.skill-meta{background:var(--bg-info); border:1px solid var(--border-soft); border-radius:6px; padding:.8rem .9rem; margin-top:.4rem}
+.skill-meta h3{margin:0 0 .3rem; font-size:1rem; color:var(--gs-blue)}
+.skill-meta p{margin:0; font-size:.85rem; color:var(--text-secondary)}
+
+.file-list{list-style:none; margin:.3rem 0 0; padding:0; display:flex; flex-direction:column; gap:.3rem}
+.file-item{display:flex; align-items:center; gap:.55rem; padding:.45rem .6rem; background:var(--bg-color); border:1px solid var(--border-soft); border-radius:5px; font-size:.84rem}
+.file-item input[type=checkbox]{accent-color:var(--gs-blue); width:16px; height:16px; flex-shrink:0}
+.file-item .fname{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer}
+.file-item .fname:hover{color:var(--gs-blue); text-decoration:underline}
+.file-item .fsize{color:var(--text-secondary); font-size:.74rem; flex-shrink:0}
+.file-item.binary{opacity:.6}
+.file-item.binary input{visibility:hidden}
+.ctx-bar{margin-top:.7rem; font-size:.78rem; color:var(--text-secondary); display:flex; justify-content:space-between; align-items:center}
+.ctx-bar .num{font-weight:700; color:var(--text-color)}
+
+/* Chat */
+.chat-scroll{flex:1; overflow-y:auto; padding:1.4rem; display:flex; flex-direction:column; gap:1rem}
+.empty-state{margin:auto; text-align:center; max-width:430px; color:var(--text-secondary)}
+.empty-state .ico{font-size:2.6rem; margin-bottom:.6rem}
+.empty-state h2{color:var(--text-color); margin:.2rem 0 .6rem; font-weight:700}
+.empty-state .hint{display:inline-flex; gap:.4rem; align-items:center; background:var(--bg-info); border:1px solid var(--border-soft); padding:.5rem .8rem; border-radius:6px; font-size:.85rem; margin-top:.3rem}
+
+.msg{display:flex; gap:.7rem; max-width:820px; width:100%; margin:0 auto}
+.msg .avatar{width:34px; height:34px; border-radius:6px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:700; color:#fff}
+.msg.user .avatar{background:var(--text-secondary)}
+.msg.assistant .avatar{background:var(--gs-blue)}
+.msg .body{flex:1; min-width:0}
+.msg .name{font-size:.74rem; color:var(--text-secondary); font-weight:700; margin-bottom:.2rem}
+.bubble{padding:.7rem .95rem; border-radius:8px; font-size:.95rem; overflow-wrap:break-word}
+.msg.user .bubble{background:var(--bubble-user); color:#fff}
+.msg.assistant .bubble{background:var(--bubble-ai); border:1px solid var(--border-soft)}
+.bubble p{margin:.4rem 0}
+.bubble p:first-child{margin-top:0}.bubble p:last-child{margin-bottom:0}
+.bubble pre{background:rgba(0,0,0,.06); padding:.7rem; border-radius:5px; overflow-x:auto; font-size:.85rem}
+[data-theme="dark"] .bubble pre{background:rgba(255,255,255,.07)}
+.bubble code{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.86em}
+.bubble :not(pre)>code{background:rgba(0,0,0,.07); padding:.1rem .35rem; border-radius:3px}
+[data-theme="dark"] .bubble :not(pre)>code{background:rgba(255,255,255,.1)}
+.bubble table{border-collapse:collapse; width:100%; font-size:.85rem; margin:.4rem 0}
+.bubble th,.bubble td{border:1px solid var(--border-soft); padding:.35rem .5rem; text-align:left}
+.bubble a{color:var(--link-color)}
+.cursor-blink::after{content:'▋'; animation:blink 1s steps(2) infinite; color:var(--gs-blue)}
+@keyframes blink{50%{opacity:0}}
+
+/* Code blocks & mermaid in chat */
+.cb-block,.mmd-block{border:1px solid var(--border-soft); border-radius:8px; overflow:hidden; margin:.6rem 0; background:var(--bg-color)}
+.cb-bar{display:flex; align-items:center; gap:.5rem; padding:.35rem .55rem; background:var(--bg-nav); border-bottom:1px solid var(--border-soft)}
+.cb-bar .spacer{flex:1}
+.cb-lang{font-size:.7rem; text-transform:uppercase; letter-spacing:.6px; font-weight:700; color:var(--text-secondary); font-family:ui-monospace,Menlo,Consolas,monospace}
+.cb-seg{display:flex; gap:.25rem}
+.cb-seg button{padding:.2rem .6rem; font-size:.74rem; font-weight:600; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-color); border-radius:4px}
+.cb-seg button.active{background:var(--gs-blue); color:#fff; border-color:var(--gs-blue)}
+.cb-copy{padding:.2rem .6rem; font-size:.74rem; font-weight:600; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-color); border-radius:4px}
+.cb-copy:hover{border-color:var(--gs-blue)}
+.cb-copy.copied{color:var(--success); border-color:var(--success)}
+.cb-block .cb-pre,.mmd-block .cb-pre{margin:0; border:none; border-radius:0; background:transparent; padding:.7rem .85rem; overflow-x:auto; font-size:.85rem}
+.mmd-diagram{background:#ffffff; padding:.9rem; overflow-x:auto; text-align:center}
+.mmd-diagram svg{max-width:100%; height:auto}
+.mmd-err{background:rgba(210,71,35,.1); color:var(--error); border:1px solid var(--error); border-radius:5px; padding:.6rem .8rem; font-size:.82rem; text-align:left; font-family:ui-monospace,Menlo,Consolas,monospace}
+
+/* Composer */
+.composer{border-top:1px solid var(--border-soft); padding:.9rem 1.1rem; background:var(--bg-color); flex-shrink:0}
+.composer .row{display:flex; gap:.6rem; align-items:flex-end; max-width:820px; margin:0 auto}
+.composer textarea{
+  flex:1; resize:none; border:1px solid var(--border-color); border-radius:8px; padding:.7rem .9rem;
+  font-family:inherit; font-size:.95rem; background:var(--bg-color); color:var(--text-color); line-height:1.4; max-height:160px;
+}
+.composer textarea:focus{outline:2px solid var(--gs-blue); outline-offset:-1px; border-color:var(--gs-blue)}
+.send-btn{width:46px; height:46px; border-radius:8px; background:var(--gs-blue); color:#fff; border:none; font-size:1.2rem; flex-shrink:0; display:flex; align-items:center; justify-content:center}
+.send-btn.stop{background:var(--error)}
+.composer .meta{max-width:820px; margin:.4rem auto 0; font-size:.74rem; color:var(--text-secondary); display:flex; justify-content:space-between}
+
+/* Modal */
+.overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:1rem}
+.overlay.open{display:flex}
+.modal{background:var(--bg-color); border-radius:10px; width:560px; max-width:100%; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow)}
+.modal-head{display:flex; align-items:center; padding:1.1rem 1.3rem; border-bottom:1px solid var(--border-soft); position:sticky; top:0; background:var(--bg-color); z-index:1}
+.modal-head h2{margin:0; font-size:1.15rem; color:var(--gs-blue)}
+.modal-head .spacer{flex:1}
+.modal-body{padding:1.3rem}
+.field{margin-bottom:1.1rem}
+.field label{display:block; font-size:.82rem; font-weight:700; margin-bottom:.35rem}
+.field .help{font-size:.76rem; color:var(--text-secondary); margin-top:.3rem}
+.field input,.field select,.field textarea{
+  width:100%; padding:.6rem .7rem; border:1px solid var(--border-color); border-radius:5px;
+  font-family:inherit; font-size:.92rem; background:var(--bg-color); color:var(--text-color);
+}
+.field textarea{resize:vertical; min-height:90px; line-height:1.4}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--gs-blue); outline-offset:-1px}
+.preset-tabs{display:flex; gap:.4rem; margin-bottom:1.1rem}
+.preset-tabs button{flex:1; padding:.55rem; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-color); border-radius:5px; font-size:.85rem; font-weight:600}
+.preset-tabs button.active{background:var(--gs-blue); color:#fff; border-color:var(--gs-blue)}
+.model-row{display:flex; gap:.5rem}
+.model-row select{flex:1}
+.test-result{margin-top:.6rem; font-size:.84rem; padding:.55rem .7rem; border-radius:5px; display:none}
+.test-result.show{display:block}
+.test-result.ok{background:rgba(90,139,59,.15); color:var(--success); border:1px solid var(--success)}
+.test-result.err{background:rgba(210,71,35,.12); color:var(--error); border:1px solid var(--error)}
+.modal-foot{display:flex; gap:.6rem; justify-content:flex-end; padding:1rem 1.3rem; border-top:1px solid var(--border-soft); position:sticky; bottom:0; background:var(--bg-color)}
+.note{background:var(--bg-info); border:1px solid var(--border-soft); border-radius:6px; padding:.7rem .85rem; font-size:.8rem; color:var(--text-secondary); margin-bottom:1.1rem}
+.note strong{color:var(--text-color)}
+.note code{background:rgba(0,0,0,.07); padding:.05rem .3rem; border-radius:3px; font-family:ui-monospace,monospace; font-size:.85em}
+[data-theme="dark"] .note code{background:rgba(255,255,255,.1)}
+
+.modal.wide{width:820px}
+.fv-head .path{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.95rem; color:var(--gs-blue); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:480px}
+.fv-head .sz{font-size:.78rem; color:var(--text-secondary); margin-left:.6rem; flex-shrink:0}
+.fv-toolbar{display:flex; gap:.4rem; padding:.7rem 1.3rem; border-bottom:1px solid var(--border-soft); align-items:center}
+.fv-toolbar .seg{display:flex; gap:.3rem}
+.fv-toolbar .seg button{padding:.35rem .8rem; font-size:.8rem; border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-color); border-radius:4px; font-weight:600}
+.fv-toolbar .seg button.active{background:var(--gs-blue); color:#fff; border-color:var(--gs-blue)}
+.fv-toolbar .spacer{flex:1}
+.fv-body{padding:1.3rem; overflow:auto; max-height:calc(90vh - 170px)}
+.fv-pre{margin:0; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.84rem; line-height:1.55; background:var(--bg-info); border:1px solid var(--border-soft); border-radius:6px; padding:1rem}
+[data-theme="dark"] .fv-pre{background:var(--bg-nav)}
+.fv-md{font-size:.95rem}
+.fv-md h1,.fv-md h2,.fv-md h3{color:var(--text-color); border-bottom:1px solid var(--border-soft); padding-bottom:.3rem}
+.fv-md pre{background:var(--bg-info); padding:.8rem; border-radius:5px; overflow-x:auto}
+[data-theme="dark"] .fv-md pre{background:var(--bg-nav)}
+.fv-md code{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.86em}
+.fv-md :not(pre)>code{background:rgba(0,0,0,.07); padding:.1rem .35rem; border-radius:3px}
+[data-theme="dark"] .fv-md :not(pre)>code{background:rgba(255,255,255,.1)}
+.fv-md table{border-collapse:collapse; width:100%; margin:.5rem 0}
+.fv-md th,.fv-md td{border:1px solid var(--border-soft); padding:.4rem .6rem; text-align:left}
+.fv-md a{color:var(--link-color)}
+.fv-md img{max-width:100%}
+.fv-img{display:flex; justify-content:center; align-items:center; background:repeating-conic-gradient(rgba(127,127,127,.12) 0% 25%, transparent 0% 50%) 50%/22px 22px; border-radius:6px; padding:1rem}
+.fv-img img{max-width:100%; max-height:60vh; border-radius:4px}
+.fv-empty{text-align:center; color:var(--text-secondary); padding:2.5rem 1rem; line-height:1.8}
+.copied{color:var(--success)!important; border-color:var(--success)!important}
+.toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px); background:var(--gs-blue); color:#fff; padding:.7rem 1.1rem; border-radius:6px; font-size:.88rem; box-shadow:var(--shadow); z-index:80; opacity:0; transition:opacity .2s,transform .2s; pointer-events:none}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+@media(max-width:820px){
+  aside{position:absolute; left:0; top:60px; bottom:0; z-index:15; width:min(340px,92vw); transform:translateX(-100%); transition:transform .2s; box-shadow:var(--shadow)}
+  aside.open{transform:translateX(0)}
+  .menu-btn{display:flex !important}
+  header .badge{max-width:130px}
+  .aside-scroll{padding:.75rem}
+  .dropzone{padding:1rem .75rem}
+  .chat-scroll{padding:1rem .75rem}
+  .composer{padding:.7rem .75rem}
+  .brand{font-size:.92rem}
+  header{gap:.45rem; padding:0 .65rem}
+  header .icon-btn{width:36px; height:36px}
+  header .badge{display:none}
+  .skill-meta p{display:none}
+  .skill-meta{padding:.6rem .7rem}
+}
+.menu-btn{display:none}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border-color); border-radius:5px}
+</style>
+</head>
+<body>
+<header>
+  <button class="icon-btn menu-btn" id="menuBtn" title="Visa filer" aria-label="Visa filer">☰</button>
+  <div class="brand">SKILL Chat</div>
+  <div class="spacer"></div>
+  <div class="badge" id="statusBadge" title="LLM-status"><span class="dot"></span><span id="statusText">Ingen modell</span></div>
+  <button class="icon-btn" id="downloadBtn" title="Ladda ner chatt som Markdown" aria-label="Ladda ner chatt som Markdown">⬇</button>
+  <button class="icon-btn" id="settingsBtn" title="Inställningar" aria-label="Inställningar">⚙</button>
+  <button class="icon-btn" id="themeBtn" title="Växla tema" aria-label="Växla tema">◐</button>
+</header>
+
+<div class="layout">
+  <aside id="sidebar">
+    <div class="aside-scroll">
+      <div class="skill-picker-summary" id="skillPickerSummary">
+        <span class="ico" aria-hidden="true">🧩</span>
+        <span class="selected-skill">
+          <span class="label">Vald skill</span>
+          <span class="name" id="selectedSkillName">Skill</span>
+        </span>
+        <button class="btn btn-secondary" id="changeSkillBtn" type="button" aria-expanded="false">Byt skill</button>
+      </div>
+
+      <div class="skill-picker-controls" id="skillPickerControls">
+        <div class="dropzone" id="dropzone">
+          <div class="big">📄</div>
+          <p><strong>Släpp eller välj fil</strong></p>
+          <p>SKILL.md · .zip · hela skill-mappen</p>
+          <div class="file-actions">
+            <button class="btn btn-secondary" id="pickFile">Fil</button>
+            <button class="btn btn-secondary" id="pickFolder">Mapp</button>
+            <button class="btn btn-secondary" id="pickZip">.zip</button>
+          </div>
+          <input type="file" id="inFile" accept=".md,.markdown,.txt,.json,.yaml,.yml" hidden>
+          <input type="file" id="inFolder" webkitdirectory directory multiple hidden>
+          <input type="file" id="inZip" accept=".zip,.skill" hidden>
+        </div>
+
+        <div id="builtinSection">
+          <div class="section-title">Färdiga skills</div>
+          <div class="builtin-list" id="builtinList"></div>
+        </div>
+      </div>
+
+      <div id="skillMeta" style="display:none">
+        <div class="section-title">Laddad skill</div>
+        <div class="skill-meta">
+          <h3 id="skillName">—</h3>
+          <p id="skillDesc">—</p>
+        </div>
+      </div>
+
+      <div id="fileSection" style="display:none">
+        <div class="section-title">Filer i kontext</div>
+        <ul class="file-list" id="fileList"></ul>
+        <div class="ctx-bar">
+          <span><span class="num" id="ctxFiles">0</span> filer valda</span>
+          <span>~<span class="num" id="ctxTokens">0</span> tokens</span>
+        </div>
+        <button class="btn btn-ghost" id="clearBtn" style="margin-top:.6rem; width:100%; border:1px solid var(--border-color)">Rensa allt</button>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="chat-scroll" id="chatScroll">
+      <div class="empty-state" id="emptyState">
+        <div class="ico">💬</div>
+        <h2>Chatta med din skill</h2>
+        <p>Ladda en SKILL.md, ett .zip-arkiv eller en hel skill-mapp. Alla frågor besvaras enbart utifrån det laddade innehållet.</p>
+        <div class="hint">⚙ Ställ in LLM-anslutning först (OpenAI, LM Studio eller Ollama)</div>
+      </div>
+    </div>
+    <div class="composer">
+      <div class="row">
+        <textarea id="input" rows="1" placeholder="Ställ en fråga om skill-innehållet…"></textarea>
+        <button class="send-btn" id="sendBtn" title="Skicka" aria-label="Skicka">➤</button>
+      </div>
+      <div class="meta">
+        <span id="modelMeta">Ingen modell vald</span>
+        <span id="ctxMeta"></span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>LLM-inställningar</h2>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="closeModal" style="font-size:1.3rem">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="preset-tabs">
+        <button data-prov="openai">OpenAI-kompatibel</button>
+        <button data-prov="lmstudio">LM Studio</button>
+        <button data-prov="ollama">Ollama</button>
+      </div>
+
+      <div class="note" id="provNote"></div>
+
+      <div class="field">
+        <label for="baseUrl">Bas-URL</label>
+        <input type="text" id="baseUrl" placeholder="https://api.openai.com/v1">
+      </div>
+      <div class="field" id="keyField">
+        <label for="apiKey">API-nyckel</label>
+        <input type="password" id="apiKey" placeholder="sk-…" autocomplete="off">
+        <div class="help">Sparas lokalt i webbläsarens IndexedDB. Lämna tom för lokala servrar utan nyckel.</div>
+      </div>
+      <div class="field">
+        <label for="model">Modell</label>
+        <div class="model-row">
+          <select id="modelSelect"><option value="">— skriv eller hämta —</option></select>
+          <button class="btn btn-secondary" id="fetchModels" style="white-space:nowrap">Hämta</button>
+        </div>
+        <input type="text" id="model" placeholder="t.ex. gpt-4o-mini / llama3.1 / qwen2.5" style="margin-top:.5rem">
+      </div>
+      <div class="field">
+        <label for="temp">Temperatur: <span id="tempVal">0.3</span></label>
+        <input type="range" id="temp" min="0" max="1" step="0.05" value="0.3">
+      </div>
+      <div class="field">
+        <label for="sysPrompt">Systemprompt (<code>{context}</code> ersätts med skill-innehållet)</label>
+        <textarea id="sysPrompt"></textarea>
+      </div>
+      <button class="btn btn-secondary" id="testBtn" style="width:100%">Testa anslutning</button>
+      <div class="test-result" id="testResult"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" id="cancelBtn">Avbryt</button>
+      <button class="btn btn-primary" id="saveBtn">Spara</button>
+    </div>
+  </div>
+</div>
+
+<!-- File preview modal -->
+<div class="overlay" id="fileOverlay">
+  <div class="modal wide">
+    <div class="modal-head fv-head">
+      <span class="path" id="fvPath">fil</span>
+      <span class="sz" id="fvSize"></span>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="fvClose" style="font-size:1.3rem">✕</button>
+    </div>
+    <div class="fv-toolbar" id="fvToolbar">
+      <div class="seg" id="fvSeg" style="display:none">
+        <button id="fvRendered">Renderad</button>
+        <button id="fvRaw">Källkod</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-secondary" id="fvCopy" style="font-size:.8rem; padding:.35rem .8rem">Kopiera</button>
+    </div>
+    <div class="fv-body" id="fvBody"></div>
+  </div>
+</div>
+
+<script type="text/markdown" id="builtin-archimate-4-mermaid">
+---
+name: archimate-4-mermaid
+description: >
+  Skapa ArchiMate 4 (C260)-diagram i Mermaid med officiella Modern Color Set-färger,
+  svenska etiketter, stereotyper i guillemets «typ» på egen rad och elementnamn i
+  fetstil. Täcker alla sju domäner: Motivation, Strategy, Common (ny i AM4), Business,
+  Application, Technology och Implementation & Migration. Physical Layer är borttaget —
+  fysiska element ingår nu i Technology-domänen. Common-domänen samlar delade
+  beteendeelement.
+keywords:
+  - archimate
+  - archimate 4
+  - archimate c260
+  - mermaid
+  - enterprise architecture
+  - verksamhetsarkitektur
+  - applikationsarkitektur
+  - teknologiarkitektur
+  - förmågekarta
+  - värdeström
+  - migrationsplan
+  - systemlandskap
+author: The Open Group C260 / svensk Mermaid-anpassning
+version: "4.0"
+applyTo: ["**/*.md", "**/*.mermaid", "**/*.mmd", "**/*.html"]
+tools: [mermaid, diagrams, markdown]
+domains: [enterprise-architecture, business-modeling, system-design, documentation]
+---
+
+# ArchiMate 4 (C260) Modern Color Set för Mermaid (svenska)
+
+Denna skill används för att generera Mermaid-diagram som följer ArchiMate 4 (C260) Modern Color Set med svenska termer, fasta domänfärger och konsekvent notation. Elementnamnet skrivs i **fetstil** och stereotypen i guillemets `«typ»` på egen rad ovanför namnet.
+
+## Syfte
+
+Använd denna skill när användaren vill:
+
+- skapa ArchiMate-diagram i Mermaid
+- få korrekta ArchiMate 4-färger (Modern Color Set)
+- visualisera domäner som Motivation, Strategy, Common, Business, Application och Technology
+- göra förmågekartor, värdeströmmar, integrationskartor eller migrationsplaner
+- få all text på svenska med ArchiMate-liknande stereotyper och fetstilt elementnamn
+
+## Obligatoriska regler
+
+Följ alltid dessa regler:
+
+1. Använd alltid exakt ArchiMate 4-palett, aldrig ungefärliga färger.
+2. Allt innehåll ska vara på svenska.
+3. Elementtyp ska alltid visas i guillemets: `«typ»`.
+4. Stereotypen ska alltid stå på egen rad ovanför elementnamnet (via `<br/>`). Undantag: i `sequenceDiagram`, `gantt` och `timeline` ska stereotyp inte visas.
+5. **Elementnamnet ska alltid vara i fetstil** med `<b>…</b>`. En valfri beskrivande tredje rad kan läggas till inom parentes utan fetstil.
+6. Domänordningen ska hållas: Motivation → Strategy → Common → Business → Application → Technology → Implementation & Migration.
+7. Text på färgade noder ska vara mörk (`#000000` eller `#1a1a1a`), aldrig vit.
+8. Strategy-domänen ska användas när förmågor, resurser, värdeströmmar eller handlingsplaner modelleras.
+9. Common-domänen (ny i AM4) används för generiska beteendeelement (process, funktion, tjänst, händelse) som inte tillhör en specifik domän.
+10. Physical Layer finns inte i AM4. Fysiska element (utrustning, anläggning, material) ingår i Technology-domänen.
+
+## Färgpalett
+
+| Domän | Fyllning | Kontur | Typiska element |
+|---|---|---|---|
+| Motivation | `#D8C1E4` | `#B39BCF` | «intressent», «drivkraft», «bedömning», «mål», «princip», «krav», «värde» |
+| Strategy | `#EFBD5D` | `#D4A43B` | «resurs», «förmåga», «värdeström», «handlingsplan» |
+| Common | `#E8E5D3` | `#C4BFA6` | «process», «funktion», «tjänst», «händelse», «kollaboration», «roll», «interaktion» |
+| Business | `#F4DE7F` | `#E8C555` | «aktör», «roll», «samarbete», «gränssnitt», «affärsobjekt», «produkt» |
+| Application | `#B6D7E1` | `#8CC5D4` | «komponent», «samarbete», «gränssnitt», «dataobjekt» |
+| Technology | `#C3E1B4` | `#9BD083` | «nod», «enhet», «systemprogramvara», «nätverk», «kommunikationsväg», «tjänst», «artefakt», «utrustning», «anläggning» |
+| Implementation & Migration | `#F8C2BE` | `#F09B95` | «arbetspaket», «leverans», «platå» |
+
+## Domäner i detalj
+
+### 💡 Motivationsdomän — `#D8C1E4` / `#B39BCF`
+
+**Varför:** Representerar mål, drivkrafter, krav och principer som motiverar arkitekturbeslut. Placerad i centrum av AM4-hexagonen — all arkitektur börjar här.
+
+Typiska element: «intressent», «drivkraft», «bedömning», «mål», «utfall», «princip», «krav», «betydelse», «värde».
+
+### 🎯 Strategidomän — `#EFBD5D` / `#D4A43B`
+
+**Hur:** Representerar förmågor, resurser och handlingsplaner. Bryggan mellan motivationen och den operativa verksamheten.
+
+Typiska element: «resurs», «förmåga», «värdeström», «handlingsplan».
+
+### 🔗 Common-domän — `#E8E5D3` / `#C4BFA6` *(ny i AM4)*
+
+**Delade element:** Generiska beteendeelement som delas av alla domäner. I AM3.2 duplicerades dessa per lager (BusinessProcess, ApplicationProcess, TechnologyProcess). I AM4 finns de bara en gång i Common.
+
+Typiska element: «process», «funktion», «tjänst», «händelse», «kollaboration», «roll», «interaktion», «stig».
+
+### 💼 Verksamhetsdomän — `#F4DE7F` / `#E8C555`
+
+**Affär:** Representerar aktörer, roller och värdeskapande mot kunder. Beteenden (process, tjänst) ärvs från Common-domänen.
+
+Typiska element: «aktör», «roll», «samarbete», «gränssnitt», «affärsobjekt», «produkt».
+
+### 💻 Applikationsdomän — `#B6D7E1` / `#8CC5D4`
+
+**IT-stöd:** Representerar applikationskomponenter, gränssnitt och dataobjekt. Beteenden ärvs från Common-domänen.
+
+Typiska element: «komponent», «samarbete», «gränssnitt», «dataobjekt».
+
+### 🖥️ Teknologidomän — `#C3E1B4` / `#9BD083`
+
+**Infrastruktur & OT:** Representerar IT-infrastruktur och fysisk operativ teknik. Physical Layer från AM3.2 är nu inbakat här — utrustning, anläggningar och material hör hit.
+
+Typiska element: «nod», «enhet», «systemprogramvara», «samarbete», «gränssnitt», «nätverk», «kommunikationsväg», «tjänst», «artefakt», «utrustning», «anläggning», «material».
+
+### 📋 Implementation & Migration — `#F8C2BE` / `#F09B95`
+
+**Förändring:** Representerar program, projekt, arbetspaket, leveranser och platåer i en transformationsresa.
+
+Typiska element: «arbetspaket», «leverans», «platå».
+
+## Nodformat
+
+### Primärt format (fetstilt namn — förstahandsval)
+
+Elementnamnet skrivs i fetstil med `<b>`, stereotypen på egen rad ovanför med `<br/>`. Kräver att renderaren stöder HTML-etiketter (`htmlLabels: true`, `securityLevel: loose`).
+
+```text
+X["«typ»<br/><b>Elementnamn</b>"]:::klass
+```
+
+Med en valfri beskrivande tredje rad (utan fetstil):
+
+```text
+X["«typ»<br/><b>Elementnamn</b><br/>(kort beskrivning)"]:::klass
+```
+
+### Portabel fallback
+
+Om renderaren inte stöder HTML-etiketter, använd radbrytning så att stereotypen åtminstone hamnar på egen rad. Fetstil utgår då:
+
+```text
+X["«typ»\nElementnamn"]:::klass
+```
+
+### Renderingsregel
+
+Välj nodformat i denna ordning:
+
+1. **Fetstilt HTML-format** när miljön stöder `htmlLabels: true` och `securityLevel: loose` — detta är standard.
+2. **Portabel fallback** i alla andra fall.
+
+## Rekommenderad Mermaid-init
+
+Använd denna init så att fetstil och radbrytning fungerar:
+
+```text
+%%{init: {
+  "theme": "base",
+  "securityLevel": "loose",
+  "flowchart": { "htmlLabels": true },
+  "themeVariables": {
+    "fontFamily": "Inter, Segoe UI, Arial, sans-serif",
+    "fontSize": "13px",
+    "primaryTextColor": "#1a1a1a",
+    "lineColor": "#666666"
+  }
+}}%%
+```
+
+## Standardblock för ArchiMate-klasser
+
+Inkludera alltid detta block i Mermaid-diagram (AM4):
+
+```text
+classDef motivation     fill:#D8C1E4,stroke:#B39BCF,stroke-width:1px,color:#000;
+classDef strategy       fill:#EFBD5D,stroke:#D4A43B,stroke-width:1px,color:#000;
+classDef common         fill:#E8E5D3,stroke:#C4BFA6,stroke-width:1px,color:#000;
+classDef business       fill:#F4DE7F,stroke:#E8C555,stroke-width:1px,color:#000;
+classDef application    fill:#B6D7E1,stroke:#8CC5D4,stroke-width:1px,color:#000;
+classDef technology     fill:#C3E1B4,stroke:#9BD083,stroke-width:1px,color:#000;
+classDef implementation fill:#F8C2BE,stroke:#F09B95,stroke-width:1px,color:#000;
+```
+
+## Diagramspecifika etikettregler
+
+- I `flowchart` används alltid fetstilt HTML-format med `«typ»<br/><b>Namn</b>`.
+- I `sequenceDiagram` ska HTML och stereotyp inte användas. Använd endast deltagarnamn utan `«typ»`, och använd gärna tema eller `box`-grupper för domänfärgning.
+- I `mindmap` kan `themeVariables` användas för ett enkelt ArchiMate 4-färgtema för hela diagrammet.
+- I `gantt` och `timeline` ska `«typ»` eller annan stereotyp inte visas alls.
+- Om en renderare inte stöder HTML-etiketter fullt ut, använd portabel fallback för berörda diagramtyper.
+
+## Exempel 1: Domänöversikt (sju domäner)
+
+```mermaid
+%% ArchiMate 4 — Domänöversikt (sju domäner)
+%%{init: {"theme": "base", "securityLevel": "loose", "flowchart": {"htmlLabels": true}} }%%
+flowchart TD
+    M["«motivation»<br/><b>Motivationsdomän</b><br/>(Varför)"]:::motivation
+    S["«strategi»<br/><b>Strategidomän</b><br/>(Hur vi skapar värde)"]:::strategy
+    Co["«common»<br/><b>Common-domän</b><br/>(Delade beteendeelement)"]:::common
+    V["«verksamhet»<br/><b>Verksamhetsdomän</b><br/>(Affär & organisation)"]:::business
+    A["«applikation»<br/><b>Applikationsdomän</b><br/>(IT-stöd)"]:::application
+    T["«teknologi»<br/><b>Teknologidomän</b><br/>(Infrastruktur & OT)"]:::technology
+    I["«implementering»<br/><b>Implementering & Migration</b><br/>(Förändring)"]:::implementation
+
+    M --> S
+    S --> Co
+    Co --> V
+    Co --> A
+    Co --> T
+    V & A & T --> I
+
+    V --> BO["«affärsobjekt»<br/><b>Kundärende</b>"]:::business
+    A --> DO["«dataobjekt»<br/><b>Ärendedata</b>"]:::application
+    BO -. realiseras av .-> DO
+
+    classDef motivation     fill:#D8C1E4,stroke:#B39BCF,stroke-width:1px,color:#000;
+    classDef strategy       fill:#EFBD5D,stroke:#D4A43B,stroke-width:1px,color:#000;
+    classDef common         fill:#E8E5D3,stroke:#C4BFA6,stroke-width:1px,color:#000;
+    classDef business       fill:#F4DE7F,stroke:#E8C555,stroke-width:1px,color:#000;
+    classDef application    fill:#B6D7E1,stroke:#8CC5D4,stroke-width:1px,color:#000;
+    classDef technology     fill:#C3E1B4,stroke:#9BD083,stroke-width:1px,color:#000;
+    classDef implementation fill:#F8C2BE,stroke:#F09B95,stroke-width:1px,color:#000;
+```
+
+## Exempel 2: Domänstaplat flowchart
+
+```mermaid
+%%{init: {"theme": "base", "securityLevel": "loose", "flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    subgraph MOT["Motivationsdomän"]
+        M1["«mål»<br/><b>Minska kostnader</b>"]:::motivation
+    end
+
+    subgraph STR["Strategidomän"]
+        S1["«förmåga»<br/><b>Automatisering</b>"]:::strategy
+    end
+
+    subgraph COM["Common-domän"]
+        Co1["«process»<br/><b>Fakturahantering</b>"]:::common
+        Co2["«tjänst»<br/><b>Leverantörsstöd</b>"]:::common
+    end
+
+    subgraph APP["Applikationsdomän"]
+        A1["«komponent»<br/><b>ERP-system</b>"]:::application
+        A2["«komponent»<br/><b>Fakturaportal</b>"]:::application
+    end
+
+    subgraph TEC["Teknologidomän"]
+        T1["«nod»<br/><b>Applikationsserver</b>"]:::technology
+        T2["«artefakt»<br/><b>Databas</b>"]:::technology
+    end
+
+    M1 --> S1 --> Co1 --> A1 --> T1
+    Co2 --> A2 --> T2
+
+    classDef motivation  fill:#D8C1E4,stroke:#B39BCF,stroke-width:1px,color:#000;
+    classDef strategy    fill:#EFBD5D,stroke:#D4A43B,stroke-width:1px,color:#000;
+    classDef common      fill:#E8E5D3,stroke:#C4BFA6,stroke-width:1px,color:#000;
+    classDef application fill:#B6D7E1,stroke:#8CC5D4,stroke-width:1px,color:#000;
+    classDef technology  fill:#C3E1B4,stroke:#9BD083,stroke-width:1px,color:#000;
+```
+
+## Exempel 3: Förmågekarta
+
+```mermaid
+%%{init: {"theme": "base", "securityLevel": "loose", "flowchart": {"htmlLabels": true}} }%%
+flowchart LR
+    subgraph STR["Strategidomän"]
+        C1["«förmåga»<br/><b>Kunddialog</b>"]:::strategy
+        C2["«förmåga»<br/><b>Dataanalys</b>"]:::strategy
+        C3["«förmåga»<br/><b>Automatisering</b>"]:::strategy
+        C4["«förmåga»<br/><b>Ärendehantering</b>"]:::strategy
+    end
+
+    C1 --- C2 --- C3 --- C4
+
+    classDef strategy fill:#EFBD5D,stroke:#D4A43B,stroke-width:1px,color:#000;
+```
+
+## Exempel 4: Värdeström
+
+```mermaid
+%%{init: {"theme": "base", "securityLevel": "loose", "flowchart": {"htmlLabels": true}} }%%
+flowchart LR
+    V1["«värdeström»<br/><b>Identifiera behov</b>"]:::strategy -->
+    V2["«värdeström»<br/><b>Hantera beställning</b>"]:::strategy -->
+    V3["«värdeström»<br/><b>Leverera tjänst</b>"]:::strategy -->
+    V4["«värdeström»<br/><b>Följa upp resultat</b>"]:::strategy
+
+    classDef strategy fill:#EFBD5D,stroke:#D4A43B,stroke-width:1px,color:#000;
+```
+
+## Exempel 5: Systemlandskap
+
+```mermaid
+%%{init: {"theme": "base", "securityLevel": "loose", "flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    subgraph BUS["Verksamhetsdomän"]
+        B1["«affärstjänst»<br/><b>Ärendehantering</b>"]:::business
+    end
+    subgraph COM["Common-domän"]
+        Co1["«process»<br/><b>Handlägg ärende</b>"]:::common
+    end
+    subgraph APP["Applikationsdomän"]
+        A1["«komponent»<br/><b>Ärendesystem</b>"]:::application
+        A2["«dataobjekt»<br/><b>Ärendedata</b>"]:::application
+    end
+    subgraph TEC["Teknologidomän"]
+        T1["«nod»<br/><b>Applikationsserver</b>"]:::technology
+    end
+
+    B1 --> Co1 --> A1
+    A1 --> A2
+    A1 --> T1
+
+    classDef business    fill:#F4DE7F,stroke:#E8C555,stroke-width:1px,color:#000;
+    classDef common      fill:#E8E5D3,stroke:#C4BFA6,stroke-width:1px,color:#000;
+    classDef application fill:#B6D7E1,stroke:#8CC5D4,stroke-width:1px,color:#000;
+    classDef technology  fill:#C3E1B4,stroke:#9BD083,stroke-width:1px,color:#000;
+```
+
+## Exempel 6: Migrationsplan (gantt)
+
+I `gantt` ska stereotyp inte visas. Använd endast aktivitetsnamn och milstolpar.
+
+```mermaid
+gantt
+    title Migreringsplan
+    dateFormat YYYY-MM-DD
+
+    section Förberedelse
+    Analys :done, a1, 2026-01-01, 2026-02-01
+    Design :active, a2, 2026-02-02, 2026-03-15
+
+    section Införande
+    Migrering :a3, 2026-03-16, 2026-05-01
+    Driftsatt :milestone, p1, 2026-05-01, 1d
+```
+
+## Exempel 7: Sequence-diagram
+
+I `sequenceDiagram` ska HTML och stereotyp inte användas. Visa i stället rena deltagarnamn, och färga gärna med `box`-grupper.
+
+```mermaid
+sequenceDiagram
+    box rgba(244,222,127,0.35) Verksamhetsdomän
+        participant Kund
+        participant Beställning
+    end
+    box rgba(182,215,225,0.35) Applikationsdomän
+        participant Portal
+        participant APIplattform
+    end
+
+    Kund->>Beställning: Initierar ärende
+    Beställning->>Portal: Skickar beställning
+    Portal->>APIplattform: Anropar tjänst
+    APIplattform-->>Portal: Returnerar svar
+    Portal-->>Beställning: Bekräftelse
+    Beställning-->>Kund: Status
+```
+
+## Exempel 8: Mindmap
+
+```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#B6D7E1",
+    "primaryBorderColor": "#8CC5D4",
+    "primaryTextColor": "#1F1F1F",
+    "lineColor": "#6B7280",
+    "background": "transparent",
+    "fontFamily": "Segoe UI, Arial, sans-serif"
+  }
+}}%%
+mindmap
+  root((Digitalisering))
+    Verksamhet
+      Kunddialog
+      Ärendehantering
+    Applikation
+      Dataanalys
+      Automatisering
+    Teknologi
+      Integrationsplattform
+      Driftmiljö
+    Styrning
+      Principer
+      Krav
+```
+
+## Diagrammönster
+
+### Förmågekarta
+
+- använd Strategy-domänen
+- använd `flowchart LR`
+- gruppera närliggande förmågor i subgrafer
+- fetstilt namn med `«förmåga»` som stereotyp
+
+### Systemlandskap
+
+- använd Business, Application och Technology i vertikal ordning
+- lägg gemensamma beteenden (process, tjänst) i Common-domänen
+- använd subgrafer per domän
+- koppla tjänster till komponenter och noder
+
+### Migrationsplan
+
+- använd Implementation & Migration för arbetspaket och platåer
+- koppla gärna mot målarkitektur i Application- eller Technology-domänen
+
+### Integrationsöversikt
+
+- visa verksamhetstjänst (Business) över applikationskomponent (Application) över teknisk nod (Technology)
+- använd tydlig uppifrån-och-ned-ordning
+
+## Genereringsinstruktioner
+
+När denna skill används ska utdata:
+
+- alltid välja svenska ArchiMate-termer
+- alltid inkludera guillemets runt typen: `«typ»`
+- alltid sätta typen på egen rad ovanför namnet via `<br/>`
+- **alltid skriva elementnamnet i fetstil med `<b>…</b>`**
+- använda en valfri beskrivande tredje rad inom parentes utan fetstil
+- inte använda stereotyp i `sequenceDiagram`, `gantt` eller `timeline`
+- använda Common-domänen (`#E8E5D3`) för generiska beteendeelement (process, funktion, tjänst, händelse)
+- använda Technology-domänen (`#C3E1B4`) för fysiska element (utrustning, anläggning, material) — Physical Layer finns inte i AM4
+- alltid använda rätt klass för rätt domän och rätt färg enligt tabellen
+- inkludera `securityLevel: loose` och `htmlLabels: true` i init så att fetstil och radbrytning fungerar
+- prioritera `flowchart` för klassiska ArchiMate-vyer, men kunna använda `sequenceDiagram`, `gantt`, `timeline` och `mindmap` när syftet kräver det
+
+## Referensinformation
+
+- **Standard**: The Open Group ArchiMate 4, specifikation C260, april 2026
+- **Färger**: ArchiMate 2025 Modern Color Set
+- **Dokumentation**: [opengroup.org/archimate-forum](https://www.opengroup.org/archimate-forum)
+- **Viktigaste AM4-förändring**: Physical Layer borttaget, Common-domän tillagd, "domäner" ersätter "lager"
+
+</script>
+
+<script type="text/markdown" id="builtin-code-reviewer">
+---
+name: kodgranskare
+description: Granska kod systematiskt och ge prioriterade, konkreta förbättringsförslag med fokus på fel, säkerhet, prestanda och underhållbarhet.
+---
+
+# Kodgranskare
+
+Använd denna skill när användaren vill granska kod, en diff eller en implementation.
+
+## Arbetssätt
+
+1. Förstå kodens avsedda beteende och sammanhang innan du bedömer den.
+2. Leta i första hand efter observerbara problem: logiska fel, trasiga kantfall, säkerhetsrisker, dataförlust, tillgänglighetsproblem och prestandafällor.
+3. Skilj fel från personliga stilpreferenser. Rapportera inte enbart kosmetiska synpunkter om de inte påverkar begriplighet eller underhåll.
+4. För varje problem, ange var det finns, varför det spelar roll och en konkret lösning.
+5. Om underlaget är ofullständigt, ange vilket antagande bedömningen bygger på.
+
+## Prioritering
+
+- **Kritisk**: risk för säkerhetsincident, dataförlust eller att kärnfunktionen inte fungerar.
+- **Hög**: sannolikt fel i vanlig användning eller betydande prestanda-/tillgänglighetsproblem.
+- **Medel**: fel i kantfall eller tydlig teknisk skuld.
+- **Låg**: mindre men motiverad förbättring.
+
+## Svarsformat
+
+Presentera problemen i prioritetsordning. Håll varje punkt kort och handlingsbar. Avsluta med en kort helhetsbedömning och nämn även när inga väsentliga problem hittades. Skriv inte om hela lösningen om användaren bara har bett om en granskning.
+</script>
+
+<script type="text/markdown" id="builtin-documentation-writer">
+---
+name: dokumentationsassistent
+description: Skapa och förbättra tydlig teknisk dokumentation för rätt målgrupp utan att hitta på funktioner, krav eller fakta.
+---
+
+# Dokumentationsassistent
+
+Använd denna skill när användaren vill skriva, strukturera, förenkla eller kvalitetssäkra teknisk dokumentation.
+
+## Arbetssätt
+
+1. Identifiera målgrupp, syfte och önskat format från frågan och materialet.
+2. Bevara teknisk innebörd, namn, kommandon och begränsningar. Hitta inte på saknade funktioner eller beteenden.
+3. Börja med det läsaren behöver för att lyckas. Flytta bakgrund och specialfall längre ned.
+4. Använd korta rubriker, konkreta steg och exempel endast när de gör instruktionen lättare att följa.
+5. Markera oklarheter som behöver verifieras i stället för att fylla dem med antaganden.
+
+## Kvalitetskriterier
+
+Dokumentationen ska vara:
+
+- korrekt i förhållande till källmaterialet
+- anpassad till målgruppens kunskapsnivå
+- konsekvent i termer, ton och formatering
+- enkel att skanna och omsätta i handling
+- fri från onödiga upprepningar och marknadsföringsspråk
+
+## Svarsformat
+
+Leverera i det format användaren efterfrågar. Om inget format anges, använd tydlig Markdown. Vid omskrivning, ge den färdiga texten direkt och lista därefter endast viktiga oklarheter eller antaganden.
+</script>
+
+<script type="text/markdown" id="builtin-klarsprak">
+---
+name: klarsprak-for-myndigheter
+description: Skriv och bearbeta svenska myndighetstexter så att de blir vårdade, enkla och begripliga utan att ändra juridisk betydelse eller viktiga sakuppgifter.
+---
+
+# Klarspråk för myndigheter
+
+Använd denna skill när användaren vill skriva, granska eller förenkla svensk text för en offentlig myndighet, kommun, region eller annan offentlig verksamhet.
+
+## Mål
+
+Texten ska hjälpa mottagaren att snabbt förstå:
+
+- varför hen får informationen
+- vad myndigheten har beslutat eller vill förmedla
+- vad mottagaren behöver göra, hur och senast när
+- vem mottagaren kan kontakta och hur ett beslut kan överklagas, när det är relevant
+
+## Arbetssätt
+
+1. Identifiera mottagaren, syftet och den handling mottagaren förväntas utföra.
+2. Börja med det viktigaste för mottagaren. Lägg bakgrund, villkor och detaljer efter huvudbudskapet.
+3. Använd begripliga vardagsord där facktermer inte behövs. Förklara nödvändiga juridiska och tekniska termer första gången de används.
+4. Skriv direkt till mottagaren med **du** när sammanhanget tillåter. Skriv **vi** om myndigheten när avsändaren är tydlig.
+5. Föredra aktiv form och namnge den som gör något: "Vi beslutar" är tydligare än "Beslut har fattats".
+6. Använd korta, kompletta meningar och informativa rubriker. Dela upp långa stycken och använd listor när de förenklar instruktioner eller villkor.
+7. Gör datum, belopp, tidsfrister, kontaktvägar och nästa steg lätta att hitta.
+8. Ta bort kanslispråk, onödiga substantiveringar, dubbla negationer och tomma standardfraser.
+
+## Viktiga gränser
+
+- Ändra inte juridisk betydelse, rättigheter, skyldigheter, villkor eller sakuppgifter för att göra texten enklare.
+- Behåll nödvändiga hänvisningar till lagar och beslut, men förklara vad de innebär för mottagaren.
+- Hitta inte på information som saknas. Markera i stället vad som behöver kompletteras eller kontrolleras.
+- Klarspråksgranskning ersätter inte juridisk kvalitetssäkring.
+- Anpassa ton och tilltal till situationen, särskilt vid dödsfall, sjukdom, sanktioner eller andra känsliga besked.
+
+## Svarsformat
+
+Om användaren lämnar en text att bearbeta, ge först en färdig klarspråksversion. Lägg därefter till en kort lista över viktiga ändringar och eventuella oklarheter som måste kontrolleras. Om användaren ber om en granskning utan omskrivning, prioritera de ändringar som mest påverkar begripligheten.
+</script>
+
+<script type="text/markdown" id="builtin-skill-creator">
+---
+name: skapa-skill
+description: Skapa eller förbättra välavgränsade SKILL.md-filer med tydliga aktiveringsvillkor, användbara instruktioner och korrekt YAML-frontmatter.
+---
+
+# Skapa skills
+
+Använd denna meta-skill när användaren vill skapa, utforma, granska eller förbättra en `SKILL.md`.
+
+## Grundprinciper
+
+- Utgå från att modellen redan har generell kompetens. Lägg bara till instruktioner som påverkar beslut, kvalitet eller ett viktigt arbetsflöde.
+- Bevara användarens syfte och avgränsning. En skill ska hjälpa med uppgiften, inte ge sig själv större behörighet eller utöka uppdraget.
+- Gör beskrivningen tillräckligt precis för att skillen ska aktiveras vid rätt slags frågor och inte vid närliggande, irrelevanta uppgifter.
+- Anpassa detaljnivån efter risken. Använd absoluta regler endast när avvikelser kan orsaka verkliga fel, säkerhetsproblem eller dataförlust.
+- Undvik generiska råd, upprepningar, onödigt långa checklistor och regler som bara bygger på ett enskilt exempel.
+
+## Arbetsflöde
+
+1. Identifiera vilket resultat skillen ska åstadkomma, när den ska användas och när den inte ska användas.
+2. Fråga bara efter information som verkligen krävs och inte rimligen kan antas. Annars skapar du ett första komplett förslag direkt.
+3. Välj ett kort namn med små bokstäver, siffror och bindestreck. Håll namnet under 64 tecken.
+4. Skriv YAML-frontmatter med minst `name` och en kort, särskiljande `description` på en rad.
+5. Lägg syfte, viktiga beslutskriterier, arbetsflöde och verkliga begränsningar i brödtexten.
+6. Föreslå `references/`, `scripts/` eller `assets/` endast när de ger en konkret återanvändbar nytta. Lägg inte till tomma stödmappar eller platshållare.
+7. Kontrollera att instruktionerna inte motsäger varandra, hittar på behörigheter eller styr även orelaterade uppgifter.
+
+## Struktur
+
+En enkel skill behöver normalt bara:
+
+- YAML-frontmatter med `name` och `description`
+- en kort förklaring av syftet
+- nödvändiga arbetsinstruktioner och gränser
+- ett tydligt svarsformat endast om uppgiften kräver det
+
+Mer omfattande detaljinformation bör flyttas till fokuserade referensfiler och länkas från `SKILL.md` där den behövs. Deterministiska, återkommande operationer kan motivera ett skript.
+
+## Svarsformat
+
+Leverera den färdiga `SKILL.md`-filen i ett enda Markdown-kodblock. Lägg efter kodblocket endast till:
+
+- eventuella antaganden som användaren behöver känna till
+- föreslagna stödresurser som har en tydlig funktion
+- kritiska frågor som fortfarande blockerar korrekt användning
+
+Vid förbättring av en befintlig skill ska du bevara fungerande, domänspecifika instruktioner och ändra endast det som förbättrar aktivering, tydlighet, säkerhet eller resultat.
+</script>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- IndexedDB ---------- */
+const DB_NAME='skillchat-db', STORE='kv';
+function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function idbSet(k,v){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+async function idbGet(k){const db=await idbOpen();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const rq=tx.objectStore(STORE).get(k);rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error)})}
+
+/* ---------- Config & defaults ---------- */
+const DEFAULT_SYS = 'Du är en hjälpsam assistent som svarar på frågor ENBART utifrån innehållet i den laddade skill-filen nedan. Om svaret inte finns i materialet, säg det tydligt och gissa inte. Hänvisa gärna till vilken fil informationen kommer ifrån. Svara på svenska om inte användaren skriver på ett annat språk.\n\n=== SKILL-INNEHÅLL ===\n{context}';
+const PRESETS = {
+  openai:   {label:'OpenAI-kompatibel', baseUrl:'https://api.openai.com/v1', needsKey:true,  api:'chat', note:'Fungerar med OpenAI och alla OpenAI-kompatibla tjänster. Bas-URL ska sluta på <code>/v1</code>.'},
+  lmstudio: {label:'LM Studio', baseUrl:'http://localhost:1234/v1', needsKey:false, api:'chat', note:'Starta LM Studios lokala server och slå på <strong>CORS</strong> i serverinställningarna. Standard-URL: <code>http://localhost:1234/v1</code>.'},
+  ollama:   {label:'Ollama', baseUrl:'http://localhost:11434', needsKey:false, api:'ollama', note:'Kräver att Ollama tillåter denna sida. Starta med <code>OLLAMA_ORIGINS=*</code> (eller specifik origin). Bas-URL utan <code>/v1</code>: <code>http://localhost:11434</code>.'}
+};
+let config = {provider:'openai', baseUrl:PRESETS.openai.baseUrl, apiKey:'', model:'', temperature:0.3, sysPrompt:DEFAULT_SYS};
+let editProvider = 'openai';
+
+/* ---------- State ---------- */
+let files = [];          // {path, content, isText, size, include}
+let skillMeta = {name:'', desc:''};
+let history = [];        // {role, content}
+let streaming = false;
+let abortCtrl = null;
+
+const $ = id => document.getElementById(id);
+let toastTimer=null;
+function toast(msg){const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2400);}
+
+/* ---------- Theme ---------- */
+async function initTheme(){
+  let t='light';
+  try{ t = (await idbGet('theme')) || 'light'; }catch(e){}
+  document.documentElement.setAttribute('data-theme', t);
+}
+$('themeBtn').onclick = async ()=>{
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  await idbSet('theme', next);
+};
+
+/* ---------- File handling ---------- */
+const TEXT_EXT = ['md','markdown','txt','json','yaml','yml','csv','tsv','js','ts','jsx','tsx','py','rb','go','rs','java','c','cpp','h','html','htm','css','xml','sh','bash','sql','toml','ini','cfg','conf','env','log','tex','r','php','pl','lua','svg'];
+const IMAGE_EXT = ['png','jpg','jpeg','gif','webp','bmp','ico','avif'];
+function extOf(name){return (name.split('.').pop()||'').toLowerCase();}
+function isTextFile(name){return TEXT_EXT.includes(extOf(name));}
+function isImageFile(name){return IMAGE_EXT.includes(extOf(name));}
+function mimeFor(name){const e=extOf(name); return e==='svg'?'image/svg+xml':e==='jpg'?'image/jpeg':e==='ico'?'image/x-icon':'image/'+e;}
+function fileToDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
+function addImage(path, dataUrl, size){files.push({path:path.replace(/^\.?\//,''), content:'', isText:false, isImage:true, dataUrl, size, include:false});}
+function estTokens(str){return Math.ceil(str.length/4);}
+function fmtSize(n){return n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';}
+function fmtNum(n){return n.toLocaleString('sv-SE');}
+
+function parseFrontmatter(md){
+  const m = md.match(/^---\s*\n([\s\S]*?)\n---/);
+  if(!m) return {};
+  const out={}; m[1].split('\n').forEach(line=>{
+    const i=line.indexOf(':'); if(i>0){const k=line.slice(0,i).trim(); let v=line.slice(i+1).trim().replace(/^["']|["']$/g,''); out[k]=v;}
+  });
+  return out;
+}
+
+function addFile(path, content, isText){
+  // strip leading folder names down to relative-ish path
+  const clean = path.replace(/^\.?\//,'');
+  files.push({path:clean, content:content||'', isText, size:isText?new Blob([content]).size:(content?content.length:0), include:isText});
+}
+
+function afterLoad(){
+  // sort: SKILL.md first, then .md, then rest
+  files.sort((a,b)=>{
+    const aS=/skill\.md$/i.test(a.path)?0:/\.md$/i.test(a.path)?1:2;
+    const bS=/skill\.md$/i.test(b.path)?0:/\.md$/i.test(b.path)?1:2;
+    return aS-bS || a.path.localeCompare(b.path);
+  });
+  // detect meta from a SKILL.md
+  const skill = files.find(f=>/skill\.md$/i.test(f.path)) || files.find(f=>/\.md$/i.test(f.path));
+  if(skill){
+    const fm = parseFrontmatter(skill.content);
+    skillMeta.name = fm.name || skill.path.split('/').pop();
+    skillMeta.desc = fm.description || (skill.content.replace(/^---[\s\S]*?---/,'').trim().split('\n').find(l=>l.trim()) || '').slice(0,160);
+  }
+  renderFiles();
+}
+
+function renderFiles(){
+  if(files.length===0){
+    $('skillMeta').style.display='none';
+    $('fileSection').style.display='none';
+    $('sidebar').classList.remove('has-skill','picker-open');
+    $('changeSkillBtn').setAttribute('aria-expanded','false');
+    return;
+  }
+  $('sidebar').classList.add('has-skill');
+  $('sidebar').classList.remove('picker-open');
+  $('changeSkillBtn').setAttribute('aria-expanded','false');
+  $('selectedSkillName').textContent = skillMeta.name || 'Skill';
+  $('skillMeta').style.display='block';
+  $('skillName').textContent = skillMeta.name || 'Skill';
+  $('skillDesc').textContent = skillMeta.desc || '';
+  $('fileSection').style.display='block';
+  const ul=$('fileList'); ul.innerHTML='';
+  files.forEach((f,i)=>{
+    const li=document.createElement('li');
+    li.className='file-item'+(f.isText?'':' binary');
+    li.innerHTML=`<input type="checkbox" ${f.include?'checked':''} ${f.isText?'':'disabled'} data-i="${i}">
+      <span class="fname" data-open="${i}" title="Öppna ${f.path}">${f.path}</span>
+      <span class="fsize">${fmtSize(f.size)}</span>`;
+    ul.appendChild(li);
+  });
+  ul.querySelectorAll('input').forEach(c=>c.onchange=e=>{files[+e.target.dataset.i].include=e.target.checked; updateCtx();});
+  ul.querySelectorAll('.fname').forEach(el=>el.onclick=()=>openFilePreview(+el.dataset.open));
+  updateCtx();
+  if(window.innerWidth<=820) $('sidebar').classList.remove('open');
+}
+
+function buildContext(){
+  return files.filter(f=>f.isText&&f.include)
+    .map(f=>`=== FIL: ${f.path} ===\n${f.content}`).join('\n\n');
+}
+function updateCtx(){
+  const sel = files.filter(f=>f.isText&&f.include);
+  const ctx = buildContext();
+  $('ctxFiles').textContent = sel.length;
+  $('ctxTokens').textContent = fmtNum(estTokens(ctx));
+  $('ctxMeta').textContent = sel.length? `${sel.length} fil(er) · ~${fmtNum(estTokens(ctx))} tokens i kontext` : '';
+}
+
+async function loadSingleFile(file){
+  resetFiles();
+  if(isImageFile(file.name)){ addImage(file.name, await fileToDataURL(file), file.size); }
+  else { addFile(file.name, await file.text(), isTextFile(file.name)); }
+  afterLoad();
+}
+async function loadFolder(fileList){
+  resetFiles();
+  for(const file of fileList){
+    const rel = file.webkitRelativePath || file.name;
+    if(/(^|\/)(\.|__MACOSX|node_modules)/.test(rel)) continue;
+    if(isImageFile(rel)){ addImage(rel, await fileToDataURL(file), file.size); }
+    else if(isTextFile(rel)){ addFile(rel, await file.text(), true); }
+    else { addFile(rel, '', false); files[files.length-1].size=file.size; }
+  }
+  afterLoad();
+}
+async function loadZip(file){
+  resetFiles();
+  const zip = await JSZip.loadAsync(file);
+  const entries = Object.values(zip.files).filter(e=>!e.dir && !/(^|\/)(\.|__MACOSX)/.test(e.name));
+  for(const e of entries){
+    if(isImageFile(e.name)){ const b64=await e.async('base64'); const blob=await e.async('blob'); addImage(e.name, 'data:'+mimeFor(e.name)+';base64,'+b64, blob.size); }
+    else if(isTextFile(e.name)){ addFile(e.name, await e.async('string'), true); }
+    else { const blob=await e.async('blob'); addFile(e.name,'',false); files[files.length-1].size=blob.size; }
+  }
+  afterLoad();
+}
+function resetFiles(){files=[]; skillMeta={name:'',desc:''};}
+
+/* file inputs */
+$('pickFile').onclick=()=>$('inFile').click();
+$('pickFolder').onclick=()=>$('inFolder').click();
+$('pickZip').onclick=()=>$('inZip').click();
+$('inFile').onchange=e=>{if(e.target.files[0])loadSingleFile(e.target.files[0]).catch(err=>alert('Fel: '+err.message));};
+$('inFolder').onchange=e=>{if(e.target.files.length)loadFolder(e.target.files).catch(err=>alert('Fel: '+err.message));};
+$('inZip').onchange=e=>{if(e.target.files[0])loadZip(e.target.files[0]).catch(err=>alert('Kunde inte läsa arkivet: '+err.message));};
+$('clearBtn').onclick=()=>{resetFiles(); renderFiles();};
+$('changeSkillBtn').onclick=()=>{
+  const open=$('sidebar').classList.toggle('picker-open');
+  $('changeSkillBtn').setAttribute('aria-expanded', String(open));
+};
+
+/* ---------- Built-in skills ---------- */
+const BUILTINS=[
+  {elId:'builtin-archimate-4-mermaid', file:'SKILL.md', icon:'🧩',
+   name:'ArchiMate 4 – Mermaid',
+   desc:'Mermaid-diagram enligt ArchiMate 4 (C260) med Modern Color Set och fetstilt nodformat.'},
+  {elId:'builtin-code-reviewer', file:'SKILL.md', icon:'🔍',
+   name:'Kodgranskare',
+   desc:'Hittar och prioriterar fel, säkerhetsrisker, prestandaproblem och teknisk skuld.'},
+  {elId:'builtin-documentation-writer', file:'SKILL.md', icon:'✍️',
+   name:'Dokumentationsassistent',
+   desc:'Skapar och förbättrar tydlig teknisk dokumentation för rätt målgrupp.'},
+  {elId:'builtin-klarsprak', file:'SKILL.md', icon:'🏛️',
+   name:'Klarspråk för myndigheter',
+   desc:'Gör myndighetstexter vårdade, enkla och begripliga utan att ändra deras betydelse.'},
+  {elId:'builtin-skill-creator', file:'SKILL.md', icon:'🛠️',
+   name:'Skapa en skill',
+   desc:'Skapar och förbättrar välavgränsade SKILL.md-filer med korrekt struktur.'}
+];
+function renderBuiltins(){
+  const wrap=$('builtinList'); if(!wrap)return;
+  wrap.innerHTML='';
+  BUILTINS.forEach(b=>{
+    if(!document.getElementById(b.elId)) return;
+    const el=document.createElement('button');
+    el.className='builtin-item';
+    el.innerHTML=`<span class="ico">${b.icon}</span><span class="txt"><span class="bname">${b.name}</span><span class="bdesc">${b.desc}</span></span>`;
+    el.onclick=()=>loadBuiltin(b);
+    wrap.appendChild(el);
+  });
+}
+function loadBuiltin(b){
+  const el=document.getElementById(b.elId);
+  if(!el){alert('Den inbyggda skillen kunde inte hittas.');return;}
+  resetFiles();
+  addFile(b.file, el.textContent.replace(/^\r?\n/,''), true);
+  afterLoad();
+  toast('Laddade: '+b.name);
+  if(window.innerWidth<=820) $('sidebar').classList.remove('open');
+}
+
+/* drag & drop */
+const dz=$('dropzone');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+dz.addEventListener('drop', async e=>{
+  const items = e.dataTransfer.files;
+  if(!items.length) return;
+  const f = items[0];
+  try{
+    if(/\.zip$|\.skill$/i.test(f.name)) await loadZip(f);
+    else if(items.length>1) await loadFolder(items);
+    else await loadSingleFile(f);
+  }catch(err){alert('Fel vid inläsning: '+err.message);}
+});
+
+/* ---------- Settings modal ---------- */
+function applyProviderUI(prov){
+  editProvider=prov;
+  const p=PRESETS[prov];
+  document.querySelectorAll('.preset-tabs button').forEach(b=>b.classList.toggle('active', b.dataset.prov===prov));
+  $('provNote').innerHTML=p.note;
+  $('keyField').style.display = p.needsKey?'block':'block'; // always show, but optional for local
+  if(!$('baseUrl').value || Object.values(PRESETS).some(x=>x.baseUrl===$('baseUrl').value)){
+    $('baseUrl').value=p.baseUrl;
+  }
+}
+document.querySelectorAll('.preset-tabs button').forEach(b=>{
+  b.onclick=()=>{ $('baseUrl').value=PRESETS[b.dataset.prov].baseUrl; applyProviderUI(b.dataset.prov); $('modelSelect').innerHTML='<option value="">— skriv eller hämta —</option>'; };
+});
+$('temp').oninput=e=>$('tempVal').textContent=e.target.value;
+$('modelSelect').onchange=e=>{if(e.target.value)$('model').value=e.target.value;};
+
+function openSettings(){
+  $('baseUrl').value=config.baseUrl;
+  $('apiKey').value=config.apiKey;
+  $('model').value=config.model;
+  $('temp').value=config.temperature; $('tempVal').textContent=config.temperature;
+  $('sysPrompt').value=config.sysPrompt;
+  applyProviderUI(config.provider);
+  $('testResult').className='test-result';
+  $('overlay').classList.add('open');
+}
+function closeSettings(){$('overlay').classList.remove('open');}
+$('settingsBtn').onclick=openSettings;
+$('closeModal').onclick=closeSettings;
+$('cancelBtn').onclick=closeSettings;
+$('overlay').onclick=e=>{if(e.target===$('overlay'))closeSettings();};
+
+$('saveBtn').onclick=async ()=>{
+  config={
+    provider:editProvider,
+    baseUrl:$('baseUrl').value.trim(),
+    apiKey:$('apiKey').value.trim(),
+    model:$('model').value.trim(),
+    temperature:parseFloat($('temp').value),
+    sysPrompt:$('sysPrompt').value || DEFAULT_SYS
+  };
+  try{
+    await idbSet('config', config);
+    const back = await idbGet('config');         // verifiera att det faktiskt skrevs
+    if(!back || back.model!==config.model || back.baseUrl!==config.baseUrl) throw new Error('verifiering misslyckades');
+    updateStatus();
+    closeSettings();
+    toast('Inställningar sparade i webbläsaren (IndexedDB)');
+  }catch(err){
+    alert('Kunde inte spara inställningar i IndexedDB: '+err.message+'\n(Privat läge / blockerad lagring kan hindra detta.)');
+  }
+};
+
+$('fetchModels').onclick=async ()=>{
+  const base=$('baseUrl').value.trim().replace(/\/$/,'');
+  const key=$('apiKey').value.trim();
+  const sel=$('modelSelect');
+  sel.innerHTML='<option>Hämtar…</option>';
+  try{
+    let names=[];
+    if(editProvider==='ollama'){
+      const r=await fetch(base+'/api/tags'); const j=await r.json();
+      names=(j.models||[]).map(m=>m.name);
+    }else{
+      const h={}; if(key)h['Authorization']='Bearer '+key;
+      const r=await fetch(base+'/models',{headers:h}); const j=await r.json();
+      names=(j.data||[]).map(m=>m.id);
+    }
+    sel.innerHTML='<option value="">— välj modell —</option>'+names.map(n=>`<option value="${n}">${n}</option>`).join('');
+    if(names.length===0)sel.innerHTML='<option value="">Inga modeller hittades</option>';
+  }catch(err){
+    sel.innerHTML='<option value="">Kunde inte hämta (CORS?)</option>';
+  }
+};
+
+$('testBtn').onclick=async ()=>{
+  const tr=$('testResult'); tr.className='test-result show'; tr.textContent='Testar…';
+  const tmp={provider:editProvider, baseUrl:$('baseUrl').value.trim(), apiKey:$('apiKey').value.trim(), model:$('model').value.trim(), temperature:0};
+  if(!tmp.model){tr.className='test-result show err'; tr.textContent='Ange en modell först.'; return;}
+  try{
+    let got='';
+    await callLLM([{role:'user',content:'Svara kort med ordet OK.'}], t=>got+=t, null, tmp);
+    tr.className='test-result show ok';
+    tr.textContent='✓ Anslutning fungerar. Svar: '+(got.trim().slice(0,40)||'(tomt)');
+  }catch(err){
+    tr.className='test-result show err';
+    tr.textContent='✗ '+err.message;
+  }
+};
+
+function updateStatus(){
+  const b=$('statusBadge');
+  if(config.model){
+    b.className='badge ok';
+    $('statusText').textContent=PRESETS[config.provider].label+' · '+config.model;
+    $('modelMeta').textContent=PRESETS[config.provider].label+' / '+config.model;
+  }else{
+    b.className='badge';
+    $('statusText').textContent='Ingen modell';
+    $('modelMeta').textContent='Ingen modell vald – öppna ⚙ för att ställa in';
+  }
+}
+
+/* ---------- LLM call (streaming) ---------- */
+async function readStream(res, onLine){
+  const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='';
+  while(true){
+    const {value,done}=await reader.read(); if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    let idx;
+    while((idx=buf.indexOf('\n'))>=0){ const line=buf.slice(0,idx); buf=buf.slice(idx+1); if(line.trim())onLine(line.trim()); }
+  }
+  if(buf.trim())onLine(buf.trim());
+}
+
+async function callLLM(messages, onToken, signal, cfgOverride){
+  const cfg=cfgOverride||config;
+  const base=cfg.baseUrl.replace(/\/$/,'');
+  if(PRESETS[cfg.provider].api==='ollama'){
+    const res=await fetch(base+'/api/chat',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:cfg.model, messages, stream:true, options:{temperature:cfg.temperature}}),
+      signal
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status+': '+(await res.text()).slice(0,160));
+    await readStream(res, line=>{
+      try{const j=JSON.parse(line); if(j.message&&j.message.content)onToken(j.message.content); if(j.error)throw new Error(j.error);}catch(e){if(e.message&&!/JSON/.test(e.message))throw e;}
+    });
+  }else{
+    const headers={'Content-Type':'application/json'};
+    if(cfg.apiKey)headers['Authorization']='Bearer '+cfg.apiKey;
+    const res=await fetch(base+'/chat/completions',{
+      method:'POST', headers,
+      body:JSON.stringify({model:cfg.model, messages, stream:true, temperature:cfg.temperature}),
+      signal
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status+': '+(await res.text()).slice(0,160));
+    await readStream(res, line=>{
+      if(!line.startsWith('data:'))return;
+      const data=line.slice(5).trim();
+      if(data==='[DONE]')return;
+      try{const j=JSON.parse(data); const d=j.choices&&j.choices[0]&&j.choices[0].delta; if(d&&d.content)onToken(d.content);}catch(e){}
+    });
+  }
+}
+
+/* ---------- Chat UI ---------- */
+function renderMd(text){return DOMPurify.sanitize(marked.parse(text||''));}
+
+/* ---------- Code blocks & Mermaid rendering ---------- */
+let mmdCounter=0;
+function makeCopyBtn(getText){
+  const b=document.createElement('button'); b.className='cb-copy'; b.type='button'; b.textContent='Kopiera';
+  b.onclick=async ()=>{ try{ await navigator.clipboard.writeText(getText()); b.textContent='Kopierat ✓'; b.classList.add('copied'); setTimeout(()=>{b.textContent='Kopiera'; b.classList.remove('copied');},1500);}catch(e){ b.textContent='Fel'; } };
+  return b;
+}
+async function renderMermaid(el, source){
+  if(!window.mermaid){ el.innerHTML='<div class="mmd-err">Mermaid kunde inte laddas (kontrollera nätverk/CDN).</div>'; return; }
+  const id='mmd-'+(mmdCounter++);
+  try{
+    const {svg}=await window.mermaid.render(id, source);
+    el.innerHTML=svg;
+  }catch(err){
+    const orphan=document.getElementById(id); if(orphan)orphan.remove();
+    el.innerHTML='<div class="mmd-err">⚠️ Diagramfel: '+escapeHtml((err&&err.message)||String(err))+'</div>';
+  }
+}
+function buildCodeBlock(pre, lang, source){
+  const wrap=document.createElement('div'); wrap.className='cb-block';
+  const bar=document.createElement('div'); bar.className='cb-bar';
+  const l=document.createElement('span'); l.className='cb-lang'; l.textContent=lang||'kod';
+  const sp=document.createElement('span'); sp.className='spacer';
+  bar.append(l, sp, makeCopyBtn(()=>source));
+  const npre=document.createElement('pre'); npre.className='cb-pre';
+  const ncode=document.createElement('code'); if(lang)ncode.className='language-'+lang; ncode.textContent=source;
+  npre.appendChild(ncode);
+  wrap.append(bar, npre);
+  pre.replaceWith(wrap);
+}
+function buildMermaidBlock(pre, source){
+  const wrap=document.createElement('div'); wrap.className='mmd-block';
+  const bar=document.createElement('div'); bar.className='cb-bar';
+  const l=document.createElement('span'); l.className='cb-lang'; l.textContent='mermaid';
+  const seg=document.createElement('div'); seg.className='cb-seg';
+  const bD=document.createElement('button'); bD.type='button'; bD.textContent='Diagram'; bD.className='active';
+  const bC=document.createElement('button'); bC.type='button'; bC.textContent='Kod';
+  seg.append(bD, bC);
+  const sp=document.createElement('span'); sp.className='spacer';
+  bar.append(l, seg, sp, makeCopyBtn(()=>source));
+  const dia=document.createElement('div'); dia.className='mmd-diagram';
+  const npre=document.createElement('pre'); npre.className='cb-pre'; npre.style.display='none';
+  const ncode=document.createElement('code'); ncode.className='language-mermaid'; ncode.textContent=source; npre.appendChild(ncode);
+  bD.onclick=()=>{dia.style.display=''; npre.style.display='none'; bD.classList.add('active'); bC.classList.remove('active');};
+  bC.onclick=()=>{dia.style.display='none'; npre.style.display=''; bC.classList.add('active'); bD.classList.remove('active');};
+  wrap.append(bar, dia, npre);
+  pre.replaceWith(wrap);
+  renderMermaid(dia, source);
+}
+function enhanceCodeBlocks(container, opts){
+  opts=opts||{}; const renderDiagrams=opts.renderDiagrams!==false;
+  container.querySelectorAll('pre > code').forEach(code=>{
+    const pre=code.parentElement;
+    if(!pre || pre.closest('.cb-block, .mmd-block')) return;
+    const m=(code.className||'').match(/language-([\w-]+)/);
+    const lang=m?m[1]:'';
+    const source=code.textContent;
+    if(lang==='mermaid' && renderDiagrams){ buildMermaidBlock(pre, source); }
+    else { buildCodeBlock(pre, lang, source); }
+  });
+}
+function scrollBottom(){const s=$('chatScroll'); s.scrollTop=s.scrollHeight;}
+
+function addMsg(role, text){
+  $('emptyState').style.display='none';
+  const wrap=document.createElement('div');
+  wrap.className='msg '+role;
+  wrap.innerHTML=`<div class="avatar">${role==='user'?'Du':'AI'}</div>
+    <div class="body"><div class="name">${role==='user'?'Du':skillMeta.name||'Skill-assistent'}</div>
+    <div class="bubble"></div></div>`;
+  const bubble=wrap.querySelector('.bubble');
+  if(role==='user'){bubble.textContent=text;}
+  else{bubble.innerHTML=renderMd(text);}
+  $('chatScroll').appendChild(wrap);
+  scrollBottom();
+  return bubble;
+}
+
+async function send(){
+  if(streaming){ if(abortCtrl)abortCtrl.abort(); return; }
+  const input=$('input'); const text=input.value.trim();
+  if(!text)return;
+  if(!config.model){openSettings(); return;}
+  if(files.filter(f=>f.isText&&f.include).length===0){
+    if(!confirm('Ingen skill-fil är laddad. Vill du fråga ändå (utan kontext)?'))return;
+  }
+
+  addMsg('user', text);
+  history.push({role:'user', content:text});
+  input.value=''; autoGrow();
+
+  const ctx=buildContext();
+  const sys=config.sysPrompt.replace('{context}', ctx);
+  const messages=[{role:'system', content:sys}, ...history];
+
+  const bubble=addMsg('assistant','');
+  bubble.classList.add('cursor-blink');
+  let acc='';
+  streaming=true; abortCtrl=new AbortController();
+  setSendState(true);
+  try{
+    await callLLM(messages, tok=>{ acc+=tok; bubble.innerHTML=renderMd(acc); scrollBottom(); }, abortCtrl.signal);
+    if(!acc.trim())acc='*(tomt svar)*';
+    history.push({role:'assistant', content:acc});
+  }catch(err){
+    if(err.name==='AbortError'){ acc+= (acc?'\n\n':'')+'*(avbrutet)*'; if(acc)history.push({role:'assistant',content:acc}); }
+    else{ acc='⚠️ **Fel:** '+err.message+'\n\nKontrollera bas-URL, modell och att servern tillåter anrop (CORS).'; }
+    bubble.innerHTML=renderMd(acc);
+  }finally{
+    bubble.classList.remove('cursor-blink');
+    bubble.innerHTML=renderMd(acc);
+    enhanceCodeBlocks(bubble, {renderDiagrams:true});
+    streaming=false; abortCtrl=null; setSendState(false);
+    scrollBottom();
+  }
+}
+function setSendState(on){
+  const b=$('sendBtn');
+  b.classList.toggle('stop', on);
+  b.innerHTML= on?'■':'➤';
+  b.title= on?'Stoppa':'Skicka';
+}
+
+$('sendBtn').onclick=send;
+
+/* ---------- Ladda ner chatt som Markdown ---------- */
+function pad2(n){return String(n).padStart(2,'0');}
+function downloadChatMd(){
+  if(!history.length){ toast('Ingen chatt att ladda ner ännu'); return; }
+  const d=new Date();
+  const ymd=`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const stamp=`${ymd} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  let md='# SKILL Chat\n\n';
+  md+=`- **Skill:** ${skillMeta.name||'—'}\n`;
+  md+=`- **Modell:** ${config.model?PRESETS[config.provider].label+' / '+config.model:'—'}\n`;
+  md+=`- **Exporterad:** ${stamp}\n\n---\n\n`;
+  history.forEach(m=>{
+    const who = m.role==='user' ? 'Du' : (skillMeta.name ? skillMeta.name+' (assistent)' : 'Skill-assistent');
+    md+=`## ${who}\n\n${m.content}\n\n`;
+  });
+  const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`skill-chat_${ymd}.md`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Chatt nedladdad');
+}
+$('downloadBtn').onclick=downloadChatMd;
+
+const input=$('input');
+function autoGrow(){input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,160)+'px';}
+input.addEventListener('input', autoGrow);
+input.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); send();} });
+
+/* ---------- File preview popup ---------- */
+let fvState={file:null, isMd:false, raw:false};
+function escapeHtml(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function openFilePreview(i){
+  const f=files[i]; if(!f)return;
+  fvState.file=f;
+  $('fvPath').textContent=f.path;
+  $('fvPath').title=f.path;
+  $('fvSize').textContent=fmtSize(f.size);
+  const body=$('fvBody'); const seg=$('fvSeg'); const copy=$('fvCopy');
+  if(f.isImage){
+    seg.style.display='none'; copy.style.display='none';
+    body.innerHTML=`<div class="fv-img"><img src="${f.dataUrl}" alt="${escapeHtml(f.path)}"></div>`;
+  }else if(f.isText){
+    copy.style.display='inline-block';
+    fvState.isMd=/\.(md|markdown)$/i.test(f.path);
+    fvState.raw=!fvState.isMd;
+    seg.style.display=fvState.isMd?'flex':'none';
+    renderFileView();
+  }else{
+    seg.style.display='none'; copy.style.display='none';
+    body.innerHTML=`<div class="fv-empty">📦 Förhandsvisning är inte tillgänglig för den här filtypen.<br><strong>${escapeHtml(f.path)}</strong> · ${fmtSize(f.size)}</div>`;
+  }
+  $('fileOverlay').classList.add('open');
+}
+function renderFileView(){
+  const f=fvState.file; const body=$('fvBody');
+  if(fvState.isMd && !fvState.raw){
+    body.innerHTML='<div class="fv-md">'+renderMd(f.content)+'</div>';
+    enhanceCodeBlocks(body, {renderDiagrams:false});
+  }else{
+    body.innerHTML='<pre class="fv-pre">'+escapeHtml(f.content)+'</pre>';
+  }
+  $('fvRendered').classList.toggle('active', !fvState.raw);
+  $('fvRaw').classList.toggle('active', fvState.raw);
+}
+$('fvRendered').onclick=()=>{fvState.raw=false; renderFileView();};
+$('fvRaw').onclick=()=>{fvState.raw=true; renderFileView();};
+$('fvCopy').onclick=async ()=>{
+  if(!fvState.file)return;
+  try{ await navigator.clipboard.writeText(fvState.file.content); const b=$('fvCopy'); b.textContent='Kopierat ✓'; b.classList.add('copied'); setTimeout(()=>{b.textContent='Kopiera'; b.classList.remove('copied');},1500); }
+  catch(e){ alert('Kunde inte kopiera.'); }
+};
+function closeFilePreview(){$('fileOverlay').classList.remove('open');}
+$('fvClose').onclick=closeFilePreview;
+$('fileOverlay').onclick=e=>{if(e.target===$('fileOverlay'))closeFilePreview();};
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){closeFilePreview(); closeSettings();} });
+
+/* mobile sidebar */
+$('menuBtn').onclick=()=>$('sidebar').classList.toggle('open');
+
+/* ---------- Init ---------- */
+(async function init(){
+  if(!window.indexedDB){ toast('Varning: IndexedDB stöds inte – inställningar kan inte sparas'); }
+  await initTheme();
+  try{
+    const saved=await idbGet('config');
+    if(saved)config={...config, ...saved};
+  }catch(err){ console.warn('Kunde inte läsa sparade inställningar:', err); }
+  updateStatus();
+  renderBuiltins();
+  marked.setOptions({breaks:true, gfm:true});
+  if(window.mermaid){
+    try{ window.mermaid.initialize({startOnLoad:false, securityLevel:'loose', theme:'base', flowchart:{htmlLabels:true, useMaxWidth:true}}); }
+    catch(e){ console.warn('Mermaid init misslyckades:', e); }
+  }
+})();
+</script>
+</body>
+</html>

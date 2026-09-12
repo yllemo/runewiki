@@ -1,0 +1,36 @@
+# .htaccess (rot)
+#
+# RuneWiki körs med index.php i webroten. Denna fil:
+#  1. Blockerar direktåtkomst till källkod/innehåll/konfiguration.
+#  2. Släpper igenom statiska assets (mallar) och uppladdad media direkt.
+#  3. Skickar allt annat (snygga URL:er) till index.php för routing.
+
+RewriteEngine On
+
+# Neka direktåtkomst till interna mappar
+RewriteRule ^(bin|config|content|core|data|plugins|skills)(/|$) - [F,L]
+
+# Släpp igenom riktiga filer i templates/*/assets och media direkt
+RewriteCond %{REQUEST_URI} ^/(templates/[^/]+/assets/|media/)
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# /chat/ och /admin/ har egna front controllers (chat/index.php,
+# admin/index.php) och ska INTE routas genom wiki-routern i roten — låt
+# Apache hantera dessa mappar normalt (DirectoryIndex kör respektive
+# index.php). /admin/index.php gate:ar sig själv på inloggning.
+RewriteRule ^(chat|admin)(/|$) - [L]
+
+# Allt annat → index.php. OBS: ingen "!-d"-kontroll här — /media och
+# /media/<namespace> är riktiga mappar på disk (kataloger med uppladdade
+# filer), och skulle annars falla igenom till Apaches egen katalog-
+# hantering (403 eller listning) istället för att nå appens router.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Extra skydd: förhindra scriptkörning i media/ (uppladdade filer)
+<IfModule mod_php.c>
+    <Directory "media">
+        php_flag engine off
+    </Directory>
+</IfModule>

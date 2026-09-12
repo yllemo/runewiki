@@ -1,0 +1,22 @@
+# Local configuration and editor settings
+.claude/settings.local.json
+config/config.php
+
+# Runtime state and user data
+data/cache/*
+!data/cache/.gitkeep
+data/history/*
+!data/history/.gitkeep
+data/index/*
+!data/index/.gitkeep
+data/users/*
+!data/users/.gitkeep
+media/*
+!media/.gitkeep
+
+# Local development files
+vendor/
+.env
+.env.*
+!.env.example
+*.log

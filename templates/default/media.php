@@ -22,7 +22,8 @@
  * försök (ingen redirect — se stor kommentar i handleMediaUpload()).
  */
 $isGlobalView = $namespace === '';
-$uploadTarget = '/images' . ($namespace !== '' ? '/' . str_replace(':', '/', $namespace) : '');
+// Match directory URLs directly so a DirectorySlash redirect cannot discard the POST body.
+$uploadTarget = '/images/' . ($namespace !== '' ? str_replace(':', '/', $namespace) . '/' : '');
 $hasAnyFiles  = false;
 foreach ($groupedFiles as $groupItems) {
     if (!empty($groupItems)) {

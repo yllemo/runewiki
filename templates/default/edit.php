@@ -430,8 +430,8 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             fd.append('upload', file, file.name && /\.[a-z0-9]+$/i.test(file.name) ? file.name : 'bild-' + Date.now() + '.' + ext);
 
             var uploadUrl = mediaNs
-                ? '/images/' + mediaNs.split(':').join('/') + '?do=upload'
-                : '/images?do=upload';
+                ? '/images/' + mediaNs.split(':').join('/') + '/?do=upload'
+                : '/images/?do=upload';
             console.log('[RuneWiki] POST', uploadUrl);
 
             fetch(uploadUrl, { method: 'POST', body: fd })

@@ -478,36 +478,18 @@ class Wiki
     {
         $isAjax = ($_POST['ajax'] ?? '') === '1';
 
-        // Diagnostik som visas direkt i den gula rutan på /images (se
-        // handleMediaList()/media.php) — inte i en serverlogg eller via
-        // sessionen (se stor kommentar nedan för varför).
-        $debug = [
-            'tid'             => date('H:i:s'),
-            'namespace'       => $namespace,
-            'metod'           => $_SERVER['REQUEST_METHOD'] ?? '?',
-            'inloggad'        => $this->auth->canEdit() ? 'ja' : 'NEJ',
-            'auth_enabled'    => $this->auth->isEnabled() ? 'ja' : 'nej',
-            'anvandare'       => $this->auth->currentUser() ?? '(ingen)',
-            'post_falt'       => implode(', ', array_keys($_POST)) ?: '(inga — hela $_POST är tomt)',
-            'content_length'  => $_SERVER['CONTENT_LENGTH'] ?? '(saknas)',
-            '$_FILES[upload]' => $_FILES['upload'] ?? '(saknas helt i $_FILES)',
-        ];
-
         if (!$this->auth->canEdit()) {
-            $debug['resultat'] = 'AVBRUTEN: inte inloggad (Auth::canEdit() === false)';
             if ($isAjax) {
                 return $this->jsonResponse(['ok' => false, 'error' => 'Inte inloggad.'], 401);
             }
-            return $this->handleMediaList($namespace, $debug['resultat'], $debug);
+            return $this->handleMediaList($namespace, 'Fel: Inte inloggad.');
         }
 
-        $debug['csrf_matchar'] = Helpers::verifyCsrf($_POST['csrf_token'] ?? null) ? 'ja' : 'NEJ';
-        if ($debug['csrf_matchar'] === 'NEJ') {
-            $debug['resultat'] = 'AVBRUTEN: CSRF-token saknas eller stämmer inte';
+        if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
             if ($isAjax) {
                 return $this->jsonResponse(['ok' => false, 'error' => 'Ogiltig förfrågan (CSRF-token).'], 403);
             }
-            return $this->handleMediaList($namespace, $debug['resultat'], $debug);
+            return $this->handleMediaList($namespace, 'Fel: Ogiltig förfrågan (CSRF-token).');
         }
 
         try {
@@ -515,9 +497,7 @@ class Wiki
             $message = 'Uppladdad: ' . $mediaId->id();
         } catch (\Throwable $e) {
             $message = 'Fel: ' . $e->getMessage();
-            $debug['exception_klass'] = get_class($e);
         }
-        $debug['resultat'] = $message;
 
         if ($isAjax) {
             return isset($mediaId)
@@ -525,19 +505,8 @@ class Wiki
                 : $this->jsonResponse(['ok' => false, 'error' => $message], 422);
         }
 
-        // Renderar mediegalleriet direkt i SAMMA svar — ingen
-        // header('Location: ...')-redirect. En redirect kräver att
-        // header() lyckas innan ETT ENDA tecken skrivits ut någonstans
-        // (t.ex. av session_start(), en varning, eller en extra
-        // whitespace-byte i en inkluderad fil). Misslyckas det tyst
-        // (display_errors=Off) blir resultatet en HELT TOM sida kvar på
-        // exakt /images?do=upload — inget felmeddelande, ingen
-        // omdirigering — precis det symptomet som gjorde det här felet så
-        // svårt att felsöka. Att rendera direkt eliminerar hela den
-        // felkällan: den enda kvarvarande header()-anropet är
-        // "Content-Type" i jsonResponse() (AJAX-vägen ovan), som körs
-        // efter exakt noll utskriven text.
-        return $this->handleMediaList($namespace, $message, $debug);
+        // Visa resultatet direkt tillsammans med det uppdaterade galleriet.
+        return $this->handleMediaList($namespace, $message);
     }
 
     /** @param array<string,mixed> $data */
@@ -555,7 +524,7 @@ class Wiki
      * när auth_enabled = true (canUpload skickas till temat, som döljer
      * formuläret annars) — läsning/bläddring är alltid öppet.
      */
-    private function handleMediaList(string $namespace, ?string $uploadMessage = null, ?array $uploadDebug = null): string
+    private function handleMediaList(string $namespace, ?string $uploadMessage = null): string
     {
         // /images/<namespace>/<fil> (eller /images/<fil> i roten) pekar
         // egentligen på en SPECIFIK, redan uppladdad fil — inte en
@@ -609,7 +578,6 @@ class Wiki
             'canUpload'     => $this->auth->canEdit(),
             'strings'       => $this->strings,
             'uploadMessage' => $uploadMessage,
-            'uploadDebug'   => $uploadDebug,
         ]);
 
         return $this->templates->render('layout', $this->baseData($id, [

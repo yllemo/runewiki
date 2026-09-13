@@ -17,9 +17,9 @@
  *   [namespace => [{id, mediaId (MediaId), isImage (bool), size (bytes)}, ...], ...]
  * (rotnivåns filer ligger under nyckeln '').
  *
- * $uploadMessage/$uploadDebug: sätts av Wiki::handleMediaUpload(), som
+ * $uploadMessage: sätts av Wiki::handleMediaUpload(), som
  * renderar DEN HÄR mallen direkt i samma svar efter ett uppladdnings-
- * försök (ingen redirect — se stor kommentar i handleMediaUpload()).
+ * försök (ingen redirect).
  */
 $isGlobalView = $namespace === '';
 // Match directory URLs directly so a DirectorySlash redirect cannot discard the POST body.
@@ -51,20 +51,6 @@ foreach ($groupedFiles as $groupItems) {
     <?php if (!empty($uploadMessage)): ?>
         <?php $uploadOk = !str_starts_with($uploadMessage, 'Fel:') && !str_starts_with($uploadMessage, 'AVBRUTEN'); ?>
         <div class="gbg-alert <?= $uploadOk ? 'gbg-alert-success' : 'gbg-alert-danger' ?>"><?= Helpers::e($uploadMessage) ?></div>
-    <?php endif; ?>
-
-    <?php if (!empty($uploadDebug)): ?>
-        <!-- TILLFÄLLIG FELSÖKNING — ta bort $uploadDebug-hanteringen i
-             Wiki::handleMediaUpload()/handleMediaList() och den här
-             boxen när uppladdningsfelet är hittat. -->
-        <div class="gbg-alert" style="background:#fff8e1;border-left:3px solid #b8860b;color:#5a4a10">
-            <strong>🔍 Tillfällig felsökning — senaste uppladdningsförsöket:</strong>
-            <pre style="white-space:pre-wrap;word-break:break-word;margin:.5rem 0 0;font-size:.82rem"><?php
-                foreach ($uploadDebug as $key => $value) {
-                    echo Helpers::e($key) . ': ' . Helpers::e(is_scalar($value) || $value === null ? (string) $value : print_r($value, true)) . "\n";
-                }
-            ?></pre>
-        </div>
     <?php endif; ?>
 
     <?php if (!$hasAnyFiles): ?>

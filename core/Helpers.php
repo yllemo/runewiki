@@ -41,7 +41,7 @@ class Helpers
         return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
     }
 
-    /** Läsbar filstorlek, t.ex. "482 B", "12.4 KB", "3.1 MB". Används av /media. */
+    /** Läsbar filstorlek, t.ex. "482 B", "12.4 KB", "3.1 MB". Används av /images. */
     public static function formatBytes(int $bytes): string
     {
         if ($bytes < 1024) {

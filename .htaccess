@@ -10,8 +10,8 @@ RewriteEngine On
 # Neka direktåtkomst till interna mappar
 RewriteRule ^(bin|config|content|core|data|plugins|skills)(/|$) - [F,L]
 
-# Släpp igenom riktiga filer i templates/*/assets och media direkt
-RewriteCond %{REQUEST_URI} ^/(templates/[^/]+/assets/|media/)
+# Släpp igenom riktiga filer i templates/*/assets och images direkt
+RewriteCond %{REQUEST_URI} ^/(templates/[^/]+/assets/|images/)
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
@@ -21,8 +21,8 @@ RewriteRule ^ - [L]
 # index.php). /admin/index.php gate:ar sig själv på inloggning.
 RewriteRule ^(chat|admin)(/|$) - [L]
 
-# Allt annat → index.php. OBS: ingen "!-d"-kontroll här — /media och
-# /media/<namespace> är riktiga mappar på disk (kataloger med uppladdade
+# Allt annat → index.php. OBS: ingen "!-d"-kontroll här — /images och
+# /images/<namespace> är riktiga mappar på disk (kataloger med uppladdade
 # filer), och skulle annars falla igenom till Apaches egen katalog-
 # hantering (403 eller listning) istället för att nå appens router.
 RewriteCond %{REQUEST_FILENAME} !-f

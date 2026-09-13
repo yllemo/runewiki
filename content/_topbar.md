@@ -8,7 +8,7 @@
 
     - [[namespace:sida]]                wiki-länk, etikett = sidans titel
     - [[namespace:sida|Egen etikett]]    wiki-länk med egen text på knappen
-    - [Egen etikett](https://exempel.se) extern länk (eller absolut sökväg, t.ex. /media)
+    - [Egen etikett](https://exempel.se) extern länk (eller absolut sökväg, t.ex. /images)
 
   Rader som inte matchar något av dessa (som denna kommentar, eller
   vanlig brödtext) ignoreras — filen renderas INTE som sidinnehåll

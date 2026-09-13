@@ -27,7 +27,7 @@ return [
     'search_enabled'   => true,
 
     // Uppladdad media (se config/media.php för filtyper/storlek)
-    'media_dir'        => 'media',
+    'media_dir'        => 'images',
 
     // Logotyper (sökväg relativt aktivt temas assets/). Byts enklast via
     // /admin/ ("Webbplats"-fliken). Headern byter bakgrund med ljust/

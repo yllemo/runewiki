@@ -125,7 +125,7 @@ $crumbParts = ($showEditLink && $currentTarget !== '') ? explode(':', $currentTa
                         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <?= Helpers::e($strings['nav_search']) ?>
                     </a>
-                    <a class="gbg-dropdown-item" href="/media">
+                    <a class="gbg-dropdown-item" href="/images">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
                         <?= Helpers::e($strings['nav_media']) ?>
                     </a>

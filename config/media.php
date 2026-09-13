@@ -2,15 +2,15 @@
 /**
  * config/media.php
  *
- * Inställningar för filuppladdning till /media. Samma namespace-mappning
+ * Inställningar för filuppladdning till /images. Samma namespace-mappning
  * som /content — en uppladdning till namespace "projekt" hamnar i
- * media/projekt/<filnamn>, hanterat av core/Media.php.
+ * images/projekt/<filnamn>, hanterat av core/Media.php.
  */
 
 return [
     'max_upload_size_mb' => 10,
 
-    // Endast bilder — /media är ett bildgalleri (se templates/default/media.php),
+    // Endast bilder — /images är ett bildgalleri (se templates/default/media.php),
     // inte allmän fillagring. Utöka listan här om du vill tillåta fler format.
     'allowed_extensions' => [
         'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp',

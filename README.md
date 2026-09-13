@@ -31,7 +31,7 @@ vill, det är bara ett förslag på en första struktur.
 
 1. Peka Apache mot **projektets rot** — `index.php` ligger direkt i webroten.
 2. Kontrollera att `mod_rewrite` är aktiverat (`.htaccess` finns redan).
-3. Ge webbservern skrivrättigheter till `content/`, `media/`, `data/` och
+3. Ge webbservern skrivrättigheter till `content/`, `images/`, `data/` och
    `templates/<tema>/assets/img/` (den sista behövs bara om du laddar upp
    egna logotyper via `/admin/`).
 4. Kopiera `config/config.example.php` till `config/config.php` och justera.
@@ -75,10 +75,10 @@ vill, det är bara ett förslag på en första struktur.
 - `tag:nyckelord` söker exakt tagg-matchning i frontmatter
 - "Skapa sida"-förslag när inga träffar hittas
 
-### Media (/media)
-- `/media` (utan namespace i URL:en) visar en **global översikt över alla
+### Media (/images)
+- `/images` (utan namespace i URL:en) visar en **global översikt över alla
   namespaces** med media på en gång, grupperat med en klickbar rubrik per
-  namespace; `/media/<namespace>` visar (och laddar upp till) bara det
+  namespace; `/images/<namespace>` visar (och laddar upp till) bara det
   namespacet
 - Bilder visas som miniatyrer i ett rutnät så man ser vilka bilder som
   redan finns; övriga filtyper (PDF m.fl.) som ikonkort — filnamn,
@@ -204,7 +204,7 @@ Varje rad i punktlistan blir en knapp, i angiven ordning:
 |--------|----------|
 | `[[sida]]` | Wiki-länk; knappens text = sidans titel |
 | `[[sida\|Egen text]]` | Wiki-länk med egen knapptext |
-| `[Egen text](https://...)` | Extern länk (eller absolut sökväg, t.ex. `/media`) |
+| `[Egen text](https://...)` | Extern länk (eller absolut sökväg, t.ex. `/images`) |
 
 Rader som inte matchar något av detta ignoreras, och HTML-kommentarer
 (`<!-- ... -->`, även flerradiga) tas bort innan tolkning — filen kan alltså

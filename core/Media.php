@@ -3,7 +3,7 @@
  * core/Media.php
  *
  * Hanterar uppladdning, listning och borttagning av mediefiler under
- * /media. Samma namespace-mappning som PageId använder för /content.
+ * /images. Samma namespace-mappning som PageId använder för /content.
  */
 
 class Media
@@ -68,7 +68,7 @@ class Media
         $moved      = $isUploaded && move_uploaded_file($file['tmp_name'], $path);
         if (!$moved) {
             // Detaljerna i meddelandet (inte bara "det gick inte") är
-            // tillfällig felsökning — de visas direkt på /media (se
+            // tillfällig felsökning — de visas direkt på /images (se
             // Wiki::handleMediaUpload() + media.php). Ta bort igen när
             // felet är hittat.
             throw new RuntimeException(sprintf(
@@ -100,7 +100,7 @@ class Media
         return $id->toFilePath($this->mediaDir);
     }
 
-    /** Filstorlek i byte, eller 0 om filen inte finns. Används av /media-listan. */
+    /** Filstorlek i byte, eller 0 om filen inte finns. Används av /images-listan. */
     public function filesize(MediaId $id): int
     {
         $path = $id->toFilePath($this->mediaDir);
@@ -126,9 +126,9 @@ class Media
     }
 
     /**
-     * Listar mediefiler i ALLA namespaces (varje undermapp under /media,
+     * Listar mediefiler i ALLA namespaces (varje undermapp under /images,
      * plus rotnivåns filer), grupperat per namespace — för en global
-     * översikt på /media (utan namespace i URL:en). Namespaces utan några
+     * översikt på /images (utan namespace i URL:en). Namespaces utan några
      * filer utelämnas. Nyckeln '' är rotnivåns filer.
      *
      * @return array<string, string[]> namespace => medie-ID:n

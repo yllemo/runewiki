@@ -77,7 +77,7 @@ runewiki/
 │   ├── edit.php                 ← Monaco Editor med tre IntelliSense-providers (se nedan)
 │   ├── search.php               ← Sökresultat; tagg-rubrik vid tag:-sökning; "Skapa sida"-förslag
 │   ├── media.php                ← Bildgalleri (rutnät med miniatyrer) + ikonkort för övriga
-│   │                              filtyper. /media visar ALLA namespaces grupperat; /media/<ns>
+│   │                              filtyper. /images visar ALLA namespaces grupperat; /images/<ns>
 │   │                              bara ett. Uppladdningsformulär bara om canUpload (inloggad)
 │   ├── footer.php               ← Sidindex (paginerat, "Visa fler") + mörk sidfot med two-kolumner
 │   └── assets/
@@ -144,7 +144,7 @@ Första kolondelen = mapp (namespace). Resten slås ihop med `.` till filnamnet:
 | `namespace:page1:start` | `content/namespace/page1.start.md` | `/namespace/page1/start` |
 | `a:b:c:d` | `content/a/b.c.d.md` | `/a/b/c/d` |
 
-Samma mappningsregel gäller `MediaId` mot `/media`.
+Samma mappningsregel gäller `MediaId` mot `/images`.
 
 ---
 
@@ -160,7 +160,7 @@ Samma mappningsregel gäller `MediaId` mot `/media`.
 | `[text](/namespace/sida)` | Markdown-länk till intern sida (kollar existens) |
 | `[text](namespace:sida)` | Markdown-länk med kolon-ID |
 | `[text](https://…)` | Extern Markdown-länk med `rel="noopener noreferrer"` |
-| `{{namespace:bild.png}}` | Bildinbäddning från `/media` |
+| `{{namespace:bild.png}}` | Bildinbäddning från `/images` |
 | `{{namespace:fil.pdf\|Ladda ner}}` | Nedladdningslänk |
 | `**fet**`, `*kursiv*`, `` `kod` `` | Standard Markdown |
 | ` ```php … ``` ` | Kodblock med valfri språkmarkering |

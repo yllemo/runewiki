@@ -38,7 +38,7 @@ Genvägar konfigurerade i `config/interwiki.php`:
 
 ## Media
 
-Ladda upp en fil på [/media](/media) och bädda in den i en sida:
+Ladda upp en fil på [/images](/images) och bädda in den i en sida:
 
 ```
 {{namespace:bild.png}}

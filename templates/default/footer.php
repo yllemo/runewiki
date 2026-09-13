@@ -78,7 +78,7 @@ function gbgIndexGroup(array $pages, int $limit, string $showMoreTpl): string
             <h2><?= Helpers::e($strings['footer_tools_heading']) ?></h2>
             <ul>
                 <li><a href="/?do=search"><?= Helpers::e($strings['nav_search']) ?></a></li>
-                <li><a href="/media"><?= Helpers::e($strings['nav_media']) ?></a></li>
+                <li><a href="/images"><?= Helpers::e($strings['nav_media']) ?></a></li>
                 <li><a href="/start"><?= Helpers::e($strings['nav_start']) ?></a></li>
             </ul>
         </div>

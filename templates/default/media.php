@@ -2,8 +2,8 @@
 /**
  * templates/default/media.php
  *
- * Mediahanterare: vid /media/<namespace> visas (och kan laddas upp till) det
- * namespacet; vid /media (utan namespace i URL:en) visas en global
+ * Mediahanterare: vid /images/<namespace> visas (och kan laddas upp till) det
+ * namespacet; vid /images (utan namespace i URL:en) visas en global
  * översikt över ALLA namespaces med media på en gång, grupperat med en
  * rubrik per namespace. Bilder visas som miniatyrer i ett rutnät; övriga
  * filtyper som ikonkort. Uppladdningsformuläret visas bara om $canUpload
@@ -22,7 +22,7 @@
  * försök (ingen redirect — se stor kommentar i handleMediaUpload()).
  */
 $isGlobalView = $namespace === '';
-$uploadTarget = '/media' . ($namespace !== '' ? '/' . str_replace(':', '/', $namespace) : '');
+$uploadTarget = '/images' . ($namespace !== '' ? '/' . str_replace(':', '/', $namespace) : '');
 $hasAnyFiles  = false;
 foreach ($groupedFiles as $groupItems) {
     if (!empty($groupItems)) {
@@ -73,7 +73,7 @@ foreach ($groupedFiles as $groupItems) {
             <?php if (empty($files)): continue; endif; ?>
             <?php if ($isGlobalView): ?>
                 <h2 class="gbg-media-ns-heading">
-                    <a href="/media/<?= Helpers::e(str_replace(':', '/', $ns)) ?>"><?= $ns !== '' ? Helpers::e($ns) : '(rot)' ?></a>
+                    <a href="/images/<?= Helpers::e(str_replace(':', '/', $ns)) ?>"><?= $ns !== '' ? Helpers::e($ns) : '(rot)' ?></a>
                     <span class="gbg-admin-flag"><?= count($files) ?></span>
                 </h2>
             <?php endif; ?>

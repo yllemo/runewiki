@@ -4,15 +4,15 @@
  *
  * Värdesobjekt för en mediefil, t.ex. "projekt:diagram.png".
  * Samma mappningsregel som PageId: första delen = namespace-mapp
- * under /media, resten (inkl. filändelsen) blir filnamnet.
+ * under /images, resten (inkl. filändelsen) blir filnamnet.
  *
- *   "logo.png"              -> media/logo.png
- *   "projekt:diagram.png"   -> media/projekt/diagram.png
+ *   "logo.png"              -> images/logo.png
+ *   "projekt:diagram.png"   -> images/projekt/diagram.png
  */
 
 class MediaId
 {
-    /** Filändelser som visas som bildminiatyr i /media och embeddas som <img> av Parser. */
+    /** Filändelser som visas som bildminiatyr i /images och embeddas som <img> av Parser. */
     private const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif', 'bmp', 'ico'];
 
     private string $id;
@@ -52,7 +52,7 @@ class MediaId
             : $this->parts[0];
     }
 
-    /** True om filändelsen är en bildtyp — styr om /media visar en miniatyr eller en filikon. */
+    /** True om filändelsen är en bildtyp — styr om /images visar en miniatyr eller en filikon. */
     public function isImage(): bool
     {
         $ext = strtolower(pathinfo($this->filename(), PATHINFO_EXTENSION));
@@ -72,8 +72,8 @@ class MediaId
     {
         $ns = $this->namespace();
         return $ns === ''
-            ? '/media/' . rawurlencode($this->filename())
-            : '/media/' . $ns . '/' . rawurlencode($this->filename());
+            ? '/images/' . rawurlencode($this->filename())
+            : '/images/' . $ns . '/' . rawurlencode($this->filename());
     }
 
     public function __toString(): string

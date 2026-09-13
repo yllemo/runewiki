@@ -33,7 +33,7 @@ class Wiki
         $this->config = $config;
 
         $contentDir   = $this->root . '/content';
-        $mediaDir     = $this->root . '/' . ($config['media_dir'] ?? 'media');
+        $mediaDir     = $this->root . '/' . ($config['media_dir'] ?? 'images');
         $templatesDir = $this->root . '/templates';
         $pluginsDir   = $this->root . '/plugins';
         $dataDir      = $this->root . '/data';
@@ -472,13 +472,13 @@ class Wiki
     /**
      * $_POST['ajax'] === '1' (satt av editorns klistra-in-bild-funktion,
      * se edit.php) gör att svaret blir JSON istället för en redirect —
-     * annars identiskt med det vanliga formuläret på /media.
+     * annars identiskt med det vanliga formuläret på /images.
      */
     private function handleMediaUpload(string $namespace): string
     {
         $isAjax = ($_POST['ajax'] ?? '') === '1';
 
-        // Diagnostik som visas direkt i den gula rutan på /media (se
+        // Diagnostik som visas direkt i den gula rutan på /images (se
         // handleMediaList()/media.php) — inte i en serverlogg eller via
         // sessionen (se stor kommentar nedan för varför).
         $debug = [
@@ -531,7 +531,7 @@ class Wiki
         // (t.ex. av session_start(), en varning, eller en extra
         // whitespace-byte i en inkluderad fil). Misslyckas det tyst
         // (display_errors=Off) blir resultatet en HELT TOM sida kvar på
-        // exakt /media?do=upload — inget felmeddelande, ingen
+        // exakt /images?do=upload — inget felmeddelande, ingen
         // omdirigering — precis det symptomet som gjorde det här felet så
         // svårt att felsöka. Att rendera direkt eliminerar hela den
         // felkällan: den enda kvarvarande header()-anropet är
@@ -549,20 +549,20 @@ class Wiki
     }
 
     /**
-     * /media (utan namespace i URL:en) visar en global översikt över ALLA
-     * namespaces med media på en gång; /media/<namespace> visar (och
+     * /images (utan namespace i URL:en) visar en global översikt över ALLA
+     * namespaces med media på en gång; /images/<namespace> visar (och
      * laddar upp till) bara det namespacet. Uppladdning kräver inloggning
      * när auth_enabled = true (canUpload skickas till temat, som döljer
      * formuläret annars) — läsning/bläddring är alltid öppet.
      */
     private function handleMediaList(string $namespace, ?string $uploadMessage = null, ?array $uploadDebug = null): string
     {
-        // /media/<namespace>/<fil> (eller /media/<fil> i roten) pekar
+        // /images/<namespace>/<fil> (eller /images/<fil> i roten) pekar
         // egentligen på en SPECIFIK, redan uppladdad fil — inte en
         // namespace-listning. Router.php kan inte skilja de två åt (den
         // gör bara om "/" till ":" och skickar hit resten), så det är
         // egentligen webbserverns jobb att fånga riktiga filer under
-        // media/ innan de ens når PHP (.htaccess gör det för Apache).
+        // images/ innan de ens når PHP (.htaccess gör det för Apache).
         // Men PHPs inbyggda utvecklingsserver (`php -S ... index.php`,
         // se README) — eller en webbserver där .htaccess/mod_rewrite av
         // någon anledning inte läses — skickar ALLTID hit sådana
@@ -578,11 +578,11 @@ class Wiki
                 return '';
             }
         } catch (\Throwable) {
-            // Tomt/ogiltigt medie-ID (t.ex. /media-roten) — fortsätt som listning.
+            // Tomt/ogiltigt medie-ID (t.ex. /images-roten) — fortsätt som listning.
         }
 
         // Berikar varje ID med MediaId, om det är en bild (miniatyr kontra
-        // filikon i /media) och filstorlek — så temat slipper bygga om det.
+        // filikon i /images) och filstorlek — så temat slipper bygga om det.
         $enrich = function (string $fileId): array {
             $mediaId = new MediaId($fileId);
             return [

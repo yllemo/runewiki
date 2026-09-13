@@ -7,7 +7,7 @@
  *   3. Wiki-interlinks [[...]] med befintliga sid-ID:n
  *   4. Media-embeds {{...}} med befintliga uppladdade filer
  * Klistrar man in (Ctrl+V) eller drar-och-släpper en bild laddas den upp
- * till /media (samma namespace som sidan som redigeras) och {{id|alt}}
+ * till /images (samma namespace som sidan som redigeras) och {{id|alt}}
  * skrivs in vid markören.
  */
 $allPagesJson  = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
@@ -365,7 +365,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         });
 
         // ── Klistra in (Ctrl+V) eller dra-och-släpp en bild → ladda upp till
-        // /media, skriv in {{id|alt}} — två oberoende sätt att trigga samma
+        // /images, skriv in {{id|alt}} — två oberoende sätt att trigga samma
         // uppladdningsfunktion, så det ena fungerar även om det andra av
         // någon anledning inte gör det (t.ex. urklipps-behörighet i
         // webbläsaren, eller att OS/skärmdumpsverktyget inte lägger en
@@ -385,7 +385,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         }
 
         /**
-         * Laddar upp en fil (från urklipp eller dra-och-släpp) till /media
+         * Laddar upp en fil (från urklipp eller dra-och-släpp) till /images
          * (samma namespace som sidan som redigeras — root om sidan ligger
          * i roten) och ersätter en tillfällig "laddar upp"-platshållartext
          * med den riktiga {{id|alt}}-embedden när svaret kommer. En
@@ -430,8 +430,8 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             fd.append('upload', file, file.name && /\.[a-z0-9]+$/i.test(file.name) ? file.name : 'bild-' + Date.now() + '.' + ext);
 
             var uploadUrl = mediaNs
-                ? '/media/' + mediaNs.split(':').join('/') + '?do=upload'
-                : '/media?do=upload';
+                ? '/images/' + mediaNs.split(':').join('/') + '?do=upload'
+                : '/images?do=upload';
             console.log('[RuneWiki] POST', uploadUrl);
 
             fetch(uploadUrl, { method: 'POST', body: fd })
@@ -556,7 +556,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         // byggt direkt från $allMedia — visar bara bildfiler (samma
         // filändelse-lista som MediaId::isImage() i PHP). Val infogar
         // {{namespace:fil.png}} — den relativa embed-syntax Parser.php
-        // löser upp till /media/... (flyttar sig alltså inte om sajten
+        // löser upp till /images/... (flyttar sig alltså inte om sajten
         // byter domän). Markörens position kommer ihåg (samma sticky-
         // decoration-teknik som klistra-in-bild ovan) så infogningen
         // hamnar rätt även om man hunnit klicka någon annanstans i
@@ -566,11 +566,11 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             var m = /\.([a-z0-9]+)$/i.exec(id);
             return !!m && IMAGE_EXTENSIONS.indexOf(m[1].toLowerCase()) !== -1;
         }
-        /** "ns:fil.png" -> "/media/ns/fil.png", "fil.png" -> "/media/fil.png". */
+        /** "ns:fil.png" -> "/images/ns/fil.png", "fil.png" -> "/images/fil.png". */
         function mediaThumbUrl(id) {
             var i = id.indexOf(':');
-            if (i === -1) return '/media/' + encodeURIComponent(id);
-            return '/media/' + id.slice(0, i).split(':').map(encodeURIComponent).join('/')
+            if (i === -1) return '/images/' + encodeURIComponent(id);
+            return '/images/' + id.slice(0, i).split(':').map(encodeURIComponent).join('/')
                 + '/' + encodeURIComponent(id.slice(i + 1));
         }
 
@@ -601,7 +601,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             var shown  = lower ? images.filter(function (id) { return id.toLowerCase().indexOf(lower) !== -1; }) : images;
 
             if (!images.length) {
-                pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder uppladdade ännu. Ladda upp via <a href="/media" target="_blank" rel="noopener">Mediahanterare</a>.</p>';
+                pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder uppladdade ännu. Ladda upp via <a href="/images" target="_blank" rel="noopener">Mediahanterare</a>.</p>';
             } else if (!shown.length) {
                 pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder matchar sökningen.</p>';
             } else {

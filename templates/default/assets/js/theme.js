@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ── Lightbox för bilder — sidinnehållets media-embeds ({{ns:bild.png}},
-  // se core/Parser.php) och /media-galleriets miniatyrer (se media.php),
+  // se core/Parser.php) och /images-galleriets miniatyrer (se media.php),
   // båda taggade med .gbg-lightbox-img. Klick öppnar bilden i fullskärm
   // istället för att navigera bort (media-galleriets <a target="_blank">
   // avbryts med preventDefault när målet faktiskt är en sådan bild).
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('click', function (e) {
     var img = e.target.closest && e.target.closest('.gbg-lightbox-img');
     if (img) {
-      e.preventDefault(); // avbryter ev. omslutande länk (t.ex. /media-galleriets "öppna i ny flik")
+      e.preventDefault(); // avbryter ev. omslutande länk (t.ex. /images-galleriets "öppna i ny flik")
       openLightbox(img.currentSrc || img.src, img.alt);
       return;
     }

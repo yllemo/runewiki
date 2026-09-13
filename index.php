@@ -7,7 +7,7 @@
  * krävs) och startar Wiki-kärnan.
  *
  * Källkod, innehåll och data skyddas från direktåtkomst via .htaccess;
- * endast index.php själv, media/ och mall-assets (templates/<tema>/assets)
+ * endast index.php själv, images/ och mall-assets (templates/<tema>/assets)
  * nås direkt av webbservern.
  */
 
@@ -23,16 +23,16 @@ $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 
 // PHPs inbyggda server körs med index.php som ROUTERSKRIPT (inte bara en
 // docroot) — den kör då ALLTID hela den här filen för varje request, även
-// för en riktig fil under media/ eller ett temas assets/-mapp, som annars
+// för en riktig fil under images/ eller ett temas assets/-mapp, som annars
 // (t.ex. under Apache/.htaccess) skulle nå webbservern direkt utan att
 // gå via PHP alls. Utan denna `return false` skulle Wiki::run() nedan
-// köras även för sådana filer och (för media/) tolka filnamnet som ett
+// köras även för sådana filer och (för images/) tolka filnamnet som ett
 // namespace istället för att returnera filens rådata — precis det som
 // gör att uppladdade bilder aldrig visas lokalt. Se även skyddsnätet i
 // Wiki::handleMediaList() för fallet där man ändå kör utan denna bypass
 // (t.ex. Apache med en webbserver som av någon anledning inte läser
 // .htaccess).
-if (PHP_SAPI === 'cli-server' && preg_match('#^/(media/|templates/[^/]+/assets/)#', $requestPath) && is_file($root . $requestPath)) {
+if (PHP_SAPI === 'cli-server' && preg_match('#^/(images/|templates/[^/]+/assets/)#', $requestPath) && is_file($root . $requestPath)) {
     return false; // låt PHPs inbyggda server servera filen som den är
 }
 

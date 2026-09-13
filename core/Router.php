@@ -11,7 +11,7 @@
  *   /namespace/page1/start?do=edit -> redigera (eller skapa om saknas)
  *   POST /namespace/page1/start?do=save -> spara
  *   /namespace/page1/start?do=download -> ladda ner sidans .md-fil
- *   POST /media/<namespace>?do=upload  -> ladda upp fil till namespace
+ *   POST /images/<namespace>?do=upload  -> ladda upp fil till namespace
  *   /?do=search&q=sökterm          -> sökresultat
  *   /?do=login                     -> inloggningsformulär (GET/POST)
  *   POST /?do=logout                -> loggar ut
@@ -31,8 +31,8 @@ class Router
         $do = $queryParams['do'] ?? 'view';
         $path = trim($path, '/');
 
-        if ($path === 'media' || str_starts_with($path, 'media/')) {
-            $namespace = trim(substr($path, 5), '/');
+        if ($path === 'images' || str_starts_with($path, 'images/')) {
+            $namespace = trim(substr($path, 6), '/');
             $namespace = str_replace('/', ':', $namespace);
             return [
                 'action'    => $method === 'POST' ? 'media-upload' : 'media-list',

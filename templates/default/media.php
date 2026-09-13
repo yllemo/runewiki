@@ -80,6 +80,15 @@ foreach ($groupedFiles as $groupItems) {
                             <span class="gbg-media-size"><?= Helpers::e(Helpers::formatBytes($f['size'])) ?></span>
                         </div>
                         <code class="gbg-media-embed" title="Klistra in i sidans Markdown för att bädda in filen">{{<?= Helpers::e($f['id']) ?>}}</code>
+                        <?php if ($canUpload ?? false): ?>
+                            <form class="gbg-media-delete" method="post" action="<?= Helpers::e($uploadTarget) ?>?do=delete"
+                                  data-filename="<?= Helpers::e($mediaId->filename()) ?>"
+                                  onsubmit="return confirm('Ta bort ' + this.dataset.filename + '? Bilden tas bort permanent och försvinner från sidor där den används.');">
+                                <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+                                <input type="hidden" name="media_id" value="<?= Helpers::e($f['id']) ?>">
+                                <button type="submit" class="gbg-btn gbg-btn-outline" aria-label="Ta bort <?= Helpers::e($mediaId->filename()) ?>">Ta bort</button>
+                            </form>
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>

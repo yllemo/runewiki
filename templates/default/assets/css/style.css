@@ -775,6 +775,9 @@ a.media-download {
 /* ── Lightbox — se assets/js/theme.js ────────────────────────────────
    Klickbara bilder (sidinnehållets media-embeds + /media-galleriets
    miniatyrer, båda taggade .gbg-lightbox-img av PHP-sidan). */
+.gbg-media-delete { margin: .65rem .75rem .75rem; }
+.gbg-media-delete .gbg-btn { width: 100%; color: var(--gs-red); border-color: var(--gs-red); font-size: .8rem; }
+.gbg-media-delete .gbg-btn:hover { background: var(--gs-red); color: #fff; }
 .gbg-lightbox-img { cursor: zoom-in; }
 
 .gbg-lightbox {
@@ -993,6 +996,65 @@ blockquote {
 table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
 th, td { border: 1px solid var(--border-color); padding: 0.5rem 0.75rem; text-align: left; }
 th { background: var(--bg-subtle); }
+
+/* Readable Markdown in both themes; wide content scrolls within the article. */
+.wiki-body { line-height: 1.75; overflow-wrap: anywhere; min-width: 0; }
+.wiki-body > :first-child { margin-top: 0; }
+.wiki-body h1, .wiki-body h2, .wiki-body h3, .wiki-body h4,
+.wiki-body h5, .wiki-body h6 { line-height: 1.3; margin: 1.8em 0 .65em; font-weight: 700; }
+.wiki-body h1 { font-size: 2em; }
+.wiki-body h2 { font-size: 1.55em; padding-bottom: .4em; border-bottom: 1px solid var(--border-color); }
+.wiki-body h3 { font-size: 1.25em; }
+.wiki-body h4 { font-size: 1.1em; }
+.wiki-body h5, .wiki-body h6 { font-size: 1em; }
+.wiki-body p, .wiki-body ul, .wiki-body ol { margin: .8em 0 1.1em; }
+.wiki-body ul, .wiki-body ol { padding-left: 1.65em; }
+.wiki-body li { padding-left: .2em; margin: .3em 0; }
+.wiki-body li > ul, .wiki-body li > ol { margin: .35em 0; }
+.wiki-body li::marker { color: var(--text-secondary); }
+.wiki-body .md-task { list-style: none; }
+.wiki-body .md-task input { margin-left: -1.5em; margin-right: .45em; accent-color: var(--accent); }
+.wiki-body blockquote { border-left: 4px solid var(--accent); background: var(--bg-subtle); border-radius: 0 8px 8px 0; padding: .4em 1.25em; }
+.wiki-body blockquote > :first-child { margin-top: .4em; }
+.wiki-body blockquote > :last-child { margin-bottom: .4em; }
+.wiki-body pre { border: 1px solid var(--border-color); border-radius: 8px; line-height: 1.6; padding: 1.1rem 1.25rem; overflow-wrap: normal; }
+.wiki-body code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .88em; }
+.wiki-body pre code { padding: 0; background: transparent; font-size: .88rem; }
+.wiki-body hr { border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+.wiki-body img { max-width: 100%; height: auto; border-radius: 6px; }
+.md-table-scroll { overflow-x: auto; margin: 1.4rem 0; border: 1px solid var(--border-color); border-radius: 8px; }
+.md-table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.wiki-body .md-table-scroll table { margin: 0; border: 0; font-size: .94em; line-height: 1.55; }
+.wiki-body .md-table-scroll th, .wiki-body .md-table-scroll td { border: 0; border-bottom: 1px solid var(--border-color); padding: .8rem 1rem; min-width: 7rem; vertical-align: top; }
+.wiki-body .md-table-scroll th { font-weight: 700; white-space: nowrap; }
+.wiki-body .md-table-scroll tbody tr:nth-child(even) { background: var(--bg-subtle); }
+.wiki-body .md-table-scroll tbody tr:last-child td { border-bottom: 0; }
+.wiki-body .md-align-left { text-align: left; }
+.wiki-body .md-align-center { text-align: center; }
+.wiki-body .md-align-right { text-align: right; }
+
+.wiki-body .mmd-diagram { position: relative; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: 10px; margin: 1.5rem 0; background: var(--bg-card); }
+.mmd-open { display: block; margin: 1rem auto 0; border: 1px solid var(--border-color); border-radius: 6px; padding: .5rem .9rem; color: var(--text-color); background: var(--bg-subtle); cursor: pointer; font: inherit; font-size: .85rem; }
+.wiki-body .mmd-diagram > svg { cursor: zoom-in; }
+.mmd-viewer { width: calc(100vw - 24px); max-width: none; height: calc(100dvh - 24px); max-height: none; padding: 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-color); color: var(--text-color); box-shadow: 0 20px 80px #0006; }
+.mmd-viewer[open] { display: flex; flex-direction: column; }
+.mmd-viewer::backdrop { background: #0b1224bb; backdrop-filter: blur(4px); }
+.mmd-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .75rem 1rem; border-bottom: 1px solid var(--border-color); }
+.mmd-toolbar strong { margin-right: auto; }
+.mmd-toolbar button { border: 1px solid var(--border-color); border-radius: 6px; padding: .5rem .75rem; min-height: 40px; background: var(--bg-subtle); color: inherit; cursor: pointer; font: inherit; }
+.mmd-toolbar output { min-width: 4em; text-align: center; font-variant-numeric: tabular-nums; }
+.mmd-viewport { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: grab; touch-action: none; background: var(--bg-color); }
+.mmd-viewport.is-dragging { cursor: grabbing; }
+.mmd-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.mmd-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; user-select: none; }
+.mmd-canvas svg { display: block; pointer-events: none; }
+.mmd-help { margin: 0; padding: .6rem 1rem; border-top: 1px solid var(--border-color); font-size: .8rem; color: var(--text-secondary); }
+@media (max-width: 600px) {
+  .mmd-toolbar { gap: .3rem; padding: .5rem; }
+  .mmd-toolbar strong { display: none; }
+  .mmd-toolbar button { padding: .45rem .6rem; }
+  .wiki-body .md-table-scroll th, .wiki-body .md-table-scroll td { padding: .65rem .75rem; }
+}
 
 /* ── Sidindex-band (ovanför sidfoten) ─────────────────────────────── */
 

@@ -25,6 +25,7 @@
 
 class Parser
 {
+    public const VERSION = '2';
     private array $interwiki;
     private ?PageLoader $pageLoader;
     private ?PluginManager $plugins;
@@ -42,16 +43,10 @@ class Parser
         $this->codeBlocks = [];
 
         $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
+        $markdown = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $markdown);
         $markdown = $this->extractFencedCode($markdown);
 
-        $blocks = preg_split('/\n{2,}/', trim($markdown));
-        $html   = [];
-
-        foreach ($blocks as $block) {
-            $html[] = $this->renderBlock($block);
-        }
-
-        $result = implode("\n", $html);
+        $result = $this->renderBlocks($markdown);
         $result = $this->restoreCodeBlocks($result);
 
         if ($this->plugins) {
@@ -66,12 +61,12 @@ class Parser
 
     private function extractFencedCode(string $md): string
     {
-        return preg_replace_callback('/```(\w*)\n(.*?)\n```/s', function ($m) {
+        return preg_replace_callback('/^ {0,3}(`{3,}|~{3,})([^\n]*)\n(.*?)\n {0,3}\1[ \t]*(?=\n|$)/ms', function ($m) {
             $token = "\x01CODEBLOCK" . count($this->codeBlocks) . "\x01";
-            $lang  = Helpers::e($m[1]);
-            $code  = Helpers::e($m[2]);
+            $lang  = Helpers::e(preg_split('/\s+/', trim($m[2]))[0]);
+            $code  = Helpers::e($m[3]);
             $this->codeBlocks[] = '<pre><code' . ($lang ? ' class="language-' . $lang . '"' : '') . '>' . $code . '</code></pre>';
-            return $token;
+            return "\n\n" . $token . "\n\n";
         }, $md);
     }
 
@@ -83,39 +78,127 @@ class Parser
         return $html;
     }
 
-    private function renderBlock(string $block): string
+    /** Parse blocks line by line, including adjacent blocks and nested lists. */
+    private function renderBlocks(string $markdown): string
     {
-        if (str_starts_with(trim($block), "\x01CODEBLOCK")) {
-            return trim($block);
+        $lines = explode("\n", trim($markdown, "\n"));
+        $html = [];
+        for ($i = 0, $count = count($lines); $i < $count;) {
+            $line = $lines[$i];
+            if (trim($line) === '') { $i++; continue; }
+            if (preg_match('/^\x01CODEBLOCK\d+\x01$/', trim($line))) {
+                $html[] = trim($line); $i++; continue;
+            }
+            if (preg_match('/^ {0,3}(#{1,6})\s+(.+?)\s*#*$/', $line, $m)) {
+                $level = strlen($m[1]);
+                $html[] = "<h{$level}>" . $this->inline($m[2]) . "</h{$level}>";
+                $i++; continue;
+            }
+            if (preg_match('/^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/', $line)) {
+                $html[] = '<hr>'; $i++; continue;
+            }
+            if (isset($lines[$i + 1]) && str_contains($line, '|') && ($align = $this->tableAlignment($lines[$i + 1])) !== null
+                && count($this->tableCells($line)) === count($align)) {
+                $row = function (string $text, string $tag) use ($align): string {
+                    $cells = $this->tableCells($text);
+                    $out = '<tr>';
+                    foreach ($align as $n => $alignment) {
+                        $out .= '<' . $tag . ($tag === 'th' ? ' scope="col"' : '') . ' class="md-align-' . $alignment . '">'
+                            . $this->inline($cells[$n] ?? '') . '</' . $tag . '>';
+                    }
+                    return $out . '</tr>';
+                };
+                $table = '<div class="md-table-scroll" role="region" aria-label="Tabell" tabindex="0"><table><thead>' . $row($line, 'th') . '</thead><tbody>';
+                $i += 2;
+                while ($i < $count && trim($lines[$i]) !== '' && str_contains($lines[$i], '|')) {
+                    $table .= $row($lines[$i++], 'td');
+                }
+                $html[] = $table . '</tbody></table></div>';
+                continue;
+            }
+            if (preg_match('/^ {0,3}> ?/', $line)) {
+                $quote = [];
+                while ($i < $count && preg_match('/^ {0,3}> ?(.*)$/', $lines[$i], $m)) {
+                    $quote[] = $m[1]; $i++;
+                }
+                $html[] = '<blockquote>' . $this->renderBlocks(implode("\n", $quote)) . '</blockquote>';
+                continue;
+            }
+            if (preg_match('/^( *)([-+*]|\d+[.)])\s+(.*)$/', $line, $m)) {
+                $indent = strlen($m[1]);
+                $ordered = ctype_digit($m[2][0]);
+                $tag = $ordered ? 'ol' : 'ul';
+                $list = '<' . $tag . ($ordered && (int) $m[2] !== 1 ? ' start="' . (int) $m[2] . '"' : '') . '>';
+                while ($i < $count && preg_match('/^( *)([-+*]|\d+[.)])\s+(.*)$/', $lines[$i], $m)
+                    && strlen($m[1]) === $indent && ctype_digit($m[2][0]) === $ordered) {
+                    $contentIndent = strpos($lines[$i], $m[3], $indent + strlen($m[2]));
+                    $item = [$m[3]];
+                    $i++;
+                    while ($i < $count) {
+                        if (trim($lines[$i]) === '') {
+                            if (isset($lines[$i + 1]) && strlen($lines[$i + 1]) - strlen(ltrim($lines[$i + 1], ' ')) > $indent) {
+                                $item[] = ''; $i++; continue;
+                            }
+                            break;
+                        }
+                        $leading = strlen($lines[$i]) - strlen(ltrim($lines[$i], ' '));
+                        if ($leading <= $indent) break;
+                        $item[] = substr($lines[$i++], min($leading, $contentIndent));
+                    }
+                    $task = preg_match('/^\[([ xX])\]\s+(.*)$/', $item[0], $check);
+                    if ($task) $item[0] = $check[2];
+                    $body = $this->renderBlocks(implode("\n", $item));
+                    $body = preg_replace('/^<p>(.*?)<\/p>/s', '$1', $body);
+                    $list .= '<li' . ($task ? ' class="md-task"' : '') . '>'
+                        . ($task ? '<input type="checkbox" disabled aria-label="' . ($check[1] === ' ' ? 'Ej klar' : 'Klar') . '"' . ($check[1] !== ' ' ? ' checked' : '') . '> ' : '')
+                        . $body . '</li>';
+                }
+                $html[] = $list . '</' . $tag . '>';
+                continue;
+            }
+            if (isset($lines[$i + 1]) && preg_match('/^ {0,3}(=+|-+)\s*$/', $lines[$i + 1], $m)) {
+                $level = $m[1][0] === '=' ? 1 : 2;
+                $html[] = "<h{$level}>" . $this->inline($line) . "</h{$level}>";
+                $i += 2; continue;
+            }
+            $paragraph = [$line]; $i++;
+            while ($i < $count && trim($lines[$i]) !== '' && !$this->startsBlock($lines, $i)) {
+                $paragraph[] = $lines[$i++];
+            }
+            $html[] = '<p>' . $this->inline(implode("\n", $paragraph)) . '</p>';
         }
+        return implode("\n", $html);
+    }
 
-        if (preg_match('/^(#{1,6})\s+(.*)$/', $block, $m)) {
-            $level = strlen($m[1]);
-            return "<h{$level}>" . $this->inline(trim($m[2])) . "</h{$level}>";
+    private function startsBlock(array $lines, int $i): bool
+    {
+        return preg_match('/^\s*(?:#{1,6}\s|>|[-+*]\s|\d+[.)]\s|\x01CODEBLOCK|(?:-\s*){3,}$|(?:\*\s*){3,}$|(?:_\s*){3,}$)/', $lines[$i])
+            || (isset($lines[$i + 1]) && ((str_contains($lines[$i], '|') && $this->tableAlignment($lines[$i + 1]) !== null)
+                || preg_match('/^ {0,3}(?:=+|-+)\s*$/', $lines[$i + 1])));
+    }
+
+    private function tableCells(string $line): array
+    {
+        // Protect pipes in inline code, wiki labels and escaped literal pipes.
+        $protected = [];
+        $line = preg_replace_callback('/`+[^`]*`+|\[\[.*?\]\]|\{\{.*?\}\}|\\\\\|/', function ($m) use (&$protected) {
+            $key = "\x04" . count($protected) . "\x04";
+            $protected[$key] = $m[0] === '\\|' ? '|' : $m[0];
+            return $key;
+        }, trim($line));
+        if (str_starts_with($line, '|')) $line = substr($line, 1);
+        if (str_ends_with($line, '|')) $line = substr($line, 0, -1);
+        return array_map(fn ($cell) => strtr(trim($cell), $protected), explode('|', $line));
+    }
+
+    private function tableAlignment(string $line): ?array
+    {
+        $align = [];
+        foreach ($this->tableCells($line) as $cell) {
+            if (!preg_match('/^:?-{3,}:?$/', $cell)) return null;
+            $align[] = str_ends_with($cell, ':') ? (str_starts_with($cell, ':') ? 'center' : 'right') : 'left';
         }
-
-        if (preg_match('/^---+$/', trim($block))) {
-            return '<hr>';
-        }
-
-        if (preg_match('/^>\s?/m', $block)) {
-            $lines = array_map(fn ($l) => preg_replace('/^>\s?/', '', $l), explode("\n", $block));
-            return '<blockquote><p>' . $this->inline(implode(' ', $lines)) . '</p></blockquote>';
-        }
-
-        $lines = explode("\n", $block);
-
-        if (preg_match('/^\s*[-*]\s+/', $lines[0])) {
-            $items = array_map(fn ($l) => '<li>' . $this->inline(preg_replace('/^\s*[-*]\s+/', '', $l)) . '</li>', $lines);
-            return '<ul>' . implode('', $items) . '</ul>';
-        }
-
-        if (preg_match('/^\s*\d+\.\s+/', $lines[0])) {
-            $items = array_map(fn ($l) => '<li>' . $this->inline(preg_replace('/^\s*\d+\.\s+/', '', $l)) . '</li>', $lines);
-            return '<ol>' . implode('', $items) . '</ol>';
-        }
-
-        return '<p>' . $this->inline($block) . '</p>';
+        return $align ?: null;
     }
 
     // ── Inline-nivå ───────────────────────────────────────────────────────────
@@ -135,32 +218,39 @@ class Parser
         $text = preg_replace_callback('/`([^`]+)`/', fn ($m) =>
             $tok('<code>' . Helpers::e($m[1]) . '</code>'), $text);
 
+        $text = preg_replace_callback('/\\\\([\\\\`*_{}\[\]()#+.!|>~-])/', fn ($m) => $tok(Helpers::e($m[1])), $text);
+
+        // Standard Markdown images use the same lightbox as wiki media embeds.
+        $text = preg_replace_callback('/!\[([^\]\x03]*)\]\(([^()\s"\x03]+)(?:\s+"([^"\x03]*)")?\)/', function ($m) use ($tok) {
+            $url = $m[2];
+            if (preg_match('/^[a-z][a-z0-9+.-]*:/i', $url) && !preg_match('#^https?://#i', $url)) return $tok(Helpers::e($m[0]));
+            return $tok('<img class="gbg-lightbox-img" src="' . Helpers::e($url) . '" alt="' . Helpers::e($m[1]) . '" loading="lazy"'
+                . (isset($m[3]) ? ' title="' . Helpers::e($m[3]) . '"' : '') . '>');
+        }, $text);
+
         // Media-embed {{id}} eller {{id|Alt}}
-        $text = preg_replace_callback('/\{\{([^{}|]+)(?:\|([^{}]+))?\}\}/', fn ($m) =>
+        $text = preg_replace_callback('/\{\{([^{}|\x03]+)(?:\|([^{}\x03]+))?\}\}/', fn ($m) =>
             $tok($this->renderMedia(trim($m[1]), isset($m[2]) ? trim($m[2]) : null)), $text);
 
         // Wiki-/interwiki-länkar [[...]]
-        $text = preg_replace_callback('/\[\[([^\[\]]+)\]\]/', fn ($m) =>
+        $text = preg_replace_callback('/\[\[([^\[\]\x03]+)\]\]/', fn ($m) =>
             $tok($this->renderWikiLink(trim($m[1]))), $text);
 
         // Markdown-länk [text](url)
-        $text = preg_replace_callback('/\[([^\[\]]+)\]\(([^()\s"]+)(?:\s+"[^"]*")?\)/', fn ($m) =>
+        $text = preg_replace_callback('/\[([^\[\]]+)\]\(([^()\s"\x03]+)(?:\s+"[^"\x03]*")?\)/', fn ($m) =>
             $tok($this->renderMarkdownLink($m[1], $m[2])), $text);
 
-        // Dela upp på tokens; escape klartext, applicera fetstil/kursiv
-        $parts = preg_split('/(\x03\d+\x03)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
-        $text  = implode('', array_map(function (string $part) use ($safe): string {
-            if (array_key_exists($part, $safe)) {
-                return $part; // platshållare — återställs i strtr() nedan
-            }
-            // Escape råa HTML-taggar från användarinnehåll
-            $part = htmlspecialchars($part, ENT_NOQUOTES, 'UTF-8');
-            $part = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $part);
-            $part = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '<em>$1</em>', $part);
-            return $part;
-        }, $parts));
-
-        return nl2br(strtr(trim($text), $safe));
+        // Tokens protect code/HTML while allowing emphasis around links and code.
+        $text = htmlspecialchars($text, ENT_NOQUOTES, 'UTF-8');
+        $text = preg_replace('/\*\*\*(.+?)\*\*\*/s', '<strong><em>$1</em></strong>', $text);
+        $text = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $text);
+        $text = preg_replace('/(?<!\w)__(.+?)__(?!\w)/s', '<strong>$1</strong>', $text);
+        $text = preg_replace('/~~(.+?)~~/s', '<del>$1</del>', $text);
+        $text = preg_replace('/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/s', '<em>$1</em>', $text);
+        $text = preg_replace('/(?<!\w)_(?!_)(.+?)(?<!_)_(?!\w)/s', '<em>$1</em>', $text);
+        // Later tokens may contain earlier ones (e.g. inline code in link labels).
+        foreach (array_reverse($safe, true) as $key => $html) $text = str_replace($key, $html, $text);
+        return nl2br(trim($text));
     }
 
     // ── Länk-renderers ────────────────────────────────────────────────────────

@@ -85,8 +85,26 @@ class Media
 
     public function delete(MediaId $id): bool
     {
+        // Only allow regular, visible files within the configured media directory.
+        foreach (explode(':', $id->id()) as $part) {
+            if ($part === '' || str_starts_with($part, '.') || preg_match('/[\\\\\/\x00-\x1F]/', $part)) {
+                throw new InvalidArgumentException('Ogiltigt bild-ID.');
+            }
+        }
         $path = $id->toFilePath($this->mediaDir);
-        return is_file($path) && unlink($path);
+        $root = realpath($this->mediaDir);
+        $resolved = realpath($path);
+        if ($root === false || $resolved === false || is_link($path) || !is_file($path)) return false;
+        $prefix = rtrim(str_replace('\\', '/', $root), '/') . '/';
+        $candidate = str_replace('\\', '/', $resolved);
+        if (PHP_OS_FAMILY === 'Windows') {
+            $prefix = strtolower($prefix);
+            $candidate = strtolower($candidate);
+        }
+        if (!str_starts_with($candidate, $prefix)) {
+            throw new InvalidArgumentException('Bilden ligger utanför mediamappen.');
+        }
+        return @unlink($path);
     }
 
     public function exists(MediaId $id): bool

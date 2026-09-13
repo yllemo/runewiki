@@ -83,6 +83,7 @@ class Wiki
             'delete'       => $this->handleDelete($intent['id']),
             'search'       => $this->handleSearch($intent['query']),
             'media-upload' => $this->handleMediaUpload($intent['namespace']),
+            'media-delete' => $this->handleMediaDelete($intent['namespace']),
             'media-list'   => $this->handleMediaList($intent['namespace']),
             'download'     => $this->handleDownload($intent['id']),
             'login'        => $this->handleLogin($_SERVER['REQUEST_METHOD'] ?? 'GET'),
@@ -168,7 +169,7 @@ class Wiki
         }
 
         $filePath = $id->toFilePath($this->root . '/content');
-        $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath);
+        $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath) . '-parser-' . Parser::VERSION;
         $bodyHtml = $this->cache->get($cacheKey);
 
         $page = $this->pages->load($id);
@@ -476,13 +477,18 @@ class Wiki
      */
     private function handleMediaUpload(string $namespace): string
     {
-        $isAjax = ($_POST['ajax'] ?? '') === '1';
+        $isAjax = ($_POST['ajax'] ?? '') === '1'
+            || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
 
         if (!$this->auth->canEdit()) {
             if ($isAjax) {
                 return $this->jsonResponse(['ok' => false, 'error' => 'Inte inloggad.'], 401);
             }
             return $this->handleMediaList($namespace, 'Fel: Inte inloggad.');
+        }
+
+        if ($isAjax && empty($_POST) && empty($_FILES) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+            return $this->jsonResponse(['ok' => false, 'error' => 'Servern kunde inte ta emot uppladdningen. Kontrollera filstorleken och PHP-gränsen post_max_size.'], 413);
         }
 
         if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
@@ -506,6 +512,30 @@ class Wiki
         }
 
         // Visa resultatet direkt tillsammans med det uppdaterade galleriet.
+        return $this->handleMediaList($namespace, $message);
+    }
+
+    private function handleMediaDelete(string $namespace): string
+    {
+        if (!$this->auth->canEdit()) {
+            http_response_code(403);
+            return $this->handleMediaList($namespace, 'Fel: Du måste vara inloggad för att ta bort bilder.');
+        }
+        if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            return $this->handleMediaList($namespace, 'Fel: Ogiltig förfrågan. Ladda om sidan och försök igen.');
+        }
+        try {
+            $id = new MediaId(is_string($_POST['media_id'] ?? null) ? $_POST['media_id'] : '');
+            if ($namespace !== '' && $id->namespace() !== $namespace) {
+                throw new InvalidArgumentException('Bilden tillhör inte detta namespace.');
+            }
+            $message = $this->media->delete($id)
+                ? 'Borttagen: ' . $id->filename()
+                : 'Fel: Bilden kunde inte tas bort. Den kanske redan är borttagen eller saknar skrivrättigheter.';
+        } catch (InvalidArgumentException $e) {
+            $message = 'Fel: ' . $e->getMessage();
+        }
         return $this->handleMediaList($namespace, $message);
     }
 

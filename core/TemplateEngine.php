@@ -31,6 +31,10 @@ class TemplateEngine
 
     public function assetUrl(string $relativePath): string
     {
+        // Uploaded logos are shared by themes; bundled defaults remain theme assets.
+        if (str_starts_with($relativePath, '/images/')) {
+            return $relativePath;
+        }
         return '/templates/' . $this->theme . '/assets/' . ltrim($relativePath, '/');
     }
 

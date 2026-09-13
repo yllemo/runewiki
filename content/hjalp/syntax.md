@@ -49,6 +49,12 @@ Ladda upp en fil på [/images](/images) och bädda in den i en sida:
 Bilder (`png`, `jpg`, `gif`, `svg`, `webp` m.fl.) visas inbäddade —
 övriga filtyper blir en nedladdningslänk.
 
+Du kan också kopiera en bild eller skärmbild och trycka **Ctrl+V** direkt
+i editorn. Bilden laddas upp till `images/` (i sidans namespace om det finns)
+och infogas som `![Beskrivning av bilden](/images/bild-….png)`.
+Byt beskrivningen till en passande alt-text. Spara-knapparna blir tillgängliga
+när uppladdningen är klar. Vanlig text klistras in som vanligt.
+
 ## Taggar
 
 Sätt `tags: [en, två]` i frontmatten så blir de klickbara badges som söker
@@ -71,6 +77,29 @@ echo "kodblock med syntax-markering";
 
 > Ett citat.
 
+### Tabeller
+
+Använd kolon i avdelarraden för vänster-, höger- eller mittjustering:
+
+| Område | Klart | Status |
+| :--- | ---: | :---: |
+| **Dokumentation** | 80 % | Pågår |
+| Bilder | 100 % | Klar |
+
+På små skärmar kan breda tabeller rullas i sidled. Skriv `\|` för ett
+lodrätt streck i en cell. Wikilänkar och inline-kod fungerar också i tabeller.
+
+### Checklistor och underlistor
+
+- [x] Färdig uppgift
+- [ ] Återstående uppgift
+  - En underpunkt
+  - Ytterligare en underpunkt
+
+Ändra `[ ]` till `[x]` i editorn för att markera en uppgift som klar.
+Du kan även skriva ~~överstruken text~~ och använda `_kursiv_` eller
+`__fet__` text. Vanliga Markdown-bilder stöds: `![Alt-text](/images/bild.png)`.
+
 ## Mermaid-diagram
 
 Ett kodblock märkt `mermaid` renderas som ett riktigt diagram, både på
@@ -82,3 +111,9 @@ flowchart LR
     B -- Ja --> C[Sidan cachas som HTML]
     B -- Nej --> A
 ```
+
+På wikisidor kan du klicka på diagrammet eller **Förstora diagram** för
+att öppna diagramvisaren. Zooma med mushjulet eller knapparna **+ / −**,
+och dra diagrammet för att panorera. **Anpassa** visar hela diagrammet.
+Med tangentbordet fungerar piltangenterna, **+ / −**, **0** för att anpassa
+och **Esc** för att stänga.

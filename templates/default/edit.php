@@ -7,7 +7,7 @@
  *   3. Wiki-interlinks [[...]] med befintliga sid-ID:n
  *   4. Media-embeds {{...}} med befintliga uppladdade filer
  * Klistrar man in (Ctrl+V) eller drar-och-släpper en bild laddas den upp
- * till /images (samma namespace som sidan som redigeras) och {{id|alt}}
+ * till /images (samma namespace som sidan som redigeras) och ![alt](url)
  * skrivs in vid markören.
  */
 $allPagesJson  = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
@@ -36,7 +36,7 @@ $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
                 <code>[[sida]]</code> wiki-länk &mdash;
                 <code>[[wp&gt;Artikel]]</code> interwiki &mdash;
                 <code>{{ns:bild.png}}</code> media &mdash;
-                dra och släpp, eller <kbd>Ctrl+V</kbd>, en bild direkt i editorn för att ladda upp den automatiskt &mdash;
+                dra och släpp eller tryck <kbd>Ctrl+V</kbd> med en bild i urklipp för att ladda upp och infoga <code>![beskrivning](bildadress)</code> &mdash;
                 Tryck <kbd>Ctrl+Space</kbd> för förslag
             </span>
         </div>
@@ -365,7 +365,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         });
 
         // ── Klistra in (Ctrl+V) eller dra-och-släpp en bild → ladda upp till
-        // /images, skriv in {{id|alt}} — två oberoende sätt att trigga samma
+        // /images, skriv in ![alt](url) — två oberoende sätt att trigga samma
         // uppladdningsfunktion, så det ena fungerar även om det andra av
         // någon anledning inte gör det (t.ex. urklipps-behörighet i
         // webbläsaren, eller att OS/skärmdumpsverktyget inte lägger en
@@ -379,94 +379,92 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             uploadStatusEl.textContent = text || '';
             uploadStatusEl.classList.toggle('is-error', !!isError);
             clearTimeout(uploadStatusTimer);
-            if (text && !isError) {
+            if (text && !isError && !pendingUploads) {
                 uploadStatusTimer = setTimeout(function () { uploadStatusEl.textContent = ''; }, 5000);
             }
         }
 
-        /**
-         * Laddar upp en fil (från urklipp eller dra-och-släpp) till /images
-         * (samma namespace som sidan som redigeras — root om sidan ligger
-         * i roten) och ersätter en tillfällig "laddar upp"-platshållartext
-         * med den riktiga {{id|alt}}-embedden när svaret kommer. En
-         * "sticky" decoration håller reda på platshållarens position även
-         * om man hinner skriva vidare medan uppladdningen pågår.
-         */
-        function uploadImageFile(file) {
-            console.log('[RuneWiki] Laddar upp bild:', file.name || '(namnlös)', file.type || '(okänd typ)', file.size + ' bytes');
-            setUploadStatus('Laddar upp bild…');
+        var pendingUploads = 0;
+        function updateUploadState(delta) {
+            pendingUploads += delta;
+            form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+                button.disabled = pendingUploads > 0;
+            });
+        }
 
-            // getSelection() (inte bara getPosition()) så en ev. markerad
-            // text ersätts av platshållaren, precis som en vanlig
-            // textklistring skulle gjort.
-            var selection       = editor.getSelection();
-            var model           = editor.getModel();
-            var placeholderText = '{{laddar upp bild…}}';
-
+        /** Upload a clipboard/drop image and insert the URL returned by the server. */
+        async function uploadImageFile(file) {
+            var model = editor.getModel();
+            var selection = editor.getSelection();
+            if (!model || !selection) return;
+            var originalText = model.getValueInRange(selection);
+            var placeholderText = '![Laddar upp bild…]()';
+            editor.pushUndoStop();
             editor.executeEdits('image-upload', [{ range: selection, text: placeholderText }]);
-
             var placeholderRange = new monaco.Range(
                 selection.startLineNumber, selection.startColumn,
                 selection.startLineNumber, selection.startColumn + placeholderText.length
             );
+            editor.setPosition({ lineNumber: placeholderRange.endLineNumber, column: placeholderRange.endColumn });
             var decorationIds = model.deltaDecorations([], [{
                 range: placeholderRange,
                 options: { stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges },
             }]);
+            editor.pushUndoStop();
 
             function replacePlaceholder(text) {
-                var liveRange = model.getDecorationRange(decorationIds[0]) || placeholderRange;
+                if (model.isDisposed() || editor.getModel() !== model) return false;
+                var liveRange = model.getDecorationRange(decorationIds[0]);
+                // Never replace unrelated text if the user deleted/edited/undid the placeholder.
+                if (!liveRange || model.getValueInRange(liveRange) !== placeholderText) return false;
+                editor.pushUndoStop();
                 editor.executeEdits('image-upload', [{ range: liveRange, text: text }]);
-                model.deltaDecorations(decorationIds, []);
-                return liveRange;
+                editor.pushUndoStop();
+                return true;
             }
 
-            var csrfInput = form.querySelector('input[name="csrf_token"]');
-            var subtype   = ((file.type || '').split('/')[1] || 'png');
-            var ext       = subtype === 'svg+xml' ? 'svg' : subtype;
-            var fd = new FormData();
-            fd.append('csrf_token', csrfInput ? csrfInput.value : '');
-            fd.append('ajax', '1');
-            fd.append('upload', file, file.name && /\.[a-z0-9]+$/i.test(file.name) ? file.name : 'bild-' + Date.now() + '.' + ext);
-
-            var uploadUrl = mediaNs
-                ? '/images/' + mediaNs.split(':').join('/') + '/?do=upload'
-                : '/images/?do=upload';
-            console.log('[RuneWiki] POST', uploadUrl);
-
-            fetch(uploadUrl, { method: 'POST', body: fd })
-                .then(function (res) {
-                    console.log('[RuneWiki] Uppladdningssvar: HTTP', res.status);
-                    return res.json().catch(function () {
-                        throw new Error('Servern svarade inte med JSON (HTTP ' + res.status + ') — se Nätverksfliken i devtools för hela svaret.');
-                    });
-                })
-                .then(function (data) {
-                    console.log('[RuneWiki] Uppladdningsresultat:', data);
-                    if (!data.ok) throw new Error(data.error || 'Uppladdningen misslyckades.');
-                    // Alt-text skrivs alltid med (se insertMediaId() ovan för
-                    // samma resonemang) — filnamnet ger ingen bra ledtråd
-                    // (särskilt inte för en inklistrad bild), så en
-                    // platshållare skrivs in och markeras direkt så man kan
-                    // skriva över den med en riktig beskrivning.
-                    var alt       = 'Beskrivning av bilden';
-                    var liveRange = replacePlaceholder('{{' + data.id + '|' + alt + '}}');
-                    if (allMedia.indexOf(data.id) === -1) allMedia.push(data.id);
-
-                    var altStartCol = liveRange.startColumn + ('{{' + data.id + '|').length;
-                    editor.setSelection(new monaco.Range(
-                        liveRange.startLineNumber, altStartCol,
-                        liveRange.startLineNumber, altStartCol + alt.length
-                    ));
-                    editor.focus();
-                    setUploadStatus('✓ Bild uppladdad: ' + data.id);
-                })
-                .catch(function (err) {
-                    console.error('[RuneWiki] Bilduppladdning misslyckades:', err);
-                    replacePlaceholder('');
-                    setUploadStatus('✗ ' + err.message, true);
-                    alert('Kunde inte ladda upp bilden: ' + err.message);
+            updateUploadState(1);
+            setUploadStatus('Laddar upp bild…');
+            try {
+                var csrfInput = form.querySelector('input[name="csrf_token"]');
+                var mimeExtensions = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif',
+                    'image/webp': 'webp', 'image/svg+xml': 'svg' };
+                var ext = mimeExtensions[file.type] || (file.name || '').split('.').pop().toLowerCase();
+                if (!/^(png|jpe?g|gif|webp|svg)$/.test(ext)) throw new Error('Bildformatet stöds inte. Använd PNG, JPG, GIF, WEBP eller SVG.');
+                var unique = Array.from(crypto.getRandomValues(new Uint8Array(12)), function (b) {
+                    return b.toString(16).padStart(2, '0');
+                }).join('');
+                var filename = 'bild-' + unique + '.' + ext;
+                var fd = new FormData();
+                fd.append('csrf_token', csrfInput ? csrfInput.value : '');
+                fd.append('ajax', '1');
+                fd.append('upload', file, filename);
+                var uploadUrl = mediaNs
+                    ? '/images/' + mediaNs.split(':').map(encodeURIComponent).join('/') + '/?do=upload'
+                    : '/images/?do=upload';
+                var response = await fetch(uploadUrl, {
+                    method: 'POST', body: fd, credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
                 });
+                var data;
+                try { data = await response.json(); }
+                catch (_) { throw new Error('Servern svarade inte med uppladdningsdata (HTTP ' + response.status + ').'); }
+                if (!response.ok || !data.ok) throw new Error(data.error || 'Uppladdningen misslyckades.');
+                if (typeof data.url !== 'string' || !data.url.startsWith('/images/')) throw new Error('Servern returnerade ingen giltig bildadress.');
+                var markdown = '![Beskrivning av bilden](' + data.url.replace(/[()]/g, function (ch) {
+                    return '%' + ch.charCodeAt(0).toString(16);
+                }) + ')';
+                var inserted = replacePlaceholder(markdown);
+                if (allMedia.indexOf(data.id) === -1) allMedia.push(data.id);
+                setUploadStatus(inserted ? '✓ Bild uppladdad och infogad.'
+                    : 'Bilden laddades upp till ' + data.url + ', men infogningsplatsen har ändrats.', !inserted);
+            } catch (err) {
+                replacePlaceholder(originalText);
+                setUploadStatus('Kunde inte ladda upp bilden: ' + err.message, true);
+            } finally {
+                if (!model.isDisposed()) model.deltaDecorations(decorationIds, []);
+                updateUploadState(-1);
+            }
         }
 
         // ── Dra-och-släpp ────────────────────────────────────────────────
@@ -518,38 +516,27 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             images.forEach(uploadImageFile);
         }, true);
 
-        var monacoDom = editor.getDomNode();
-        if (monacoDom) {
-            // capture:true — vi måste hinna före Monacos egen paste-hantering
-            // (som annars klistrar in binär bilddata som oläsbar text).
-            monacoDom.addEventListener('paste', function (e) {
-                var cd    = e.clipboardData || window.clipboardData;
-                var items = cd && cd.items;
-                if (!items || !items.length) {
-                    console.log('[RuneWiki] Ctrl+V: inget clipboardData.items alls (webbläsaren gav ingen urklippsåtkomst?).');
-                    return;
-                }
-                console.log('[RuneWiki] Ctrl+V: urklippstyper —', Array.prototype.map.call(items, function (it) { return it.type; }));
-                var imageItem = null;
-                for (var i = 0; i < items.length; i++) {
-                    if (items[i].type && items[i].type.indexOf('image/') === 0) { imageItem = items[i]; break; }
-                }
-                if (!imageItem) {
-                    console.log('[RuneWiki] Ctrl+V: ingen bild i urklipp — låter Monaco klistra in som vanligt.');
-                    return; // vanlig text/annat — låt Monaco sköta det som vanligt
-                }
-                var file = imageItem.getAsFile();
-                if (!file) {
-                    console.warn('[RuneWiki] Ctrl+V: hittade en bild-MIME-typ men getAsFile() gav null.');
-                    return;
-                }
-                e.preventDefault();
-                e.stopPropagation();
-                uploadImageFile(file);
-            }, true);
-        } else {
-            console.warn('[RuneWiki] editor.getDomNode() gav null — Ctrl+V-uppladdning kunde inte kopplas in.');
+        // Capture at document level, before Monaco's container-level paste controller.
+        // Text-only pastes and pastes outside this editor remain untouched.
+        function pasteImages(e) {
+            if (!editor.hasTextFocus() || !container.contains(e.target)) return;
+            var cd = e.clipboardData;
+            if (!cd) return;
+            var images = Array.from(cd.files || []).filter(function (file) {
+                return file.type.indexOf('image/') === 0;
+            });
+            if (!images.length) {
+                images = Array.from(cd.items || []).filter(function (item) {
+                    return item.kind === 'file' && item.type.indexOf('image/') === 0;
+                }).map(function (item) { return item.getAsFile(); }).filter(Boolean);
+            }
+            if (!images.length) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            images.forEach(uploadImageFile);
         }
+        document.addEventListener('paste', pasteImages, true);
+        editor.onDidDispose(function () { document.removeEventListener('paste', pasteImages, true); });
 
         // ── "Bläddra i media" — inbäddad bildväljare (modal) ──────────────
         // Ett mindre, centrerat dialogfönster (inte en popup/nytt fönster)
@@ -626,10 +613,8 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
 
             // Alt-text skrivs alltid med — dels för tillgänglighet, dels så
             // AI:n som läser sidans innehåll (t.ex. /chat) faktiskt vet vad
-            // bilden föreställer, inte bara filnamnet. {{id|Alt-text}} är
-            // wikins egen motsvarighet till markdowns ![alt](url) — vanlig
-            // ![]()-syntax renderas INTE som en bild av core/Parser.php,
-            // bara {{...}} gör det, se hjälp-hint under editorn.
+            // bilden föreställer, inte bara filnamnet. Bildväljaren använder
+            // wiki-syntax; urklippsuppladdningar använder ![alt](url).
             var alt  = altTextFromId(id);
             var text = '{{' + id + '|' + alt + '}}';
             editor.executeEdits('media-picker', [{ range: range, text: text }]);
@@ -676,7 +661,14 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         });
 
         // ── Form + tema-sync ────────────────────────────────────────────
-        form.addEventListener('submit', function () { bodyField.value = editor.getValue(); });
+        form.addEventListener('submit', function (e) {
+            if (pendingUploads > 0) {
+                e.preventDefault();
+                setUploadStatus('Vänta tills bilduppladdningen är klar.');
+                return;
+            }
+            bodyField.value = editor.getValue();
+        });
 
         new MutationObserver(function () {
             monaco.editor.setTheme(getTheme());

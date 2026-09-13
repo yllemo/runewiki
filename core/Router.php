@@ -35,7 +35,7 @@ class Router
             $namespace = trim(substr($path, 6), '/');
             $namespace = str_replace('/', ':', $namespace);
             return [
-                'action'    => $method === 'POST' ? 'media-upload' : 'media-list',
+                'action'    => $method === 'POST' ? ($do === 'delete' ? 'media-delete' : 'media-upload') : 'media-list',
                 'id'        => null,
                 'namespace' => $namespace,
                 'query'     => '',

@@ -29,7 +29,8 @@ return [
     // Uppladdad media (se config/media.php för filtyper/storlek)
     'media_dir'        => 'images',
 
-    // Logotyper (sökväg relativt aktivt temas assets/). Byts enklast via
+    // Logotyper: /images/logos/... för uppladdade bilder, annars relativt
+    // aktivt temas assets/ för standardlogotyper. Byts enklast via
     // /admin/ ("Webbplats"-fliken). Headern byter bakgrund med ljust/
     // mörkt läge och har därför två loggor som växlar live med temat —
     // lämna 'header_logo_dark' tom för samma logga i båda lägena.

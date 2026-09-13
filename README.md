@@ -31,9 +31,8 @@ vill, det är bara ett förslag på en första struktur.
 
 1. Peka Apache mot **projektets rot** — `index.php` ligger direkt i webroten.
 2. Kontrollera att `mod_rewrite` är aktiverat (`.htaccess` finns redan).
-3. Ge webbservern skrivrättigheter till `content/`, `images/`, `data/` och
-   `templates/<tema>/assets/img/` (den sista behövs bara om du laddar upp
-   egna logotyper via `/admin/`).
+3. Ge webbservern skrivrättigheter till `content/`, `images/` och `data/`.
+   Egna logotyper via `/admin/` sparas under `images/logos/`.
 4. Kopiera `config/config.example.php` till `config/config.php` och justera.
 
 ## Funktioner
@@ -356,7 +355,7 @@ synlig när man är inloggad. Fyra flikar (klientväxlade, ingen sidladdning):
 - **Webbplats** — sitenamn, `auth_enabled`, samt **tre logotyp-uppladdningar**
   (`.svg`/`.png`, max 2 MB var): header (ljust läge), header (mörkt läge)
   och footer — laddas upp till
-  `templates/<tema>/assets/img/custom-<header|header-dark|footer>-logo.<ext>`
+  `images/logos/custom-<header|header-dark|footer>-logo.<ext>`
   och pekas ut i `config.php`:s `header_logo`/`header_logo_dark`/`footer_logo`
   (`Återställ`-knapp går tillbaka till standardloggan, eller till "samma
   som ljust läge" för header-varianten i mörkt läge). Sitenamn/`auth_enabled`

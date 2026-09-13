@@ -125,9 +125,10 @@ function logoBaseName(string $type): string
 }
 
 /** Tar bort ev. tidigare uppladdad logotyp (oavsett .svg/.png) av given typ, så det aldrig ligger kvar en föråldrad fil. */
-function removeExistingLogo(string $imgDir, string $type): void
+function removeExistingLogo(string $imgDir, string $type, ?string $keepExtension = null): void
 {
     foreach (['svg', 'png'] as $ext) {
+        if ($ext === $keepExtension) continue;
         $path = $imgDir . '/' . logoBaseName($type) . '.' . $ext;
         if (is_file($path)) {
             unlink($path);
@@ -238,11 +239,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $configKey = $logoTypes[$type]['configKey'];
             $default   = $logoTypes[$type]['default'];
             $label     = $logoTypes[$type]['label'];
-            $imgDir    = $root . '/templates/' . $theme . '/assets/img';
+            $imgDir    = $root . '/images/logos';
 
             if ($action === 'reset_logo') {
-                removeExistingLogo($imgDir, $type);
                 if (patchConfigValue($root . '/config/config.php', $configKey, var_export($default, true))) {
+                    removeExistingLogo($imgDir, $type);
                     $config[$configKey] = $default;
                     $success = $label . ': återställd till ' . ($default === '' ? 'ingen egen logga (använder header_logo)' : 'standardlogotypen') . '.';
                 } else {
@@ -263,14 +264,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     } elseif (!is_dir($imgDir) && !mkdir($imgDir, 0775, true) && !is_dir($imgDir)) {
                         $errors[] = 'Kunde inte skapa ' . $imgDir . '.';
                     } else {
-                        removeExistingLogo($imgDir, $type);
                         $target = $imgDir . '/' . logoBaseName($type) . '.' . $ext;
                         if (!is_uploaded_file($file['tmp_name']) || !move_uploaded_file($file['tmp_name'], $target)) {
                             $errors[] = 'Kunde inte spara filen på servern.';
                         } else {
-                            $relPath = 'img/' . logoBaseName($type) . '.' . $ext;
+                            $relPath = '/images/logos/' . logoBaseName($type) . '.' . $ext;
                             if (patchConfigValue($root . '/config/config.php', $configKey, var_export($relPath, true))) {
                                 $config[$configKey] = $relPath;
+                                removeExistingLogo($imgDir, $type, $ext);
                                 $success = $label . '-logotypen uppdaterades.';
                             } else {
                                 $errors[] = 'Filen sparades men kunde inte skrivas till config/config.php (skrivrättigheter?).';

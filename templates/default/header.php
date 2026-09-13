@@ -96,15 +96,17 @@ $crumbParts = ($showEditLink && $currentTarget !== '') ? explode(':', $currentTa
                 </div>
             </div>
 
-            <!-- Ljust/mörkt läge -->
-            <div class="gbg-dropdown">
-                <button type="button" class="gbg-tool-btn" id="gbg-theme-toggle" title="<?= Helpers::e($strings['theme_toggle_label']) ?>" aria-label="<?= Helpers::e($strings['theme_toggle_label']) ?>">
-                    <svg class="gbg-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-                    <svg class="gbg-icon-sun" viewBox="0 0 24 24" aria-hidden="true" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-                </button>
-            </div>
+            <?php if ($currentUser): ?>
+                <span class="gbg-user-badge" title="<?= Helpers::e(Helpers::interpolate($strings['logged_in_as'], ['user' => $currentUser])) ?>">
+                    <svg class="gbg-user-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7"/></svg>
+                    <span class="gbg-user-name"><?= Helpers::e($currentUser) ?></span>
+                </span>
+            <?php endif; ?>
 
-            <!-- Meny (redigera m.m.) -->
+            <!-- Meny (redigera / tema / admin / logga in-ut m.m.) — samlar de
+                 mer sällan använda verktygsknapparna under en "..."-meny så
+                 verktygsraden hålls kompakt. Sök och AI Chat är egna, synliga
+                 knappar (se ovan) eftersom de används oftast. -->
             <div class="gbg-dropdown" data-dropdown="menu">
                 <button type="button" class="gbg-tool-btn" aria-haspopup="true" aria-expanded="false" title="<?= Helpers::e($strings['menu_label']) ?>">
                     <!-- Tre punkter (kebab-meny) istället för hamburgarlinjer — skiljer den
@@ -129,30 +131,36 @@ $crumbParts = ($showEditLink && $currentTarget !== '') ? explode(':', $currentTa
                     </a>
                     <!-- AI Chat har en egen synlig knapp i .gbg-tools (se ovan)
                          istället för att gömmas här. -->
+
+                    <!-- Ljust/mörkt läge -->
+                    <button type="button" class="gbg-dropdown-item" id="gbg-theme-toggle">
+                        <svg class="gbg-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+                        <svg class="gbg-icon-sun" viewBox="0 0 24 24" aria-hidden="true" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                        <?= Helpers::e($strings['theme_toggle_label']) ?>
+                    </button>
+
+                    <?php if ($authEnabled || $currentUser): ?>
+                        <?php if ($currentUser): ?>
+                            <a class="gbg-dropdown-item" href="/admin/">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                Adminpanel
+                            </a>
+                            <form class="gbg-dropdown-form" method="post" action="/?do=logout">
+                                <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+                                <button type="submit" class="gbg-dropdown-item">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                    <?= Helpers::e($strings['logout_link']) ?>
+                                </button>
+                            </form>
+                        <?php else: ?>
+                            <a class="gbg-dropdown-item" href="/?do=login&redirect_to=<?= urlencode($_SERVER['REQUEST_URI'] ?? '/') ?>">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                                <?= Helpers::e($strings['login_link']) ?>
+                            </a>
+                        <?php endif; ?>
+                    <?php endif; ?>
                 </div>
             </div>
-
-            <?php if ($authEnabled || $currentUser): ?>
-                <?php if ($currentUser): ?>
-                    <a class="gbg-tool-btn" href="/admin/" title="Adminpanel" aria-label="Adminpanel">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    </a>
-                    <span class="gbg-user-badge" title="<?= Helpers::e(Helpers::interpolate($strings['logged_in_as'], ['user' => $currentUser])) ?>">
-                        <span aria-hidden="true">👤</span><span class="gbg-user-name"><?= Helpers::e($currentUser) ?></span>
-                    </span>
-                    <form class="gbg-logout-form" method="post" action="/?do=logout">
-                        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
-                        <button type="submit" class="gbg-tool-btn" title="<?= Helpers::e($strings['logout_link']) ?>" aria-label="<?= Helpers::e($strings['logout_link']) ?>">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                        </button>
-                    </form>
-                <?php else: ?>
-                    <a class="gbg-ai-chat-btn" href="/?do=login&redirect_to=<?= urlencode($_SERVER['REQUEST_URI'] ?? '/') ?>">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                        <span class="gbg-ai-chat-label"><?= Helpers::e($strings['login_link']) ?></span>
-                    </a>
-                <?php endif; ?>
-            <?php endif; ?>
         </div>
     </div>
 </nav>

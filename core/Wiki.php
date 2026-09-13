@@ -233,10 +233,14 @@ class Wiki
         $existing = $this->pages->load($id);
 
         $editForm = $this->templates->render('edit', [
-            'pageId'   => $id,
-            'body'     => $existing['raw'] ?? '',
-            'isNew'    => $existing === null,
-            'allPages' => $this->pages->listAll(),
+            'pageId'    => $id,
+            'body'      => $existing['raw'] ?? '',
+            'isNew'     => $existing === null,
+            'allPages'  => $this->pages->listAll(),
+            // Platta ut [namespace => [id, ...]] till en enda lista — matar
+            // {{-autokompletteringen och klistra-in-bild-uppladdningen i
+            // editorn (se edit.php).
+            'allMedia'  => array_merge(...array_values($this->media->listAllNamespaces())),
         ]);
 
         return $this->templates->render('layout', $this->baseData($id, [
@@ -296,6 +300,16 @@ class Wiki
         // Editorn skickar hela råfilen — separera frontmatter från brödtext
         [$postedMeta, $postedBody] = FrontMatter::parse($rawContent);
 
+        // Filer vars filnamn börjar med "_" (_sidebar.md, _topbar.md) är
+        // styrfiler, inte vanliga innehållssidor (se PageLoader::listAll()
+        // som utesluter dem av samma anledning) — de har ingen egen titel
+        // och tolkas dessutom rått (utan FrontMatter::parse) på sina
+        // användningsställen (Helpers::loadTopbarMenu(), sidebarHtml i
+        // Wiki::baseData()), så en auto-injicerad "title:"-frontmatter
+        // skulle bara bli synligt skräp (t.ex. en <hr> + rubrik högst upp
+        // i sidopanelen) istället för att faktiskt användas någonstans.
+        $isSystemFile = str_starts_with(basename($id->toFilePath($this->root . '/content')), '_');
+
         // Titel: frontmatter-fält → första #-rubrik → sid-ID
         $title = $postedMeta['title']
             ?? $this->extractTitleFromBody($postedBody)
@@ -315,7 +329,10 @@ class Wiki
         $title      = $ctx['title'] ?? $title;
         $postedBody = $ctx['body']  ?? $postedBody;
 
-        $meta = array_merge($postedMeta, ['title' => $title]);
+        // Styrfiler sparas exakt som skrivet — ingen auto-injicerad titel
+        // (se kommentaren vid $isSystemFile ovan). Skrev man ändå en egen
+        // "title:"-rad för hand behålls den, den skrivs bara inte över.
+        $meta = $isSystemFile ? $postedMeta : array_merge($postedMeta, ['title' => $title]);
         $this->pages->save($id, $meta, $postedBody);
 
         // Rensa hela HTML-cachen: andra sidor kan länka till den här sidan
@@ -370,13 +387,19 @@ class Wiki
             : $this->search->query($term);
 
         // Erbjud "skapa sida" bara vid vanlig textsökning, inte tagg-sökning
+        // — och bara om ingen sida med exakt det ID:t redan finns (annars
+        // visas länken felaktigt även när söktermen råkar matcha en
+        // befintlig sida, t.ex. sökning på "start").
         $createPageId  = null;
         $createPageUrl = null;
         if (!$isTagSearch) {
             $cleanTerm = trim($term, ': ');
             if ($cleanTerm !== '' && preg_match('/^[\pL\pN_\-.:]+$/u', $cleanTerm)) {
-                $createPageId  = (new PageId($cleanTerm))->id();
-                $createPageUrl = (new PageId($cleanTerm))->editUrl();
+                $candidateId = new PageId($cleanTerm);
+                if (!$this->pages->exists($candidateId)) {
+                    $createPageId  = $candidateId->id();
+                    $createPageUrl = $candidateId->editUrl();
+                }
             }
         }
 
@@ -398,9 +421,8 @@ class Wiki
 
     /**
      * /?do=login — visar formuläret (GET) eller loggar in (POST). $redirect_to
-     * (satt av requireLogin() eller av login-länken i header.php) styr var
-     * man hamnar efter lyckad inloggning; saneras mot open redirect precis
-     * som redirect_to i handleMediaUpload().
+     * (satt av requireLogin() eller av login-länken i header.php/media.php)
+     * styr var man hamnar efter lyckad inloggning; saneras mot open redirect.
      */
     private function handleLogin(string $method): string
     {
@@ -447,21 +469,45 @@ class Wiki
         return '';
     }
 
+    /**
+     * $_POST['ajax'] === '1' (satt av editorns klistra-in-bild-funktion,
+     * se edit.php) gör att svaret blir JSON istället för en redirect —
+     * annars identiskt med det vanliga formuläret på /media.
+     */
     private function handleMediaUpload(string $namespace): string
     {
+        $isAjax = ($_POST['ajax'] ?? '') === '1';
+
+        // Diagnostik som visas direkt i den gula rutan på /media (se
+        // handleMediaList()/media.php) — inte i en serverlogg eller via
+        // sessionen (se stor kommentar nedan för varför).
+        $debug = [
+            'tid'             => date('H:i:s'),
+            'namespace'       => $namespace,
+            'metod'           => $_SERVER['REQUEST_METHOD'] ?? '?',
+            'inloggad'        => $this->auth->canEdit() ? 'ja' : 'NEJ',
+            'auth_enabled'    => $this->auth->isEnabled() ? 'ja' : 'nej',
+            'anvandare'       => $this->auth->currentUser() ?? '(ingen)',
+            'post_falt'       => implode(', ', array_keys($_POST)) ?: '(inga — hela $_POST är tomt)',
+            'content_length'  => $_SERVER['CONTENT_LENGTH'] ?? '(saknas)',
+            '$_FILES[upload]' => $_FILES['upload'] ?? '(saknas helt i $_FILES)',
+        ];
+
         if (!$this->auth->canEdit()) {
-            return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+            $debug['resultat'] = 'AVBRUTEN: inte inloggad (Auth::canEdit() === false)';
+            if ($isAjax) {
+                return $this->jsonResponse(['ok' => false, 'error' => 'Inte inloggad.'], 401);
+            }
+            return $this->handleMediaList($namespace, $debug['resultat'], $debug);
         }
 
-        if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
-            http_response_code(403);
-            $id = new PageId('start');
-            return $this->templates->render('layout', $this->baseData($id, [
-                'view'     => 'error',
-                'page'     => ['title' => 'Åtkomst nekad'],
-                'pageId'   => $id,
-                'bodyHtml' => '<p>Ogiltig förfrågan — CSRF-token saknas eller stämmer inte.</p>',
-            ]));
+        $debug['csrf_matchar'] = Helpers::verifyCsrf($_POST['csrf_token'] ?? null) ? 'ja' : 'NEJ';
+        if ($debug['csrf_matchar'] === 'NEJ') {
+            $debug['resultat'] = 'AVBRUTEN: CSRF-token saknas eller stämmer inte';
+            if ($isAjax) {
+                return $this->jsonResponse(['ok' => false, 'error' => 'Ogiltig förfrågan (CSRF-token).'], 403);
+            }
+            return $this->handleMediaList($namespace, $debug['resultat'], $debug);
         }
 
         try {
@@ -469,15 +515,37 @@ class Wiki
             $message = 'Uppladdad: ' . $mediaId->id();
         } catch (\Throwable $e) {
             $message = 'Fel: ' . $e->getMessage();
+            $debug['exception_klass'] = get_class($e);
+        }
+        $debug['resultat'] = $message;
+
+        if ($isAjax) {
+            return isset($mediaId)
+                ? $this->jsonResponse(['ok' => true, 'id' => $mediaId->id(), 'url' => $mediaId->url()])
+                : $this->jsonResponse(['ok' => false, 'error' => $message], 422);
         }
 
-        $redirectTo = $_POST['redirect_to'] ?? '/';
-        // Förhindra open redirect: acceptera bara interna sökvägar
-        if (!str_starts_with($redirectTo, '/') || str_starts_with($redirectTo, '//')) {
-            $redirectTo = '/';
-        }
-        header('Location: ' . $redirectTo . (str_contains($redirectTo, '?') ? '&' : '?') . 'upload=' . rawurlencode($message));
-        return '';
+        // Renderar mediegalleriet direkt i SAMMA svar — ingen
+        // header('Location: ...')-redirect. En redirect kräver att
+        // header() lyckas innan ETT ENDA tecken skrivits ut någonstans
+        // (t.ex. av session_start(), en varning, eller en extra
+        // whitespace-byte i en inkluderad fil). Misslyckas det tyst
+        // (display_errors=Off) blir resultatet en HELT TOM sida kvar på
+        // exakt /media?do=upload — inget felmeddelande, ingen
+        // omdirigering — precis det symptomet som gjorde det här felet så
+        // svårt att felsöka. Att rendera direkt eliminerar hela den
+        // felkällan: den enda kvarvarande header()-anropet är
+        // "Content-Type" i jsonResponse() (AJAX-vägen ovan), som körs
+        // efter exakt noll utskriven text.
+        return $this->handleMediaList($namespace, $message, $debug);
+    }
+
+    /** @param array<string,mixed> $data */
+    private function jsonResponse(array $data, int $status = 200): string
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        return json_encode($data, JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -487,8 +555,32 @@ class Wiki
      * när auth_enabled = true (canUpload skickas till temat, som döljer
      * formuläret annars) — läsning/bläddring är alltid öppet.
      */
-    private function handleMediaList(string $namespace): string
+    private function handleMediaList(string $namespace, ?string $uploadMessage = null, ?array $uploadDebug = null): string
     {
+        // /media/<namespace>/<fil> (eller /media/<fil> i roten) pekar
+        // egentligen på en SPECIFIK, redan uppladdad fil — inte en
+        // namespace-listning. Router.php kan inte skilja de två åt (den
+        // gör bara om "/" till ":" och skickar hit resten), så det är
+        // egentligen webbserverns jobb att fånga riktiga filer under
+        // media/ innan de ens når PHP (.htaccess gör det för Apache).
+        // Men PHPs inbyggda utvecklingsserver (`php -S ... index.php`,
+        // se README) — eller en webbserver där .htaccess/mod_rewrite av
+        // någon anledning inte läses — skickar ALLTID hit sådana
+        // förfrågningar, och skulle utan detta alltid visa en (troligen
+        // tom) namespace-lista istället för att returnera bildens rådata,
+        // vilket gör att uppladdade bilder aldrig syns. Skyddsnät: om
+        // "namespace" faktiskt matchar en existerande fil, strömma den
+        // filen direkt istället för att rendera galleriet.
+        try {
+            $maybeFile = new MediaId($namespace);
+            if ($this->media->exists($maybeFile)) {
+                $this->serveMediaFile($maybeFile);
+                return '';
+            }
+        } catch (\Throwable) {
+            // Tomt/ogiltigt medie-ID (t.ex. /media-roten) — fortsätt som listning.
+        }
+
         // Berikar varje ID med MediaId, om det är en bild (miniatyr kontra
         // filikon i /media) och filstorlek — så temat slipper bygga om det.
         $enrich = function (string $fileId): array {
@@ -503,19 +595,21 @@ class Wiki
 
         if ($namespace === '') {
             $groupedFiles = array_map(fn (array $ids) => array_map($enrich, $ids), $this->media->listAllNamespaces());
-            $title = 'Media — alla namespaces';
+            $title = 'Mediahanterare — alla namespaces';
         } else {
             $groupedFiles = [$namespace => array_map($enrich, $this->media->listNamespace($namespace))];
-            $title = 'Media: ' . $namespace;
+            $title = 'Mediahanterare: ' . $namespace;
         }
 
         $id = new PageId('start');
 
         $listHtml = $this->templates->render('media', [
-            'namespace'    => $namespace,
-            'groupedFiles' => $groupedFiles,
-            'canUpload'    => $this->auth->canEdit(),
-            'strings'      => $this->strings,
+            'namespace'     => $namespace,
+            'groupedFiles'  => $groupedFiles,
+            'canUpload'     => $this->auth->canEdit(),
+            'strings'       => $this->strings,
+            'uploadMessage' => $uploadMessage,
+            'uploadDebug'   => $uploadDebug,
         ]);
 
         return $this->templates->render('layout', $this->baseData($id, [
@@ -524,5 +618,19 @@ class Wiki
             'pageId'   => $id,
             'bodyHtml' => $listHtml,
         ]));
+    }
+
+    /**
+     * Strömmar en mediefils rådata direkt (rätt Content-Type, ingen
+     * mall/layout runt) — se anropet/kommentaren i handleMediaList().
+     */
+    private function serveMediaFile(MediaId $id): void
+    {
+        $path = $this->media->absolutePath($id);
+        $mime = (is_file($path) ? @mime_content_type($path) : false) ?: 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . (string) filesize($path));
+        header('Cache-Control: public, max-age=86400');
+        readfile($path);
     }
 }

@@ -283,7 +283,10 @@ class Parser
         $altText = $alt ?? $mediaId->filename();
 
         if ($mediaId->isImage()) {
-            return '<img src="' . Helpers::e($mediaId->url()) . '" alt="' . Helpers::e($altText) . '" loading="lazy">';
+            // .gbg-lightbox-img styr theme.js/style.css lightbox (se
+            // assets/js/theme.js) — bara embeddade bilder ska öppnas i en
+            // lightbox vid klick, inte t.ex. header-loggan.
+            return '<img class="gbg-lightbox-img" src="' . Helpers::e($mediaId->url()) . '" alt="' . Helpers::e($altText) . '" loading="lazy">';
         }
 
         return '<a class="media-download" href="' . Helpers::e($mediaId->url()) . '">' . Helpers::e($altText) . '</a>';

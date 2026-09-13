@@ -110,4 +110,47 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  // ── Lightbox för bilder — sidinnehållets media-embeds ({{ns:bild.png}},
+  // se core/Parser.php) och /media-galleriets miniatyrer (se media.php),
+  // båda taggade med .gbg-lightbox-img. Klick öppnar bilden i fullskärm
+  // istället för att navigera bort (media-galleriets <a target="_blank">
+  // avbryts med preventDefault när målet faktiskt är en sådan bild).
+  var lightbox = document.createElement('div');
+  lightbox.className = 'gbg-lightbox';
+  lightbox.setAttribute('role', 'dialog');
+  lightbox.setAttribute('aria-modal', 'true');
+  lightbox.hidden = true;
+  lightbox.innerHTML =
+    '<button type="button" class="gbg-lightbox-close" aria-label="Stäng">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>' +
+    '</button>' +
+    '<img class="gbg-lightbox-full" alt="">';
+  document.body.appendChild(lightbox);
+  var lightboxImg = lightbox.querySelector('.gbg-lightbox-full');
+
+  function openLightbox(src, alt) {
+    lightboxImg.src = src;
+    lightboxImg.alt = alt || '';
+    lightbox.hidden = false;
+  }
+  function closeLightbox() {
+    lightbox.hidden = true;
+    lightboxImg.src = ''; // sluta ladda/hålla kvar bilden i minnet när den är stängd
+  }
+
+  document.addEventListener('click', function (e) {
+    var img = e.target.closest && e.target.closest('.gbg-lightbox-img');
+    if (img) {
+      e.preventDefault(); // avbryter ev. omslutande länk (t.ex. /media-galleriets "öppna i ny flik")
+      openLightbox(img.currentSrc || img.src, img.alt);
+      return;
+    }
+    if (e.target === lightbox || e.target.closest('.gbg-lightbox-close')) {
+      closeLightbox();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !lightbox.hidden) closeLightbox();
+  });
 });

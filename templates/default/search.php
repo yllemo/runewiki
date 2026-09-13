@@ -12,6 +12,13 @@
         <h1>Sökresultat: "<?= Helpers::e($term) ?>"</h1>
     <?php endif; ?>
 
+    <form class="gbg-search-form gbg-search-page-form" action="/" method="get">
+        <input type="hidden" name="do" value="search">
+        <input type="search" name="q" placeholder="Sök i wikin" aria-label="Sök i wikin"
+               value="<?= Helpers::e($term ?? '') ?>">
+        <button type="submit">Sök</button>
+    </form>
+
     <?php if (empty($results)): ?>
         <p>Inga träffar.</p>
         <?php if ($createPageUrl): ?>

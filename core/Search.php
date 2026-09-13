@@ -24,7 +24,32 @@ class Search
         $results = [];
         $loader  = new PageLoader($this->contentDir);
 
+        // Om söktermen ser ut som ett sid-ID, t.ex. "namespace:sida" eller
+        // ":namespace:sida" (ett inledande ":" adresserar explicit från
+        // roten, precis som PageId gör), och en sida med EXAKT det ID:t
+        // finns, visas den som första träff — även om ordet inte
+        // förekommer ordagrant i titel/brödtext. Annars skulle t.ex. en
+        // sökning på "hej:hej" ge noll träffar trots att sidan finns.
+        $exactId = null;
+        $cleanTerm = trim($term, ': ');
+        if ($cleanTerm !== '' && preg_match('/^[\pL\pN_\-.:]+$/u', $cleanTerm)) {
+            $candidateId = new PageId($cleanTerm);
+            if ($loader->exists($candidateId)) {
+                $exactId = $candidateId->id();
+                $page    = $loader->load($candidateId);
+                $results[] = [
+                    'id'      => $exactId,
+                    'title'   => $page['meta']['title'] ?? $candidateId->title(),
+                    'excerpt' => $this->excerpt($page['body'], $term),
+                    'url'     => $candidateId->url(),
+                ];
+            }
+        }
+
         foreach ($loader->listAll() as $id) {
+            if ($id === $exactId) {
+                continue; // redan tillagd som exakt ID-träff ovan
+            }
             $pageId = new PageId($id);
             $page   = $loader->load($pageId);
             if (!$page) {

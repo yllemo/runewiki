@@ -12,13 +12,37 @@ class Media
     {
     }
 
+    /** Läsbara felmeddelanden för PHPs UPLOAD_ERR_*-koder, se upload(). */
+    private const UPLOAD_ERROR_MESSAGES = [
+        UPLOAD_ERR_INI_SIZE   => 'Filen är större än vad servern tillåter (upload_max_filesize i php.ini)',
+        UPLOAD_ERR_FORM_SIZE  => 'Filen är större än vad formuläret tillåter',
+        UPLOAD_ERR_PARTIAL    => 'Filen laddades bara upp delvis — försök igen',
+        UPLOAD_ERR_NO_FILE    => 'Ingen fil valdes',
+        UPLOAD_ERR_NO_TMP_DIR => 'Servern saknar en temp-mapp för uppladdningar',
+        UPLOAD_ERR_CANT_WRITE => 'Servern kunde inte skriva den tillfälliga filen till disk',
+        UPLOAD_ERR_EXTENSION  => 'En PHP-utökning avbröt uppladdningen',
+    ];
+
     /**
      * @param array $file  Ett element ur $_FILES, t.ex. $_FILES['upload']
      */
     public function upload(array $file, string $namespace): MediaId
     {
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Uppladdningen misslyckades (felkod ' . ($file['error'] ?? '?') . ')');
+        // Om HELA POST-kroppen (inte bara den här filen) är större än
+        // post_max_size i php.ini tömmer PHP $_POST OCH $_FILES helt utan
+        // någon felkod alls — $file blir då [] och ser identisk ut med
+        // "inget filfält skickades", vilket annars visar den missvisande
+        // "Ingen fil valdes" trots att man faktiskt valde en (för stor) fil.
+        if ($file === [] && !empty($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0 && empty($_POST)) {
+            throw new RuntimeException(
+                'Filen är för stor för servern att ta emot (post_max_size i php.ini, mottog '
+                . Helpers::formatBytes((int) $_SERVER['CONTENT_LENGTH']) . ')'
+            );
+        }
+
+        $errorCode = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+        if ($errorCode !== UPLOAD_ERR_OK) {
+            throw new RuntimeException(self::UPLOAD_ERROR_MESSAGES[$errorCode] ?? ('Uppladdningen misslyckades (felkod ' . $errorCode . ')'));
         }
 
         $maxBytes = (int) ($this->config['max_upload_size_mb'] ?? 10) * 1024 * 1024;
@@ -40,8 +64,20 @@ class Media
             mkdir($dir, 0775, true);
         }
 
-        if (!is_uploaded_file($file['tmp_name']) || !move_uploaded_file($file['tmp_name'], $path)) {
-            throw new RuntimeException('Kunde inte spara filen på servern');
+        $isUploaded = is_uploaded_file($file['tmp_name']);
+        $moved      = $isUploaded && move_uploaded_file($file['tmp_name'], $path);
+        if (!$moved) {
+            // Detaljerna i meddelandet (inte bara "det gick inte") är
+            // tillfällig felsökning — de visas direkt på /media (se
+            // Wiki::handleMediaUpload() + media.php). Ta bort igen när
+            // felet är hittat.
+            throw new RuntimeException(sprintf(
+                'Kunde inte spara filen på servern (target=%s, is_uploaded_file=%s, dir_writable=%s, dir_exists=%s)',
+                $path,
+                $isUploaded ? 'ja' : 'NEJ',
+                is_writable($dir) ? 'ja' : 'NEJ',
+                is_dir($dir) ? 'ja' : 'NEJ'
+            ));
         }
 
         return $mediaId;
@@ -56,6 +92,12 @@ class Media
     public function exists(MediaId $id): bool
     {
         return is_file($id->toFilePath($this->mediaDir));
+    }
+
+    /** Absolut sökväg på disk för ett medie-ID — används för att strömma filens rådata direkt, se Wiki::serveMediaFile(). */
+    public function absolutePath(MediaId $id): string
+    {
+        return $id->toFilePath($this->mediaDir);
     }
 
     /** Filstorlek i byte, eller 0 om filen inte finns. Används av /media-listan. */

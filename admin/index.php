@@ -483,6 +483,19 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
         <?php endforeach; ?>
         <p class="gbg-admin-lead">.svg eller .png, max 2 MB per fil.</p>
     </fieldset>
+
+    <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">
+        <legend>Meny &amp; sidopanel</legend>
+        <p class="gbg-admin-lead">
+            Toppmenyn och sidopanelen styrs (om filerna finns) av två
+            särskilda sidor i innehållsroten. De är avsiktligt dolda från
+            sökningen och sidträdet (liksom alla filnamn som börjar med
+            "_") eftersom de inte är vanligt innehåll — redigera dem här
+            istället.
+        </p>
+        <p><a href="/_topbar?do=edit">Redigera _topbar.md</a> — punktlista som styr toppmenyns länkar.</p>
+        <p><a href="/_sidebar?do=edit">Redigera _sidebar.md</a> — innehållet i sidopanelen (rotens, används där ett namespace saknar en egen).</p>
+    </fieldset>
 </div>
 
 <script>

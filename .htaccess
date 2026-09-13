@@ -27,10 +27,3 @@ RewriteRule ^(chat|admin)(/|$) - [L]
 # hantering (403 eller listning) istället för att nå appens router.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^(.*)$ index.php [QSA,L]
-
-# Extra skydd: förhindra scriptkörning i media/ (uppladdade filer)
-<IfModule mod_php.c>
-    <Directory "media">
-        php_flag engine off
-    </Directory>
-</IfModule>

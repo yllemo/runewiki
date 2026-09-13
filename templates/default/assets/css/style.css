@@ -270,6 +270,15 @@ img { max-width: 100%; border-radius: var(--radius); }
   padding: 0 0.2rem;
 }
 
+/* SVG-ikon istället för 👤-emoji — en emoji-glyf renderas i färg på de
+   flesta plattformar och struntar i CSS-färgen, så en ikon med
+   stroke: currentColor används för att garantera vit färg. */
+.gbg-user-icon {
+  width: 16px; height: 16px; flex-shrink: 0;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
 .gbg-user-name {
   display: inline-block;
   max-width: 8rem;
@@ -278,10 +287,6 @@ img { max-width: 100%; border-radius: var(--radius); }
   white-space: nowrap;
   vertical-align: middle;
 }
-
-/* Formuläret ska inte bryta flex-radens layout — knappen inuti beter sig
-   som om den låg direkt i .gbg-tools. */
-.gbg-logout-form { display: contents; }
 
 /* ── /?do=login och andra formulär (t.ex. /admin/) — text-/lösenordsfält ── */
 .gbg-login { max-width: 24rem; }
@@ -434,22 +439,34 @@ img { max-width: 100%; border-radius: var(--radius); }
 
 .gbg-dropdown.is-open .gbg-dropdown-menu { display: block; }
 
-.gbg-dropdown-menu a.gbg-dropdown-item {
+/* .gbg-dropdown-item täcker både länkar och knappar (t.ex. ljust/mörkt
+   läge, utloggning) i en dropdown-meny, så de ser likadana ut. */
+.gbg-dropdown-menu .gbg-dropdown-item {
   display: flex;
   align-items: center;
+  width: 100%;
   gap: 0.55rem;
   padding: 0.55rem 0.65rem;
+  border: none;
+  background: none;
   border-radius: 4px;
   color: var(--text-color);
+  font: inherit;
   font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
 }
 
-.gbg-dropdown-menu a.gbg-dropdown-item:hover { background: var(--bg-subtle); text-decoration: none; }
+.gbg-dropdown-menu .gbg-dropdown-item:hover { background: var(--bg-subtle); text-decoration: none; }
 
-.gbg-dropdown-menu a.gbg-dropdown-item svg {
+.gbg-dropdown-menu .gbg-dropdown-item svg {
   width: 16px; height: 16px; flex-shrink: 0;
   fill: none; stroke: currentColor; stroke-width: 1.8;
 }
+
+/* Formuläret (utloggning) ska inte bryta dropdown-menyns layout — knappen
+   inuti beter sig som om den låg direkt i menyn. */
+.gbg-dropdown-form { display: contents; }
 
 .gbg-search-form { display: flex; }
 
@@ -477,6 +494,16 @@ img { max-width: 100%; border-radius: var(--radius); }
 }
 
 .gbg-search-form button:hover { background: var(--gs-navbar-blue); }
+
+/* Sökfältet överst på sökresultatsidan (templates/default/search.php) —
+   samma stil som header-dropdownens sökformulär, men bredare och med
+   marginal under. Dubbel klass-specificitet för att slå igenom
+   mobilbrytpunktens fasta bredd på header-varianten (se @media nedan). */
+.gbg-search-form.gbg-search-page-form {
+  max-width: 32rem;
+  margin: 0 0 1.5rem;
+}
+.gbg-search-form.gbg-search-page-form input[type="search"] { width: auto; }
 
 /* ── Brödsmulefält ─────────────────────────────────────────────── */
 
@@ -653,6 +680,18 @@ a.media-download {
 
 .gbg-alert-info .gbg-btn { margin-top: 0.6rem; }
 
+.gbg-alert-success {
+  background: rgba(0, 117, 59, .1);
+  color: var(--gs-green);
+  border-left: 3px solid var(--gs-green);
+}
+
+.gbg-alert-danger {
+  background: rgba(195, 28, 85, .1);
+  color: var(--gs-red);
+  border-left: 3px solid var(--gs-red);
+}
+
 /* ── Sök & media ──────────────────────────────────────────────────── */
 
 .gbg-result-list { list-style: none; padding: 0; }
@@ -661,7 +700,6 @@ a.media-download {
 .gbg-result-item p { margin: 0.3rem 0 0; color: var(--text-secondary); }
 
 .gbg-form { display: flex; flex-direction: column; gap: 0.75rem; max-width: 40rem; }
-.gbg-upload-status { padding: 0.6rem 0.9rem; background: var(--bg-subtle); border-left: 3px solid var(--gs-green); border-radius: 0 4px 4px 0; }
 .gbg-media-empty { color: var(--text-secondary); }
 
 .gbg-media-ns-heading {
@@ -734,17 +772,192 @@ a.media-download {
   white-space: nowrap;
 }
 
+/* ── Lightbox — se assets/js/theme.js ────────────────────────────────
+   Klickbara bilder (sidinnehållets media-embeds + /media-galleriets
+   miniatyrer, båda taggade .gbg-lightbox-img av PHP-sidan). */
+.gbg-lightbox-img { cursor: zoom-in; }
+
+.gbg-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(0, 0, 0, .85);
+  cursor: zoom-out;
+}
+
+.gbg-lightbox[hidden] { display: none; }
+
+.gbg-lightbox-full {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 4px;
+  box-shadow: var(--shadow-md);
+  cursor: default;
+}
+
+.gbg-lightbox-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  cursor: pointer;
+}
+.gbg-lightbox-close:hover { background: rgba(255, 255, 255, .22); }
+.gbg-lightbox-close svg {
+  width: 18px; height: 18px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round;
+}
+
 /* ── Redigera / Monaco ────────────────────────────────────────────── */
 
-.gbg-editor-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.gbg-editor-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
 .gbg-editor-toolbar label { font-weight: 600; font-size: 0.9rem; }
+.gbg-editor-toolbar-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+.gbg-upload-inline-status {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.gbg-upload-inline-status.is-error { color: var(--gs-red); font-weight: 600; }
+
+/* ── Bildväljare i editorn — se templates/default/edit.php ──────────
+   Ett litet popup-aktigt fönster (till skillnad från .gbg-lightbox, som
+   är en fullskärmsvisning av EN bild, och .gbg-dropdown-menu, som är
+   för navigering) — inbäddat i sidan (ingen ny flik/popup-blockerare
+   att oroa sig för), men litet och kompakt precis som ett riktigt
+   popup-fönster: bara en sökruta och ett rutnät av miniatyrer. */
+.gbg-media-picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, .5);
+}
+.gbg-media-picker-modal[hidden] { display: none; }
+
+.gbg-media-picker-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 22rem;
+  max-height: 60vh;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.gbg-media-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.gbg-media-picker-search {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.85rem;
+}
+.gbg-media-picker-search:focus { outline: none; border-color: var(--accent); }
+
+.gbg-media-picker-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: none;
+  color: var(--text-color);
+  cursor: pointer;
+}
+.gbg-media-picker-close:hover { background: var(--bg-subtle); }
+.gbg-media-picker-close svg {
+  width: 14px; height: 14px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round;
+}
+
+.gbg-media-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 0.4rem;
+  padding: 0.6rem;
+  overflow-y: auto;
+}
+
+.gbg-media-picker-item {
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  cursor: pointer;
+  overflow: hidden;
+}
+.gbg-media-picker-item:hover { border-color: var(--accent); }
+.gbg-media-picker-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.gbg-media-picker-empty { grid-column: 1 / -1; color: var(--text-secondary); text-align: center; font-size: 0.85rem; padding: 1rem 0; }
 
 .gbg-monaco-container {
+  position: relative;
   height: 60vh;
   min-height: 400px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   overflow: hidden;
+}
+
+/* Dra-och-släpp-överlägg — se "media-dropzone" i templates/default/edit.php.
+   pointer-events: none så överlägget aldrig blir själva drop-målet; det
+   är bara en visuell indikator ovanpå Monaco, dragover/drop lyssnas på
+   .gbg-monaco-container (föräldern) istället. */
+.gbg-editor-dropzone {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 119, 188, .12);
+  border: 2px dashed var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+}
+.gbg-editor-dropzone[hidden] { display: none; }
+.gbg-editor-dropzone span {
+  padding: 0.5rem 1rem;
+  background: var(--bg-card);
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--accent);
+  box-shadow: var(--shadow-md);
 }
 
 .gbg-edit-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }

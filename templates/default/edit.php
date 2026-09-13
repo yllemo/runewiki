@@ -1,12 +1,18 @@
 <?php
 /**
  * templates/default/edit.php
- * Monaco Editor med tre IntelliSense-providers:
+ * Monaco Editor med fyra IntelliSense-providers:
  *   1. YAML-frontmatter (nycklar + värden inuti ---block)
  *   2. Markdown-snippets (rubriker, block, formatering, tabeller)
  *   3. Wiki-interlinks [[...]] med befintliga sid-ID:n
+ *   4. Media-embeds {{...}} med befintliga uppladdade filer
+ * Klistrar man in (Ctrl+V) eller drar-och-släpper en bild laddas den upp
+ * till /media (samma namespace som sidan som redigeras) och {{id|alt}}
+ * skrivs in vid markören.
  */
-$allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
+$allPagesJson  = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
+$allMediaJson  = json_encode($allMedia ?? [], JSON_UNESCAPED_UNICODE);
+$mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
 ?>
 <article class="wiki-page gbg-edit">
     <h1><?= $isNew ? 'Skapa sida' : 'Redigera sida' ?>: <code><?= Helpers::e($pageId->id()) ?></code></h1>
@@ -14,7 +20,11 @@ $allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
         <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
         <div class="gbg-editor-toolbar">
             <label for="monaco-container">Innehåll (Markdown)</label>
-            <button type="submit" class="gbg-btn gbg-btn-primary">Spara</button>
+            <div class="gbg-editor-toolbar-actions">
+                <span id="media-upload-status" class="gbg-upload-inline-status" aria-live="polite"></span>
+                <button type="button" id="media-picker-btn" class="gbg-btn gbg-btn-outline">🖼 Bläddra i media</button>
+                <button type="submit" class="gbg-btn gbg-btn-primary">Spara</button>
+            </div>
         </div>
         <textarea id="body" name="body" style="display:none"><?= Helpers::e($body) ?></textarea>
         <div id="monaco-container" class="gbg-monaco-container"></div>
@@ -26,13 +36,18 @@ $allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
                 <code>[[sida]]</code> wiki-länk &mdash;
                 <code>[[wp&gt;Artikel]]</code> interwiki &mdash;
                 <code>{{ns:bild.png}}</code> media &mdash;
+                dra och släpp, eller <kbd>Ctrl+V</kbd>, en bild direkt i editorn för att ladda upp den automatiskt &mdash;
                 Tryck <kbd>Ctrl+Space</kbd> för förslag
             </span>
         </div>
     </form>
 </article>
 
-<script>window.WIKI_PAGES = <?= $allPagesJson ?>;</script>
+<script>
+window.WIKI_PAGES     = <?= $allPagesJson ?>;
+window.WIKI_MEDIA     = <?= $allMediaJson ?>;
+window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
+</script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
 <script>
 (function () {
@@ -42,6 +57,8 @@ $allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
     if (!container || !bodyField) return;
 
     var allPages = window.WIKI_PAGES || [];
+    var allMedia = window.WIKI_MEDIA || [];
+    var mediaNs  = window.WIKI_MEDIA_NS || '';
 
     function getTheme() {
         return document.documentElement.getAttribute('data-theme') === 'dark' ? 'vs-dark' : 'vs';
@@ -101,9 +118,10 @@ $allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
             return keys;
         }
 
-        /** Är markören inuti [[...? */
+        /** Är markören inuti [[... eller {{...? */
         function inWikiLink(model, pos) {
-            return /\[\[([^\][]*)$/.test(lineBefore(model, pos));
+            var before = lineBefore(model, pos);
+            return /\[\[([^\][]*)$/.test(before) || /\{\{([^{}|]*)$/.test(before);
         }
 
         /**
@@ -206,9 +224,21 @@ $allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
                 if (!match) return { suggestions: [] };
 
                 var partial = match[1];
+
+                // Editorn auto-stänger hakparenteser — när man skriver "[["
+                // har den redan lagt till "]]" direkt efter markören. Vår
+                // egen insertText nedan lägger själv till "]]", så utan att
+                // utöka ersättningsintervallet hit skulle den autostängda
+                // "]]" bli kvar OCH vår egen läggas till, vilket ger fyra
+                // "]" istället för två. Sträcker vi ut endColumn över den
+                // redan befintliga "]]" (om den finns) ersätts den istället.
+                var afterCursor = model.getLineContent(pos.lineNumber).substring(pos.column - 1);
+                var extraClose  = afterCursor.match(/^\]{1,2}/);
+                var endColumn   = pos.column + (extraClose ? extraClose[0].length : 0);
+
                 var range = {
                     startLineNumber: pos.lineNumber, endLineNumber: pos.lineNumber,
-                    startColumn: pos.column - partial.length, endColumn: pos.column,
+                    startColumn: pos.column - partial.length, endColumn: endColumn,
                 };
                 var lower = partial.toLowerCase();
 
@@ -230,7 +260,50 @@ $allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
             },
         });
 
-        // ── Provider 3: Markdown-snippets ───────────────────────────────
+        // ── Provider 3: Media-embeds {{...}} ─────────────────────────────
+
+        monaco.languages.registerCompletionItemProvider('markdown', {
+            // Samma mönster som wiki-interlink-providern ovan, fast för "{{"
+            // och befintliga uppladdade mediefiler istället för sidor.
+            triggerCharacters: ['{'],
+            provideCompletionItems: function (model, pos) {
+                var before = lineBefore(model, pos);
+                var match  = before.match(/\{\{([^{}|]*)$/);
+                if (!match) return { suggestions: [] };
+
+                var partial = match[1];
+
+                // Samma logik som för [[...]]: ersätt en redan autostängd
+                // "}}" istället för att lägga till en egen ovanpå den.
+                var afterCursor = model.getLineContent(pos.lineNumber).substring(pos.column - 1);
+                var extraClose  = afterCursor.match(/^\}{1,2}/);
+                var endColumn   = pos.column + (extraClose ? extraClose[0].length : 0);
+
+                var range = {
+                    startLineNumber: pos.lineNumber, endLineNumber: pos.lineNumber,
+                    startColumn: pos.column - partial.length, endColumn: endColumn,
+                };
+                var lower = partial.toLowerCase();
+
+                return {
+                    suggestions: allMedia
+                        .filter(function (m) { return m.toLowerCase().indexOf(lower) !== -1; })
+                        .map(function (media) {
+                            return {
+                                label: media,
+                                kind: Kind.File,
+                                insertText: media + '}}',
+                                range: range,
+                                detail: 'Media',
+                                documentation: { value: '`{{' + media + '}}`' },
+                                sortText: (media.toLowerCase().startsWith(lower) ? '0' : '1') + media,
+                            };
+                        })
+                };
+            },
+        });
+
+        // ── Provider 4: Markdown-snippets ───────────────────────────────
 
         var MD = [
             // Rubriker
@@ -289,6 +362,317 @@ $allPagesJson = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
                     })
                 };
             },
+        });
+
+        // ── Klistra in (Ctrl+V) eller dra-och-släpp en bild → ladda upp till
+        // /media, skriv in {{id|alt}} — två oberoende sätt att trigga samma
+        // uppladdningsfunktion, så det ena fungerar även om det andra av
+        // någon anledning inte gör det (t.ex. urklipps-behörighet i
+        // webbläsaren, eller att OS/skärmdumpsverktyget inte lägger en
+        // bild på urklipp som webbläsaren känner igen).
+
+        var uploadStatusEl    = document.getElementById('media-upload-status');
+        var uploadStatusTimer = null;
+        /** Synlig statustext bredvid "Bläddra i media" — INTE bara alert()/console, så man ser något händer även utan devtools öppna. */
+        function setUploadStatus(text, isError) {
+            if (!uploadStatusEl) return;
+            uploadStatusEl.textContent = text || '';
+            uploadStatusEl.classList.toggle('is-error', !!isError);
+            clearTimeout(uploadStatusTimer);
+            if (text && !isError) {
+                uploadStatusTimer = setTimeout(function () { uploadStatusEl.textContent = ''; }, 5000);
+            }
+        }
+
+        /**
+         * Laddar upp en fil (från urklipp eller dra-och-släpp) till /media
+         * (samma namespace som sidan som redigeras — root om sidan ligger
+         * i roten) och ersätter en tillfällig "laddar upp"-platshållartext
+         * med den riktiga {{id|alt}}-embedden när svaret kommer. En
+         * "sticky" decoration håller reda på platshållarens position även
+         * om man hinner skriva vidare medan uppladdningen pågår.
+         */
+        function uploadImageFile(file) {
+            console.log('[RuneWiki] Laddar upp bild:', file.name || '(namnlös)', file.type || '(okänd typ)', file.size + ' bytes');
+            setUploadStatus('Laddar upp bild…');
+
+            // getSelection() (inte bara getPosition()) så en ev. markerad
+            // text ersätts av platshållaren, precis som en vanlig
+            // textklistring skulle gjort.
+            var selection       = editor.getSelection();
+            var model           = editor.getModel();
+            var placeholderText = '{{laddar upp bild…}}';
+
+            editor.executeEdits('image-upload', [{ range: selection, text: placeholderText }]);
+
+            var placeholderRange = new monaco.Range(
+                selection.startLineNumber, selection.startColumn,
+                selection.startLineNumber, selection.startColumn + placeholderText.length
+            );
+            var decorationIds = model.deltaDecorations([], [{
+                range: placeholderRange,
+                options: { stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges },
+            }]);
+
+            function replacePlaceholder(text) {
+                var liveRange = model.getDecorationRange(decorationIds[0]) || placeholderRange;
+                editor.executeEdits('image-upload', [{ range: liveRange, text: text }]);
+                model.deltaDecorations(decorationIds, []);
+                return liveRange;
+            }
+
+            var csrfInput = form.querySelector('input[name="csrf_token"]');
+            var subtype   = ((file.type || '').split('/')[1] || 'png');
+            var ext       = subtype === 'svg+xml' ? 'svg' : subtype;
+            var fd = new FormData();
+            fd.append('csrf_token', csrfInput ? csrfInput.value : '');
+            fd.append('ajax', '1');
+            fd.append('upload', file, file.name && /\.[a-z0-9]+$/i.test(file.name) ? file.name : 'bild-' + Date.now() + '.' + ext);
+
+            var uploadUrl = mediaNs
+                ? '/media/' + mediaNs.split(':').join('/') + '?do=upload'
+                : '/media?do=upload';
+            console.log('[RuneWiki] POST', uploadUrl);
+
+            fetch(uploadUrl, { method: 'POST', body: fd })
+                .then(function (res) {
+                    console.log('[RuneWiki] Uppladdningssvar: HTTP', res.status);
+                    return res.json().catch(function () {
+                        throw new Error('Servern svarade inte med JSON (HTTP ' + res.status + ') — se Nätverksfliken i devtools för hela svaret.');
+                    });
+                })
+                .then(function (data) {
+                    console.log('[RuneWiki] Uppladdningsresultat:', data);
+                    if (!data.ok) throw new Error(data.error || 'Uppladdningen misslyckades.');
+                    // Alt-text skrivs alltid med (se insertMediaId() ovan för
+                    // samma resonemang) — filnamnet ger ingen bra ledtråd
+                    // (särskilt inte för en inklistrad bild), så en
+                    // platshållare skrivs in och markeras direkt så man kan
+                    // skriva över den med en riktig beskrivning.
+                    var alt       = 'Beskrivning av bilden';
+                    var liveRange = replacePlaceholder('{{' + data.id + '|' + alt + '}}');
+                    if (allMedia.indexOf(data.id) === -1) allMedia.push(data.id);
+
+                    var altStartCol = liveRange.startColumn + ('{{' + data.id + '|').length;
+                    editor.setSelection(new monaco.Range(
+                        liveRange.startLineNumber, altStartCol,
+                        liveRange.startLineNumber, altStartCol + alt.length
+                    ));
+                    editor.focus();
+                    setUploadStatus('✓ Bild uppladdad: ' + data.id);
+                })
+                .catch(function (err) {
+                    console.error('[RuneWiki] Bilduppladdning misslyckades:', err);
+                    replacePlaceholder('');
+                    setUploadStatus('✗ ' + err.message, true);
+                    alert('Kunde inte ladda upp bilden: ' + err.message);
+                });
+        }
+
+        // ── Dra-och-släpp ────────────────────────────────────────────────
+        // Byggs dynamiskt (inte statisk HTML i mallen) och läggs till EFTER
+        // att Monaco redan initierats — monaco.editor.create() äger sin
+        // container och kan tömma/skriva över befintligt innehåll i den
+        // vid start, vilket annars skulle riskera att radera ett statiskt
+        // dropzone-element innan vi ens hunnit koppla in lyssnare på det.
+        var dropzone = document.createElement('div');
+        dropzone.id = 'media-dropzone';
+        dropzone.className = 'gbg-editor-dropzone';
+        dropzone.hidden = true;
+        dropzone.innerHTML = '<span>📎 Släpp bilden här för att ladda upp</span>';
+        container.appendChild(dropzone);
+
+        function eventHasFiles(e) {
+            return !!(e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1);
+        }
+        var dragDepth = 0;
+        container.addEventListener('dragenter', function (e) {
+            if (!eventHasFiles(e)) return;
+            e.preventDefault();
+            dragDepth++;
+            dropzone.hidden = false;
+        }, true);
+        container.addEventListener('dragover', function (e) {
+            if (!eventHasFiles(e)) return;
+            e.preventDefault(); // krävs för att webbläsaren ska tillåta ett drop-event alls
+            e.dataTransfer.dropEffect = 'copy';
+        }, true);
+        container.addEventListener('dragleave', function (e) {
+            if (!eventHasFiles(e)) return;
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) dropzone.hidden = true;
+        }, true);
+        container.addEventListener('drop', function (e) {
+            if (!eventHasFiles(e)) return;
+            e.preventDefault();
+            e.stopPropagation(); // hindra Monaco från att själv försöka hantera droppet
+            dragDepth = 0;
+            dropzone.hidden = true;
+            var files  = Array.prototype.slice.call(e.dataTransfer.files || []);
+            var images = files.filter(function (f) { return f.type && f.type.indexOf('image/') === 0; });
+            console.log('[RuneWiki] Fil(er) släppta:', files.map(function (f) { return f.name + ' (' + f.type + ')'; }));
+            if (!images.length) {
+                setUploadStatus('✗ Släppt fil är ingen bild.', true);
+                return;
+            }
+            images.forEach(uploadImageFile);
+        }, true);
+
+        var monacoDom = editor.getDomNode();
+        if (monacoDom) {
+            // capture:true — vi måste hinna före Monacos egen paste-hantering
+            // (som annars klistrar in binär bilddata som oläsbar text).
+            monacoDom.addEventListener('paste', function (e) {
+                var cd    = e.clipboardData || window.clipboardData;
+                var items = cd && cd.items;
+                if (!items || !items.length) {
+                    console.log('[RuneWiki] Ctrl+V: inget clipboardData.items alls (webbläsaren gav ingen urklippsåtkomst?).');
+                    return;
+                }
+                console.log('[RuneWiki] Ctrl+V: urklippstyper —', Array.prototype.map.call(items, function (it) { return it.type; }));
+                var imageItem = null;
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type && items[i].type.indexOf('image/') === 0) { imageItem = items[i]; break; }
+                }
+                if (!imageItem) {
+                    console.log('[RuneWiki] Ctrl+V: ingen bild i urklipp — låter Monaco klistra in som vanligt.');
+                    return; // vanlig text/annat — låt Monaco sköta det som vanligt
+                }
+                var file = imageItem.getAsFile();
+                if (!file) {
+                    console.warn('[RuneWiki] Ctrl+V: hittade en bild-MIME-typ men getAsFile() gav null.');
+                    return;
+                }
+                e.preventDefault();
+                e.stopPropagation();
+                uploadImageFile(file);
+            }, true);
+        } else {
+            console.warn('[RuneWiki] editor.getDomNode() gav null — Ctrl+V-uppladdning kunde inte kopplas in.');
+        }
+
+        // ── "Bläddra i media" — inbäddad bildväljare (modal) ──────────────
+        // Ett mindre, centrerat dialogfönster (inte en popup/nytt fönster)
+        // byggt direkt från $allMedia — visar bara bildfiler (samma
+        // filändelse-lista som MediaId::isImage() i PHP). Val infogar
+        // {{namespace:fil.png}} — den relativa embed-syntax Parser.php
+        // löser upp till /media/... (flyttar sig alltså inte om sajten
+        // byter domän). Markörens position kommer ihåg (samma sticky-
+        // decoration-teknik som klistra-in-bild ovan) så infogningen
+        // hamnar rätt även om man hunnit klicka någon annanstans i
+        // editorn medan dialogen var öppen.
+        var IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif', 'bmp', 'ico'];
+        function isImageMediaId(id) {
+            var m = /\.([a-z0-9]+)$/i.exec(id);
+            return !!m && IMAGE_EXTENSIONS.indexOf(m[1].toLowerCase()) !== -1;
+        }
+        /** "ns:fil.png" -> "/media/ns/fil.png", "fil.png" -> "/media/fil.png". */
+        function mediaThumbUrl(id) {
+            var i = id.indexOf(':');
+            if (i === -1) return '/media/' + encodeURIComponent(id);
+            return '/media/' + id.slice(0, i).split(':').map(encodeURIComponent).join('/')
+                + '/' + encodeURIComponent(id.slice(i + 1));
+        }
+
+        var pickerModal = document.createElement('div');
+        pickerModal.className = 'gbg-media-picker-modal';
+        pickerModal.hidden = true;
+        pickerModal.innerHTML =
+            '<div class="gbg-media-picker-dialog" role="dialog" aria-modal="true" aria-label="Välj en bild">' +
+              '<div class="gbg-media-picker-header">' +
+                '<input type="search" class="gbg-media-picker-search" placeholder="Sök bland bilder…">' +
+                '<button type="button" class="gbg-media-picker-close" aria-label="Stäng">' +
+                  '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>' +
+                '</button>' +
+              '</div>' +
+              '<div class="gbg-media-picker-grid"></div>' +
+            '</div>';
+        document.body.appendChild(pickerModal);
+
+        var pickerGrid    = pickerModal.querySelector('.gbg-media-picker-grid');
+        var pickerSearch  = pickerModal.querySelector('.gbg-media-picker-search');
+        var pickerRangeIds = null;
+
+        function escapeAttr(s) { return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
+
+        function renderPickerGrid(filter) {
+            var lower  = (filter || '').toLowerCase();
+            var images = allMedia.filter(isImageMediaId);
+            var shown  = lower ? images.filter(function (id) { return id.toLowerCase().indexOf(lower) !== -1; }) : images;
+
+            if (!images.length) {
+                pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder uppladdade ännu. Ladda upp via <a href="/media" target="_blank" rel="noopener">Mediahanterare</a>.</p>';
+            } else if (!shown.length) {
+                pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder matchar sökningen.</p>';
+            } else {
+                pickerGrid.innerHTML = shown.map(function (id) {
+                    return '<button type="button" class="gbg-media-picker-item" data-id="' + escapeAttr(id) + '" title="' + escapeAttr(id) + '">'
+                        + '<img src="' + mediaThumbUrl(id) + '" alt="" loading="lazy">'
+                        + '</button>';
+                }).join('');
+            }
+        }
+
+        /** "ns:skarmavbild-2024.png" -> "Skarmavbild 2024" — en rimlig startpunkt för alt-texten. */
+        function altTextFromId(id) {
+            var filename = id.indexOf(':') === -1 ? id : id.slice(id.lastIndexOf(':') + 1);
+            var base = filename.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').trim();
+            return base ? base.charAt(0).toUpperCase() + base.slice(1) : 'bild';
+        }
+
+        function insertMediaId(id) {
+            var model = editor.getModel();
+            var range = (pickerRangeIds && model.getDecorationRange(pickerRangeIds[0])) || editor.getSelection();
+
+            // Alt-text skrivs alltid med — dels för tillgänglighet, dels så
+            // AI:n som läser sidans innehåll (t.ex. /chat) faktiskt vet vad
+            // bilden föreställer, inte bara filnamnet. {{id|Alt-text}} är
+            // wikins egen motsvarighet till markdowns ![alt](url) — vanlig
+            // ![]()-syntax renderas INTE som en bild av core/Parser.php,
+            // bara {{...}} gör det, se hjälp-hint under editorn.
+            var alt  = altTextFromId(id);
+            var text = '{{' + id + '|' + alt + '}}';
+            editor.executeEdits('media-picker', [{ range: range, text: text }]);
+            if (pickerRangeIds) { model.deltaDecorations(pickerRangeIds, []); pickerRangeIds = null; }
+            pickerModal.hidden = true;
+            editor.focus();
+
+            // Markerar den infogade alt-texten direkt så man kan skriva
+            // över den med en riktig beskrivning utan att behöva leta upp
+            // och markera den för hand.
+            var altStartCol = range.startColumn + ('{{' + id + '|').length;
+            editor.setSelection(new monaco.Range(
+                range.startLineNumber, altStartCol,
+                range.startLineNumber, altStartCol + alt.length
+            ));
+        }
+
+        function openPickerModal() {
+            var selection = editor.getSelection();
+            var model     = editor.getModel();
+            pickerRangeIds = model.deltaDecorations(pickerRangeIds || [], [{
+                range: selection,
+                options: { stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges },
+            }]);
+            pickerSearch.value = '';
+            renderPickerGrid('');
+            pickerModal.hidden = false;
+            pickerSearch.focus();
+        }
+
+        var mediaPickerBtn = document.getElementById('media-picker-btn');
+        if (mediaPickerBtn) mediaPickerBtn.addEventListener('click', openPickerModal);
+
+        pickerSearch.addEventListener('input', function () { renderPickerGrid(pickerSearch.value); });
+        pickerModal.addEventListener('click', function (e) {
+            var item = e.target.closest('.gbg-media-picker-item');
+            if (item) { insertMediaId(item.dataset.id); return; }
+            if (e.target === pickerModal || e.target.closest('.gbg-media-picker-close')) {
+                pickerModal.hidden = true;
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !pickerModal.hidden) pickerModal.hidden = true;
         });
 
         // ── Form + tema-sync ────────────────────────────────────────────

@@ -35,7 +35,7 @@ return [
 
     // Verktygslänkar i header/sidfot.
     // 'nav_search' => 'Sök i wikin',
-    // 'nav_media'  => 'Media',
+    // 'nav_media'  => 'Mediahanterare',
     // 'nav_start'  => 'Startsida',
 
     // Verktygsknapparna direkt ovanför sidans innehåll (Redigera/Sök

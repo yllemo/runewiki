@@ -193,17 +193,38 @@ function chatGetSkill(string $skillsDir, string $contentDir, string $rawSlug): a
 
 /**
  * Listar alla sidor i /content för chattens /files-kommando.
- * @return array<int, array{id:string, title:string, url:string}>
+ *
+ * $sort: 'alpha' (default, "-a") sorterar A–Ö på sid-ID, 'date' ("-d")
+ * sorterar på senast ändrad fil (nyast först).
+ * $filter: fritext som måste finnas i FILNAMNET (inte innehållet) —
+ * matchar sista delen av sid-ID:t (t.ex. "syntax" i "hjalp:syntax").
+ *
+ * @return array<int, array{id:string, title:string, url:string, mtime:int}>
  */
-function chatListContent(string $contentDir): array
+function chatListContent(string $contentDir, string $sort = 'alpha', string $filter = ''): array
 {
-    $pages = new PageLoader($contentDir);
-    $out   = [];
+    $pages  = new PageLoader($contentDir);
+    $filter = trim($filter);
+    $out    = [];
     foreach ($pages->listAll() as $id) {
-        $pageId = new PageId($id);
-        $out[]  = ['id' => $id, 'title' => $pageId->title(), 'url' => $pageId->url()];
+        $pageId   = new PageId($id);
+        $filePath = $pageId->toFilePath($contentDir);
+        $filename = basename($filePath, '.md');
+        if ($filter !== '' && mb_stripos($filename, $filter) === false) {
+            continue;
+        }
+        $out[] = [
+            'id'    => $id,
+            'title' => $pageId->title(),
+            'url'   => $pageId->url(),
+            'mtime' => is_file($filePath) ? filemtime($filePath) : 0,
+        ];
     }
-    usort($out, fn ($a, $b) => strcasecmp($a['id'], $b['id']));
+    if ($sort === 'date') {
+        usort($out, fn ($a, $b) => $b['mtime'] <=> $a['mtime']);
+    } else {
+        usort($out, fn ($a, $b) => strcasecmp($a['id'], $b['id']));
+    }
     return $out;
 }
 
@@ -327,7 +348,9 @@ if ($action === 'get-skill') {
 
 if ($action === 'list-content') {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(chatListContent($contentDir), JSON_UNESCAPED_UNICODE);
+    $sort   = ($_GET['sort'] ?? '') === 'date' ? 'date' : 'alpha';
+    $filter = (string) ($_GET['filter'] ?? '');
+    echo json_encode(chatListContent($contentDir, $sort, $filter), JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -519,7 +542,7 @@ body.footer-collapsed > footer, body.footer-collapsed > .gbg-index-band {
         <div class="ico">💬</div>
         <h2>Chatta med din skill</h2>
         <p>Ladda en SKILL.md, ett .zip-arkiv eller en hel skill-mapp. Alla frågor besvaras enbart utifrån det laddade innehållet.</p>
-        <p><code>/files</code> listar wikins sidor, <code>/search</code> (eller <code>/sok</code>) söker bland dem, <code>/tag</code> listar taggar, <code>/namespace</code> (eller <code>/folder</code>) listar namespaces och kan lägga till alla sidor i ett namespace, <code>/context</code> (eller <code>/kontext</code>) listar och tar bort Markdown-filer i kontexten — lägg till valda sidor i kontexten direkt i chatten.</p>
+        <p><code>/files</code> (<code>/f</code>) listar wikins sidor (<code>-a</code> alfabetiskt, <code>-d</code> senast ändrade, <code>/files text</code> filtrerar på filnamn), <code>/search</code> (<code>/s</code>, eller <code>/sok</code>) söker bland dem, <code>/tag</code> (<code>/t</code>) listar taggar, <code>/namespace</code> (<code>/ns</code>, eller <code>/folder</code>) listar namespaces och kan lägga till alla sidor i ett namespace, <code>/context</code> (<code>/c</code>, eller <code>/kontext</code>) listar och tar bort Markdown-filer i kontexten — lägg till valda sidor i kontexten direkt i chatten. Långa listor visas 50 åt gången.</p>
         <div class="hint">⚙ Ställ in LLM-anslutning först (OpenAI, LM Studio eller Ollama)</div>
       </div>
     </div>
@@ -1128,38 +1151,116 @@ function addMsg(role, text){
  * Lägger till valda sidor i "files" precis som en skill — de dyker upp i
  * "Filer i kontext" i sidopanelen och skickas med i nästa fråga till LLM:en.
  */
+
+/** Hämtar en sidas innehåll och lägger den i kontexten. `btn` (valfri) får visuell status. */
+async function addContentItemById(id, btn){
+  if(btn){ btn.disabled=true; btn.textContent='Laddar…'; }
+  try{
+    const res=await fetch('?action=get-content&id='+encodeURIComponent(id));
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data.error) throw new Error(data.error);
+    addFile(data.path, data.content, true);
+    afterLoad();
+    if(btn) btn.textContent='✓ Tillagd';
+    toast('Tillagd i kontext: '+data.path);
+    return true;
+  }catch(err){
+    if(btn){ btn.disabled=false; btn.textContent='+ Lägg till'; }
+    alert('Kunde inte lägga till sidan: '+err.message);
+    return false;
+  }
+}
+
 function bindContentAddButtons(container){
   container.querySelectorAll('.content-add-btn').forEach(btn=>{
-    btn.onclick=async ()=>{
-      const id=btn.dataset.id;
-      btn.disabled=true; btn.textContent='Laddar…';
-      try{
-        const res=await fetch('?action=get-content&id='+encodeURIComponent(id));
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const data=await res.json();
-        if(data.error) throw new Error(data.error);
-        addFile(data.path, data.content, true);
-        afterLoad();
-        btn.textContent='✓ Tillagd';
-        toast('Tillagd i kontext: '+data.path);
-      }catch(err){
-        btn.disabled=false; btn.textContent='+ Lägg till';
-        alert('Kunde inte lägga till sidan: '+err.message);
-      }
-    };
+    btn.onclick=()=>addContentItemById(btn.dataset.id, btn);
   });
 }
 
-async function cmdListFiles(){
+/** Antal rader som visas åt gången i chattens listkommandon, se renderPagedList(). */
+const CHAT_PAGE_SIZE = 50;
+
+/**
+ * Renderar `items` som ett system-meddelande i sidor om CHAT_PAGE_SIZE åt
+ * gången, med en "Visa fler"-knapp som avslöjar nästa omgång — istället
+ * för att dumpa hela listan (kan vara hundratals sidor/taggar) på en gång.
+ *
+ * headerHtml : HTML ovanför listan (antal-text, ev. "Lägg till alla"-knapp).
+ * renderItem : (item) => HTML för en rad.
+ * bindFn     : (valfri) (msgEl) => binder knappar i de rader som just
+ *              visats — körs om (från scratch, men idempotent — sätter
+ *              bara om .onclick) varje gång "Visa fler" klickas.
+ * opts.listTag/listClass : 'ul'/'content-result-list' som standard, byt
+ *              t.ex. till 'div'/'tag-cloud' för tagg-/namespace-moln.
+ * Returnerar meddelandets .msg-element (för att t.ex. binda en
+ * "Lägg till alla"-knapp i headern separat, se bindAddAllButton()).
+ */
+function renderPagedList(headerHtml, items, renderItem, bindFn, opts){
+  opts = opts || {};
+  const listTag   = opts.listTag   || 'ul';
+  const listClass = opts.listClass || 'content-result-list';
+
+  const bubble = addMsg('system', headerHtml + '<' + listTag + ' class="' + listClass + '"></' + listTag + '>');
+  const msgEl  = bubble.closest('.msg');
+  const list   = bubble.querySelector('.' + listClass.split(' ')[0]);
+  let shown = 0, moreBtn = null;
+
+  function showNext(){
+    const slice = items.slice(shown, shown + CHAT_PAGE_SIZE);
+    list.insertAdjacentHTML('beforeend', slice.map(renderItem).join(''));
+    shown += slice.length;
+    if(bindFn) bindFn(msgEl);
+    if(shown < items.length){
+      if(!moreBtn){
+        moreBtn = document.createElement('button');
+        moreBtn.type = 'button';
+        moreBtn.className = 'btn btn-secondary content-more-btn';
+        moreBtn.style.marginTop = '.6rem';
+        moreBtn.onclick = showNext;
+        bubble.appendChild(moreBtn);
+      }
+      moreBtn.textContent = 'Visa fler (' + (items.length - shown) + ' kvar av ' + items.length + ')';
+    }else if(moreBtn){
+      moreBtn.remove();
+      moreBtn = null;
+    }
+  }
+  showNext();
+  return msgEl;
+}
+
+/** Tolkar /files-argument: "-a" alfabetiskt, "-d" senast ändrad, övrig text = filnamnsfilter. */
+function parseFilesArg(arg){
+  const tokens = (arg || '').split(/\s+/).filter(Boolean);
+  let sort = 'alpha';
+  const rest = [];
+  for(const t of tokens){
+    if(t === '-a') sort = 'alpha';
+    else if(t === '-d') sort = 'date';
+    else rest.push(t);
+  }
+  return { sort, filter: rest.join(' ') };
+}
+
+async function cmdListFiles(arg){
+  const { sort, filter } = parseFilesArg(arg);
   try{
-    const res=await fetch('?action=list-content');
+    const qs = new URLSearchParams({ sort });
+    if(filter) qs.set('filter', filter);
+    const res=await fetch('?action=list-content&'+qs.toString());
     if(!res.ok) throw new Error('HTTP '+res.status);
     const items=await res.json();
-    if(!items.length){ addMsg('system','<p>Inga sidor hittades i /content.</p>'); return; }
-    const html='<p>'+items.length+' sida(or) i wikin:</p><ul class="content-result-list">'
-      + items.map(p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> <code>${escapeHtml(p.id)}</code></li>`).join('')
-      + '</ul>';
-    bindContentAddButtons(addMsg('system', html).closest('.msg'));
+    if(!items.length){
+      addMsg('system', filter
+        ? '<p>Inga sidor med <code>'+escapeHtml(filter)+'</code> i filnamnet.</p>'
+        : '<p>Inga sidor hittades i /content.</p>');
+      return;
+    }
+    const header = '<p>'+items.length+' sida(or) i wikin'
+      + (filter ? ' med <code>'+escapeHtml(filter)+'</code> i filnamnet' : '')
+      + ', sorterat '+(sort==='date' ? 'på senast ändrad' : 'alfabetiskt')+':</p>';
+    renderPagedList(header, items, p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> <code>${escapeHtml(p.id)}</code></li>`, bindContentAddButtons);
   }catch(err){
     addMsg('system', '<p>⚠️ Kunde inte hämta sidlistan: '+escapeHtml(err.message)+'</p>');
   }
@@ -1171,25 +1272,29 @@ async function cmdSearchContent(query){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const items=await res.json();
     if(!items.length){ addMsg('system', '<p>Inga träffar för <code>'+escapeHtml(query)+'</code>.</p>'); return; }
-    const html='<p>'+items.length+' träff(ar) för <code>'+escapeHtml(query)+'</code>:</p><ul class="content-result-list">'
-      + items.map(p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a><span class="content-excerpt">${escapeHtml(p.excerpt||'')}</span></li>`).join('')
-      + '</ul>';
-    bindContentAddButtons(addMsg('system', html).closest('.msg'));
+    const header = '<p>'+items.length+' träff(ar) för <code>'+escapeHtml(query)+'</code>:</p>';
+    renderPagedList(header, items, p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a><span class="content-excerpt">${escapeHtml(p.excerpt||'')}</span></li>`, bindContentAddButtons);
   }catch(err){
     addMsg('system', '<p>⚠️ Sökningen misslyckades: '+escapeHtml(err.message)+'</p>');
   }
 }
 
-/** Lägger till alla knappar i en "Lägg till alla"-knapp: kör dem i tur och ordning. */
-function bindAddAllButton(container, count){
+/**
+ * Binder "Lägg till alla"-knappen — lägger till ALLA `items` (inte bara de
+ * som råkar vara synliga just nu efter paginering), och återanvänder en
+ * redan synlig radknapp för visuell status när en sådan finns.
+ */
+function bindAddAllButton(container, items){
   const allBtn = container.querySelector('.content-add-all-btn');
   if(!allBtn) return;
   allBtn.onclick = async () => {
     allBtn.disabled = true; allBtn.textContent = 'Lägger till…';
-    for(const btn of container.querySelectorAll('.content-add-btn')){
-      if(!btn.disabled) await btn.onclick();
+    for(const item of items){
+      const btn = container.querySelector('.content-add-btn[data-id="'+CSS.escape(item.id)+'"]');
+      if(btn && btn.disabled) continue; // redan tillagd
+      await addContentItemById(item.id, btn);
     }
-    allBtn.textContent = '✓ Alla tillagda ('+count+')';
+    allBtn.textContent = '✓ Alla tillagda ('+items.length+')';
   };
 }
 
@@ -1199,16 +1304,15 @@ async function cmdListTags(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const tags=await res.json();
     if(!tags.length){ addMsg('system', '<p>Inga taggar hittades i wikin.</p>'); return; }
-    const html='<p>'+tags.length+' tagg(ar) i wikin — klicka för att se sidorna:</p><div class="tag-cloud">'
-      + tags.map(t=>`<button type="button" class="tag tag-pick-btn" data-tag="${escapeHtml(t.tag)}">${escapeHtml(t.tag)} <span class="tag-count">${t.count}</span></button>`).join(' ')
-      + '</div>';
-    const wrap=addMsg('system', html).closest('.msg');
-    wrap.querySelectorAll('.tag-pick-btn').forEach(btn=>{
-      btn.onclick=()=>{
-        addMsg('user', '/tag '+btn.dataset.tag);
-        cmdTagContent(btn.dataset.tag);
-      };
-    });
+    const header = '<p>'+tags.length+' tagg(ar) i wikin — klicka för att se sidorna:</p>';
+    renderPagedList(header, tags, t=>`<button type="button" class="tag tag-pick-btn" data-tag="${escapeHtml(t.tag)}">${escapeHtml(t.tag)} <span class="tag-count">${t.count}</span></button>`,
+      wrap=>wrap.querySelectorAll('.tag-pick-btn').forEach(btn=>{
+        btn.onclick=()=>{
+          addMsg('user', '/tag '+btn.dataset.tag);
+          cmdTagContent(btn.dataset.tag);
+        };
+      }),
+      { listTag: 'div', listClass: 'tag-cloud' });
   }catch(err){
     addMsg('system', '<p>⚠️ Kunde inte hämta taggar: '+escapeHtml(err.message)+'</p>');
   }
@@ -1220,14 +1324,10 @@ async function cmdTagContent(tag){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const items=await res.json();
     if(!items.length){ addMsg('system', '<p>Inga sidor taggade <code>'+escapeHtml(tag)+'</code>.</p>'); return; }
-    const html='<p>'+items.length+' sida(or) taggade <code>'+escapeHtml(tag)+'</code>:</p>'
-      + '<button type="button" class="btn btn-secondary content-add-all-btn" style="margin-bottom:.6rem">+ Lägg till alla ('+items.length+')</button>'
-      + '<ul class="content-result-list">'
-      + items.map(p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a><span class="content-excerpt">${escapeHtml(p.excerpt||'')}</span></li>`).join('')
-      + '</ul>';
-    const wrap=addMsg('system', html).closest('.msg');
-    bindContentAddButtons(wrap);
-    bindAddAllButton(wrap, items.length);
+    const header = '<p>'+items.length+' sida(or) taggade <code>'+escapeHtml(tag)+'</code>:</p>'
+      + '<button type="button" class="btn btn-secondary content-add-all-btn" style="margin-bottom:.6rem">+ Lägg till alla ('+items.length+')</button>';
+    const msgEl = renderPagedList(header, items, p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a><span class="content-excerpt">${escapeHtml(p.excerpt||'')}</span></li>`, bindContentAddButtons);
+    bindAddAllButton(msgEl, items);
   }catch(err){
     addMsg('system', '<p>⚠️ Kunde inte hämta sidor för taggen: '+escapeHtml(err.message)+'</p>');
   }
@@ -1239,16 +1339,15 @@ async function cmdListNamespaces(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const items=await res.json();
     if(!items.length){ addMsg('system', '<p>Inga namespaces (mappar) hittades i wikin.</p>'); return; }
-    const html='<p>'+items.length+' namespace(r) i wikin — klicka för att se sidorna:</p><div class="tag-cloud">'
-      + items.map(n=>`<button type="button" class="tag tag-pick-btn" data-ns="${escapeHtml(n.ns)}">${escapeHtml(n.label)} <span class="tag-count">${n.count}</span></button>`).join(' ')
-      + '</div>';
-    const wrap=addMsg('system', html).closest('.msg');
-    wrap.querySelectorAll('.tag-pick-btn').forEach(btn=>{
-      btn.onclick=()=>{
-        addMsg('user', '/namespace '+(btn.dataset.ns||'_root'));
-        cmdNamespaceContent(btn.dataset.ns);
-      };
-    });
+    const header = '<p>'+items.length+' namespace(r) i wikin — klicka för att se sidorna:</p>';
+    renderPagedList(header, items, n=>`<button type="button" class="tag tag-pick-btn" data-ns="${escapeHtml(n.ns)}">${escapeHtml(n.label)} <span class="tag-count">${n.count}</span></button>`,
+      wrap=>wrap.querySelectorAll('.tag-pick-btn').forEach(btn=>{
+        btn.onclick=()=>{
+          addMsg('user', '/namespace '+(btn.dataset.ns||'_root'));
+          cmdNamespaceContent(btn.dataset.ns);
+        };
+      }),
+      { listTag: 'div', listClass: 'tag-cloud' });
   }catch(err){
     addMsg('system', '<p>⚠️ Kunde inte hämta namespaces: '+escapeHtml(err.message)+'</p>');
   }
@@ -1262,14 +1361,10 @@ async function cmdNamespaceContent(rawNs){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const items=await res.json();
     if(!items.length){ addMsg('system', '<p>Inga sidor i namespacet <code>'+escapeHtml(label)+'</code>.</p>'); return; }
-    const html='<p>'+items.length+' sida(or) i <code>'+escapeHtml(label)+'</code>:</p>'
-      + '<button type="button" class="btn btn-secondary content-add-all-btn" style="margin-bottom:.6rem">+ Lägg till alla ('+items.length+')</button>'
-      + '<ul class="content-result-list">'
-      + items.map(p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a><span class="content-excerpt">${escapeHtml(p.excerpt||'')}</span></li>`).join('')
-      + '</ul>';
-    const wrap=addMsg('system', html).closest('.msg');
-    bindContentAddButtons(wrap);
-    bindAddAllButton(wrap, items.length);
+    const header = '<p>'+items.length+' sida(or) i <code>'+escapeHtml(label)+'</code>:</p>'
+      + '<button type="button" class="btn btn-secondary content-add-all-btn" style="margin-bottom:.6rem">+ Lägg till alla ('+items.length+')</button>';
+    const msgEl = renderPagedList(header, items, p=>`<li><button type="button" class="content-add-btn" data-id="${escapeHtml(p.id)}">+ Lägg till</button> <a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a><span class="content-excerpt">${escapeHtml(p.excerpt||'')}</span></li>`, bindContentAddButtons);
+    bindAddAllButton(msgEl, items);
   }catch(err){
     addMsg('system', '<p>⚠️ Kunde inte hämta sidor för namespacet: '+escapeHtml(err.message)+'</p>');
   }
@@ -1312,11 +1407,8 @@ async function cmdListContext(){
     addMsg('system', '<p>Inga Markdown-filer (.md) i kontexten just nu. Använd <code>/files</code>, <code>/search</code> eller <code>/tag</code> för att lägga till wikisidor, eller ladda en skill.</p>');
     return;
   }
-  const html='<p>'+mdFiles.length+' Markdown-fil(er) i kontexten:</p><ul class="content-result-list">'
-    + mdFiles.map(f=>`<li><button type="button" class="content-remove-btn" data-path="${escapeHtml(f.path)}">✕ Ta bort</button> <span class="fname">${escapeHtml(f.path)}</span><span class="content-excerpt">${f.include?'med i nästa fråga':'avbockad'} · ${fmtSize(f.size)}</span></li>`).join('')
-    + '</ul>';
-  const wrap=addMsg('system', html).closest('.msg');
-  bindContentRemoveButtons(wrap);
+  const header = '<p>'+mdFiles.length+' Markdown-fil(er) i kontexten:</p>';
+  renderPagedList(header, mdFiles, f=>`<li><button type="button" class="content-remove-btn" data-path="${escapeHtml(f.path)}">✕ Ta bort</button> <span class="fname">${escapeHtml(f.path)}</span><span class="content-excerpt">${f.include?'med i nästa fråga':'avbockad'} · ${fmtSize(f.size)}</span></li>`, bindContentRemoveButtons);
 }
 
 async function send(){
@@ -1324,21 +1416,25 @@ async function send(){
   const input=$('input'); const text=input.value.trim();
   if(!text)return;
 
-  // Snabbkommandon: /files listar wikins sidor, /search (eller /sok) söker
-  // bland dem, /tag listar taggar (eller visar sidor för en given tagg),
-  // /namespace (eller /folder) listar namespaces/mappar (eller visar/lägger
-  // till alla sidor i ett givet namespace), /context (eller /kontext)
-  // listar/tar bort .md-filer i kontexten.
+  // Snabbkommandon: /files (/f) listar wikins sidor, /search (/s, eller
+  // /sok) söker bland dem, /tag (/t) listar taggar (eller visar sidor för
+  // en given tagg), /namespace (/ns, eller /folder) listar
+  // namespaces/mappar (eller visar/lägger till alla sidor i ett givet
+  // namespace), /context (/c, eller /kontext) listar/tar bort .md-filer i
+  // kontexten. Korta alias normaliseras till de fulla namnen innan
+  // grenarna nedan (som förblir oförändrade).
   // Körs lokalt mot servern — ingen LLM inblandad, och hamnar INTE i
   // "history" (skickas alltså inte med till modellen).
-  const cmd = text.match(/^\/(files|search|sok|tag|namespace|folder|context|kontext)\b\s*(.*)$/i);
+  const cmd = text.match(/^\/(files|f|search|s|sok|tag|t|namespace|ns|folder|context|c|kontext)\b\s*(.*)$/i);
   if(cmd){
     addMsg('user', text);
     input.value=''; autoGrow();
-    const name = cmd[1].toLowerCase();
+    const cmdAliases = { f:'files', s:'search', t:'tag', ns:'namespace', c:'context' };
+    const rawName = cmd[1].toLowerCase();
+    const name = cmdAliases[rawName] || rawName;
     const arg  = cmd[2].trim();
     if(name==='files'){
-      await cmdListFiles();
+      await cmdListFiles(arg);
     }else if(name==='tag'){
       if(!arg) await cmdListTags();
       else await cmdTagContent(arg);

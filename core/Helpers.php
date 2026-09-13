@@ -168,7 +168,7 @@ class Helpers
             'footer_brand_text'    => '{site_name} — databasfri wiki byggd med RuneWiki.',
             'footer_tools_heading' => 'Verktyg',
             'nav_search'           => 'Sök i wikin',
-            'nav_media'            => 'Media',
+            'nav_media'            => 'Mediahanterare',
             'nav_start'            => 'Startsida',
             'copyright_text'       => '© {year} {site_name}',
             'powered_by_text'      => 'Drivs av',

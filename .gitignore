@@ -2,6 +2,9 @@
 .claude/settings.local.json
 config/config.php
 
+# Concept-only HTML examples, not part of the application
+html/
+
 # Runtime state and user data
 data/cache/*
 !data/cache/.gitkeep

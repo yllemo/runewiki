@@ -32,18 +32,46 @@ class PageLoader
 
     public function save(PageId $id, array $meta, string $body): void
     {
+        $this->saveRaw($id, FrontMatter::build($meta, $body));
+    }
+
+    public function saveRaw(PageId $id, string $raw): void
+    {
         $path = $id->toFilePath($this->contentDir);
         $dir = dirname($path);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new RuntimeException('Kunde inte skapa sidans mapp.');
         }
-        file_put_contents($path, FrontMatter::build($meta, $body));
+        $temporary = $path . '.' . bin2hex(random_bytes(8)) . '.tmp';
+        if (file_put_contents($temporary, $raw, LOCK_EX) !== strlen($raw)) {
+            @unlink($temporary);
+            throw new RuntimeException('Kunde inte spara sidan.');
+        }
+        if (!rename($temporary, $path)) {
+            @unlink($temporary);
+            throw new RuntimeException('Kunde inte ersätta sidan.');
+        }
     }
 
     public function delete(PageId $id): bool
     {
         $path = $id->toFilePath($this->contentDir);
         return is_file($path) && unlink($path);
+    }
+
+    public function createRaw(PageId $id, string $raw): void
+    {
+        $path = $id->toFilePath($this->contentDir);
+        $dir = dirname($path);
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) throw new RuntimeException('Kunde inte skapa målmappen.');
+        $file = @fopen($path, 'x');
+        if (!$file) throw new RuntimeException('Målfilen finns redan eller kan inte skapas.');
+        $written = fwrite($file, $raw);
+        fclose($file);
+        if ($written !== strlen($raw)) {
+            @unlink($path);
+            throw new RuntimeException('Kunde inte skriva målfilen.');
+        }
     }
 
     public function sidebar(PageId $id): ?string
@@ -57,7 +85,7 @@ class PageLoader
     }
 
     /** Listar alla sid-ID:n i wikin (för sökning/namespace-listor). */
-    public function listAll(): array
+    public function listAll(bool $includeSystem = false): array
     {
         $ids = [];
         if (!is_dir($this->contentDir)) {
@@ -67,7 +95,7 @@ class PageLoader
             new RecursiveDirectoryIterator($this->contentDir, FilesystemIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
-            if ($file->isFile() && $file->getExtension() === 'md' && !str_starts_with($file->getFilename(), '_')) {
+            if ($file->isFile() && $file->getExtension() === 'md' && ($includeSystem || !str_starts_with($file->getFilename(), '_'))) {
                 $ids[] = PageId::fromRelativePath($file->getPathname(), $this->contentDir)->id();
             }
         }

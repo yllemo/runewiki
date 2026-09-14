@@ -9,6 +9,20 @@
 
 class Helpers
 {
+    /** Public link preferences only; never expose the full site configuration. */
+    public static function linkSettingsAttributes(array $config): string
+    {
+        $attributes = ' data-external-new-tab="' . (($config['external_links_new_tab'] ?? true) ? 'true' : 'false') . '"';
+        if ($config['distinct_link_colors'] ?? true) {
+            foreach (['internal' => '#0077bc', 'external' => '#00446b'] as $kind => $default) {
+                $color = $config[$kind . '_link_color'] ?? $default;
+                if (!is_string($color) || !preg_match('/^#[0-9a-f]{6}$/i', $color)) $color = $default;
+                $attributes .= ' data-' . $kind . '-color="' . $color . '"';
+            }
+        }
+        return $attributes;
+    }
+
     public static function slugify(string $text): string
     {
         $text = mb_strtolower(trim($text));

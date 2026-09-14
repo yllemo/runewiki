@@ -81,14 +81,26 @@ foreach ($groupedFiles as $groupItems) {
                         </div>
                         <code class="gbg-media-embed" title="Klistra in i sidans Markdown för att bädda in filen">{{<?= Helpers::e($f['id']) ?>}}</code>
                         <?php if ($canUpload ?? false): ?>
+                            <?php $usageCount = count($f['references']) + count($f['siteUses']); ?>
                             <form class="gbg-media-delete" method="post" action="<?= Helpers::e($uploadTarget) ?>?do=delete"
                                   data-filename="<?= Helpers::e($mediaId->filename()) ?>"
-                                  onsubmit="return confirm('Ta bort ' + this.dataset.filename + '? Bilden tas bort permanent och försvinner från sidor där den används.');">
+                                  data-usage="<?= $usageCount ?>"
+                                  onsubmit="return confirm('Ta bort ' + this.dataset.filename + '? Bilden har ' + this.dataset.usage + ' referenser. Den tas bort permanent och försvinner där den används.');">
                                 <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
                                 <input type="hidden" name="media_id" value="<?= Helpers::e($f['id']) ?>">
                                 <button type="submit" class="gbg-btn gbg-btn-outline" aria-label="Ta bort <?= Helpers::e($mediaId->filename()) ?>">Ta bort</button>
                             </form>
                         <?php endif; ?>
+                        <details class="gbg-media-references">
+                            <summary>Används på <?= count($f['references']) ?> sidor<?= $f['siteUses'] ? ' · webbplatsikon/logotyp' : '' ?></summary>
+                            <?php if (!$f['references'] && !$f['siteUses']): ?><p>Inga referenser hittades.</p><?php endif; ?>
+                            <ul>
+                                <?php foreach ($f['references'] as $source): ?>
+                                    <li><a href="<?= Helpers::e($source['url']) ?>" title="<?= Helpers::e($source['id']) ?>"><?= Helpers::e($source['title']) ?></a></li>
+                                <?php endforeach; ?>
+                                <?php foreach ($f['siteUses'] as $label): ?><li><?= Helpers::e($label) ?></li><?php endforeach; ?>
+                            </ul>
+                        </details>
                     </div>
                 <?php endforeach; ?>
             </div>

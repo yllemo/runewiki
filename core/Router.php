@@ -70,9 +70,13 @@ class Router
                 'query'     => '',
             ];
         }
-        $id = $path === '' ? 'start' : str_replace('/', ':', $path);
+        // Decode UTF-8 URL segments before PageId normalizes their filenames.
+        $id = $path === '' ? 'start' : str_replace('/', ':', rawurldecode($path));
 
         $action = match (true) {
+            $do === 'move' => 'move',
+            $do === 'history' => 'history',
+            $do === 'restore' && $method === 'POST' => 'history',
             $do === 'save' && $method === 'POST' => 'save',
             $do === 'delete' && $method === 'POST' => 'delete',
             $do === 'edit'  => 'edit',

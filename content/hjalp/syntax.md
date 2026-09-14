@@ -112,7 +112,7 @@ flowchart LR
     B -- Nej --> A
 ```
 
-På wikisidor kan du klicka på diagrammet eller **Förstora diagram** för
+På wikisidor kan du klicka på diagrammet (eller fokusera det och trycka Enter) för
 att öppna diagramvisaren. Zooma med mushjulet eller knapparna **+ / −**,
 och dra diagrammet för att panorera. **Anpassa** visar hela diagrammet.
 Med tangentbordet fungerar piltangenterna, **+ / −**, **0** för att anpassa

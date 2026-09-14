@@ -776,6 +776,20 @@ a.media-download {
    Klickbara bilder (sidinnehållets media-embeds + /media-galleriets
    miniatyrer, båda taggade .gbg-lightbox-img av PHP-sidan). */
 .gbg-media-delete { margin: .65rem .75rem .75rem; }
+.gbg-backlinks { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+.gbg-backlinks h2 { font-size: 1.1rem; }
+.gbg-history-list { max-height: 20rem; overflow-y: auto; padding-left: 1.5rem; }
+.gbg-history-list li { margin: .5rem 0; }
+.gbg-history-list [aria-current] { font-weight: bold; }
+.gbg-history-source { max-height: 36rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gbg-backlinks h2 span, .gbg-backlinks small { color: var(--text-secondary); font-weight: normal; }
+.gbg-backlinks ul { padding-left: 1.25rem; }
+.gbg-backlinks li { margin: .45rem 0; }
+.gbg-media-references { padding: .75rem; border-top: 1px solid var(--border-color); font-size: .85rem; overflow-wrap: anywhere; }
+.gbg-media-references summary { cursor: pointer; }
+.gbg-media-references ul { padding-left: 1.1rem; margin: .6rem 0 0; }
+.gbg-media-references li { margin: .35rem 0; }
+.gbg-media-references p { margin: .6rem 0 0; color: var(--text-secondary); }
 .gbg-media-delete .gbg-btn { width: 100%; color: var(--gs-red); border-color: var(--gs-red); font-size: .8rem; }
 .gbg-media-delete .gbg-btn:hover { background: var(--gs-red); color: #fff; }
 .gbg-lightbox-img { cursor: zoom-in; }
@@ -999,6 +1013,9 @@ th { background: var(--bg-subtle); }
 
 /* Readable Markdown in both themes; wide content scrolls within the article. */
 .wiki-body { line-height: 1.75; overflow-wrap: anywhere; min-width: 0; }
+:is(.wiki-body, .gbg-sidebar, .bubble, .fv-md) a.gbg-link-internal:not(.wikilink-new) { color: var(--configured-internal-link, var(--link-color)); }
+:is(.wiki-body, .gbg-sidebar, .bubble, .fv-md) a.gbg-link-external { color: var(--configured-external-link, var(--link-color)); }
+:is(.wiki-body, .gbg-sidebar, .bubble, .fv-md) a:is(.gbg-link-internal, .gbg-link-external):hover { text-decoration: underline; }
 .wiki-body > :first-child { margin-top: 0; }
 .wiki-body h1, .wiki-body h2, .wiki-body h3, .wiki-body h4,
 .wiki-body h5, .wiki-body h6 { line-height: 1.3; margin: 1.8em 0 .65em; font-weight: 700; }
@@ -1034,7 +1051,8 @@ th { background: var(--bg-subtle); }
 .wiki-body .md-align-right { text-align: right; }
 
 .wiki-body .mmd-diagram { position: relative; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: 10px; margin: 1.5rem 0; background: var(--bg-card); }
-.mmd-open { display: block; margin: 1rem auto 0; border: 1px solid var(--border-color); border-radius: 6px; padding: .5rem .9rem; color: var(--text-color); background: var(--bg-subtle); cursor: pointer; font: inherit; font-size: .85rem; }
+.wiki-body .mmd-diagram[role="button"] { cursor: zoom-in; }
+.wiki-body .mmd-diagram:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .wiki-body .mmd-diagram > svg { cursor: zoom-in; }
 .mmd-viewer { width: calc(100vw - 24px); max-width: none; height: calc(100dvh - 24px); max-height: none; padding: 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-color); color: var(--text-color); box-shadow: 0 20px 80px #0006; }
 .mmd-viewer[open] { display: flex; flex-direction: column; }

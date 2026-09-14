@@ -75,6 +75,13 @@ vill, det är bara ett förslag på en första struktur.
 - "Skapa sida"-förslag när inga träffar hittas
 
 ### Media (/images)
+- Varje fil visar en utfällbar lista över sidor som refererar till den,
+  inklusive sidopaneler och toppmeny. Användning som logotyp/favicon visas
+  separat. Borttagningsbekräftelsen visar antalet referenser.
+- Under varje wikisida visas bakåtlänkar: andra sidor som länkar dit.
+  Wikilänkar, Markdown-länkar och bildreferenser räknas utifrån parserns
+  HTML; kodexempel räknas inte. Varje källsida listas bara en gång.
+  Referenserna räknas om per sidvisning, utan databas eller separat indexfil.
 - `/images` (utan namespace i URL:en) visar en **global översikt över alla
   namespaces** med media på en gång, grupperat med en klickbar rubrik per
   namespace; `/images/<namespace>` visar (och laddar upp till) bara det
@@ -144,6 +151,14 @@ vill, det är bara ett förslag på en första struktur.
 - PHP-körning inaktiverad i `media/`
 
 ## Konfiguration
+
+Under **Admin → Webbplats → Länkar** väljer du om externa webblänkar ska
+öppnas i ny flik (standard: på). Interna länkar öppnas i samma flik.
+Externa länkar identifieras genom att deras origin skiljer sig från den
+aktuella webbplatsens. Du kan även aktivera separata färger för interna
+och externa innehållslänkar; annars används temats färger. Länkar till
+sidor som saknas behåller sin varningsfärg. Inställningarna används även
+för nya länkar som tillkommer i chatten.
 
 | Fil | Syfte |
 |-----|-------|
@@ -392,6 +407,21 @@ php bin/cli.php help
 
 ## Sid-ID och filsökväg
 
+Sid-ID:n normaliseras till små ASCII-bokstäver, siffror, understreck och
+bindestreck. Svenska tecken translittereras (`å/ä → a`, `ö → o`), mellanslag
+och annan interpunktion blir understreck. Samma regler gäller namespaces.
+Det är filnamnen som normaliseras, inte språket i sidans innehåll eller titel.
+
+- `[[ärende]]` → `content/arende.md`
+- `[[Mina Ärenden:Första mötet]]` → `content/mina_arenden/forsta_motet.md`
+- `[[Övrigt:Årsrapport 2026]]` → `content/ovrigt/arsrapport_2026.md`
+
+De särskilda styrfilerna `_sidebar.md` och `_topbar.md` behåller sina namn.
+Namn utan några användbara ASCII-tecken får ett stabilt `sida-<hash>`-namn.
+Olika stavningar som normaliseras lika (t.ex. `ärende` och `arende`) avser
+samma sida. Befintliga filer med äldre namn behöver döpas om separat;
+kontrollera namnkonflikter innan du flyttar dem. Ingen automatisk migrering sker.
+
 Första kolondelen = mapp (namespace), resten = punktseparerat filnamn:
 
 | Sid-ID | Fil |
@@ -401,6 +431,38 @@ Första kolondelen = mapp (namespace), resten = punktseparerat filnamn:
 | `namespace:page1:start` | `content/namespace/page1.start.md` |
 
 URL speglar ID:t med kolon → snedstreck: `projekt:api` nås på `/projekt/api`.
+
+## Byta namn och flytta
+
+Välj **Byt namn / flytta** i sidans verktygsrad och ange ett nytt sid-ID,
+t.ex. `projekt:nytt_namn`. Förhandsvisningen visar det normaliserade
+filnamnet och berörda sidor innan flytten bekräftas. Befintliga målsidor
+eller mål med historik skrivs inte över. Sidans titel och metadata bevaras.
+
+Wikilänkar och relativa Markdown-länkar i innehållsfiler, `_sidebar` och
+`_topbar` uppdateras. Kodexempel och bildadresser lämnas orörda. Historiken
+flyttas separat under `data/history/`; berörda sidors tidigare innehåll
+sparas även om automatisk historik är avstängd. Externa bokmärken, absoluta
+webbadresser och menyer i PHP-konfiguration behöver uppdateras separat.
+
+## Versionshistorik
+
+Knappen **Versionshistorik** på en sida visar äldre versioner och låter
+redigeringsbehöriga användare läsa deras Markdown och återställa dem.
+Nuvarande innehåll säkerhetskopieras före återställning. Borttagna sidor
+kan återskapas via versionshistoriken på sin gamla adress.
+
+Historiska filer ligger separat i `data/history/<sid-ID:s SHA-256>/<UTC-tid>-<unik kod>.md`,
+aldrig i `content/`, och exponeras inte som vanliga wikisidor eller sökträffar.
+Apache blockerar direktåtkomst till `data/` via `.htaccess`. Ge PHP-processen
+skrivrättigheter till `data/history/`, och använd beständig lagring för både
+`content/` och `data/` i OpenShift om innehållet ska överleva podbyten.
+
+Aktivera **Spara versionshistorik** under **Admin → Webbplats** på befintliga
+installationer där `history_enabled` tidigare var `false`. Nya installationer
+har historik på som standard. Versioner skapas från nästa ändring; tidigare
+innehåll kan inte återskapas retroaktivt. Det äldre experimentella
+historikformatet importeras inte automatiskt.
 
 ## Kända begränsningar
 
@@ -414,8 +476,6 @@ URL speglar ID:t med kolon → snedstreck: `projekt:api` nås på `/projekt/api`
   fungerar dock redan.
 - **Sökning utan index** — filgenomsökning vid varje sökning; tillräckligt för
   mindre wikis, skalbart med indexbaserad implementation utan API-ändringar.
-- **Historik-visning** — ögonblicksbilder sparas men det finns ingen UI för att
-  bläddra dem.
 - **Monaco Editor** kräver internet (laddas från CDN vid redigering).
 
 ## Licens

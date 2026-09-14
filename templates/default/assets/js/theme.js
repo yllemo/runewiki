@@ -4,6 +4,8 @@
  * i stil med goteborg-dw-template.
  */
 
+var gbgLinkSettings = document.currentScript ? document.currentScript.dataset : {};
+
 function gbgApplyThemeIcon(theme) {
   var moon = document.querySelector('.gbg-icon-moon');
   var sun  = document.querySelector('.gbg-icon-sun');
@@ -40,6 +42,44 @@ function gbgToggleTheme() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  function configureLink(link) {
+    if (!(link instanceof HTMLAnchorElement)) return;
+    var url;
+    try { url = new URL(link.getAttribute('href'), location.href); } catch (_) { return; }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+    var external = url.origin !== location.origin;
+    link.classList.toggle('gbg-link-external', external);
+    link.classList.toggle('gbg-link-internal', !external);
+    if (external) {
+      if (gbgLinkSettings.externalNewTab !== 'false') {
+        link.target = '_blank';
+        link.relList.add('noopener', 'noreferrer');
+      } else {
+        link.removeAttribute('target');
+      }
+    } else if (!link.hasAttribute('download')) {
+      link.removeAttribute('target');
+    }
+  }
+  function configureLinks(root) {
+    if (root.nodeType !== 1) return;
+    if (root.matches('a[href]')) configureLink(root);
+    root.querySelectorAll('a[href]').forEach(configureLink);
+  }
+  ['internal', 'external'].forEach(function (kind) {
+    var color = gbgLinkSettings[kind + 'Color'];
+    if (/^#[0-9a-f]{6}$/i.test(color || '')) {
+      document.documentElement.style.setProperty('--configured-' + kind + '-link', color);
+    }
+  });
+  configureLinks(document.body);
+  new MutationObserver(function (records) {
+    records.forEach(function (record) {
+      if (record.type === 'attributes') configureLink(record.target);
+      else record.addedNodes.forEach(configureLinks);
+    });
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
+
   var saved = 'light';
   try { saved = localStorage.getItem('theme') || 'light'; } catch (e) {}
   gbgSetTheme(saved);

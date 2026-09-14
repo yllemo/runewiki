@@ -38,13 +38,16 @@
     try {
       const { svg } = await window.mermaid.render(id, source);
       wrap.innerHTML = svg;
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'mmd-open';
-      open.textContent = 'Förstora diagram';
-      open.addEventListener('click', () => openDiagram(wrap, open));
-      wrap.appendChild(open);
-      wrap.onclick = e => { if (e.target.closest('svg')) openDiagram(wrap, open); };
+      wrap.tabIndex = 0;
+      wrap.setAttribute('role', 'button');
+      wrap.setAttribute('aria-label', 'Öppna diagram i popup');
+      wrap.onclick = () => openDiagram(wrap, wrap);
+      wrap.onkeydown = e => {
+        if (e.target === wrap && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          openDiagram(wrap, wrap);
+        }
+      };
     } catch (err) {
       wrap.innerHTML = '<div class="mmd-err">⚠️ Diagramfel: ' + escapeHtml((err && err.message) || err) + '</div>';
     }

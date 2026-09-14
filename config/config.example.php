@@ -38,6 +38,11 @@ return [
     'header_logo'      => 'img/logo.svg',
     'header_logo_dark' => 'img/logo-dark.svg',
     'footer_logo'      => 'img/logo.svg',
+    'favicon'          => 'img/favicon.svg', // SVG, PNG eller ICO via Admin → Webbplats
+    'external_links_new_tab' => true,
+    'distinct_link_colors'   => true,
+    'internal_link_color'    => '#0077bc',
+    'external_link_color'    => '#00446b',
 
     // Enkel inloggning (core/Auth.php).
     //   false (standard): helt öppen wiki — alla kan läsa och redigera.
@@ -47,5 +52,5 @@ return [
     'auth_enabled'     => false,
 
     // Versionering av sidor (core/History.php)
-    'history_enabled'  => false,
+    'history_enabled'  => true,
 ];

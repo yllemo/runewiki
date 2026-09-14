@@ -17,7 +17,7 @@ $hasSidebar = trim($sidebarHtml ?? '') !== '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= Helpers::e($page['title'] ?? $siteName) ?> — <?= Helpers::e($siteName) ?></title>
-    <link rel="icon" type="image/svg+xml" href="<?= Helpers::e($assetUrl('img/favicon.svg')) ?>">
+    <link rel="icon" href="<?= Helpers::e($assetUrl($favicon ?? 'img/favicon.svg')) ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap">
@@ -43,7 +43,7 @@ $hasSidebar = trim($sidebarHtml ?? '') !== '';
         <?php include __DIR__ . '/footer.php'; ?>
     </div>
 
-    <script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"></script>
+    <script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"<?= Helpers::linkSettingsAttributes($linkSettings ?? []) ?>></script>
     <?php if (str_contains($bodyHtml ?? '', 'language-mermaid')): ?>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>
     <script src="<?= Helpers::e($assetUrl('js/mermaid.js')) ?>"></script>

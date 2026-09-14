@@ -15,6 +15,7 @@ class Wiki
     private string $root;
     private PageLoader $pages;
     private Media $media;
+    private References $references;
     private Parser $parser;
     private TemplateEngine $templates;
     private PluginManager $plugins;
@@ -61,13 +62,14 @@ class Wiki
         $this->plugins->loadEnabled($pluginConfig, $pluginsDir);
 
         $this->pages      = new PageLoader($contentDir);
+        $this->references = new References($this->pages, $interwikiConfig);
         $this->media      = new Media($mediaDir, $mediaConfig);
         $this->parser     = new Parser($interwikiConfig, $this->pages, $this->plugins);
         $this->templates  = new TemplateEngine($templatesDir, $config['theme'] ?? 'default');
         $this->cache      = new Cache($dataDir . '/cache', (bool) ($config['cache_enabled'] ?? true));
         $this->search     = new Search($contentDir);
         $this->auth       = new Auth($dataDir . '/users/users.php', (bool) ($config['auth_enabled'] ?? false));
-        $this->history    = new History($dataDir . '/history', (bool) ($config['history_enabled'] ?? false));
+        $this->history    = new History($dataDir . '/history', (bool) ($config['history_enabled'] ?? true));
         $this->namespaces = new NamespaceResolver($namespaceConfig);
     }
 
@@ -81,6 +83,8 @@ class Wiki
             'edit'         => $this->handleEdit($intent['id']),
             'save'         => $this->handleSave($intent['id']),
             'delete'       => $this->handleDelete($intent['id']),
+            'history'      => $this->handleHistory($intent['id']),
+            'move'         => $this->handleMove($intent['id']),
             'search'       => $this->handleSearch($intent['query']),
             'media-upload' => $this->handleMediaUpload($intent['namespace']),
             'media-delete' => $this->handleMediaDelete($intent['namespace']),
@@ -134,6 +138,8 @@ class Wiki
             'headerLogo'     => $this->config['header_logo'] ?? 'img/logo.svg',
             'headerLogoDark' => $this->config['header_logo_dark'] ?? '',
             'footerLogo'     => $this->config['footer_logo'] ?? 'img/logo.svg',
+            'favicon'        => $this->config['favicon'] ?? 'img/favicon.svg',
+            'linkSettings'   => $this->config,
             'assetUrl'  => fn ($p) => $this->templates->assetUrl($p),
             'sidebarHtml' => $sidebarRaw ? $this->parser->toHtml($sidebarRaw) : '',
             'currentId' => $id->id(),
@@ -189,6 +195,7 @@ class Wiki
         $bodyHtml = $ctx['html'] ?? $bodyHtml;
 
         $renderedPage = $this->templates->render('page', [
+            'backlinks' => $this->references->backlinks($id),
             'page'     => $page['meta'],
             'pageId'   => $id,
             'bodyHtml' => $bodyHtml,
@@ -233,9 +240,12 @@ class Wiki
         $id = new PageId($rawId);
         $existing = $this->pages->load($id);
 
+        $newBody = str_starts_with(basename($id->toFilePath($this->root . '/content')), '_')
+            ? ''
+            : FrontMatter::build(['title' => $id->title(), 'tags' => []], '# ' . $id->title() . "\n\n");
         $editForm = $this->templates->render('edit', [
             'pageId'    => $id,
-            'body'      => $existing['raw'] ?? '',
+            'body'      => $existing['raw'] ?? $newBody,
             'isNew'     => $existing === null,
             'allPages'  => $this->pages->listAll(),
             // Platta ut [namespace => [id, ...]] till en enda lista — matar
@@ -334,6 +344,9 @@ class Wiki
         // (se kommentaren vid $isSystemFile ovan). Skrev man ändå en egen
         // "title:"-rad för hand behålls den, den skrivs bara inte över.
         $meta = $isSystemFile ? $postedMeta : array_merge($postedMeta, ['title' => $title]);
+        if (!$isSystemFile && !array_key_exists('tags', $meta)) {
+            $meta['tags'] = [];
+        }
         $this->pages->save($id, $meta, $postedBody);
 
         // Rensa hela HTML-cachen: andra sidor kan länka till den här sidan
@@ -351,6 +364,84 @@ class Wiki
 
         header('Location: ' . $id->url());
         return '';
+    }
+
+    private function handleMove(string $rawId): string
+    {
+        if (!$this->auth->canEdit()) return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+        $id = new PageId($rawId);
+        $targetInput = is_string($_POST['target_id'] ?? null) ? trim($_POST['target_id']) : '';
+        $target = null; $plan = null; $error = null; $success = null;
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
+                http_response_code(403);
+                $error = 'Ogiltig förfrågan. Ladda om sidan.';
+            } else {
+                try {
+                    if ($targetInput === '') throw new RuntimeException('Ange ett nytt sid-ID.');
+                    $target = new PageId($targetInput);
+                    $mover = new PageMover($this->pages, $this->history);
+                    if (($_POST['confirm_move'] ?? '') === '1') {
+                        $fingerprint = is_string($_POST['fingerprint'] ?? null) ? $_POST['fingerprint'] : '';
+                        $count = $mover->execute($id, $target, $fingerprint);
+                        $this->cache->clear();
+                        $success = 'Sidan har flyttats. Länkar uppdaterades på ' . $count . ' andra sidor.';
+                    } else {
+                        $plan = $mover->prepare($id, $target);
+                    }
+                } catch (RuntimeException $e) {
+                    $this->cache->clear();
+                    $error = $e->getMessage();
+                }
+            }
+        }
+        return $this->templates->render('layout', $this->baseData($id, [
+            'view' => 'move', 'page' => ['title' => 'Byt namn / flytta sida'], 'pageId' => $id,
+            'bodyHtml' => $this->templates->render('move', [
+                'pageId' => $id, 'targetInput' => $targetInput, 'target' => $target,
+                'plan' => $plan, 'error' => $error, 'success' => $success,
+            ]),
+        ]));
+    }
+
+    private function handleHistory(string $rawId): string
+    {
+        if (!$this->auth->canEdit()) return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+        $id = new PageId($rawId);
+        $revision = $_POST['revision'] ?? $_GET['revision'] ?? '';
+        $revision = is_string($revision) ? $revision : '';
+        $raw = $revision !== '' ? $this->history->read($id, $revision) : null;
+        $error = null;
+        $success = null;
+        if ($revision !== '' && $raw === null) {
+            http_response_code(404);
+            $error = 'Versionen finns inte.';
+        }
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
+                http_response_code(403);
+                $error = 'Ogiltig förfrågan. Ladda om sidan och försök igen.';
+            } elseif ($raw !== null) {
+                try {
+                    $current = $this->pages->load($id);
+                    if ($current) $this->history->snapshot($id, $current['raw'], true);
+                    $this->pages->saveRaw($id, $raw);
+                    $this->cache->clear();
+                    $success = 'Versionen har återställts. Den tidigare sidan finns kvar i historiken.';
+                } catch (RuntimeException $e) {
+                    $error = $e->getMessage();
+                }
+            }
+        }
+        return $this->templates->render('layout', $this->baseData($id, [
+            'view' => 'history', 'page' => ['title' => 'Versionshistorik: ' . $id->title()], 'pageId' => $id,
+            'bodyHtml' => $this->templates->render('history', [
+                'pageId' => $id, 'revisions' => array_reverse($this->history->revisions($id)),
+                'selectedRevision' => $revision, 'revisionRaw' => $raw,
+                'currentRaw' => $this->pages->load($id)['raw'] ?? null,
+                'historyEnabled' => $this->history->isEnabled(), 'error' => $error, 'success' => $success,
+            ]),
+        ]));
     }
 
     private function handleDelete(string $rawId): string
@@ -371,6 +462,8 @@ class Wiki
         }
 
         $id = new PageId($rawId);
+        $existing = $this->pages->load($id);
+        if ($existing) $this->history->snapshot($id, $existing['raw']);
         $this->pages->delete($id);
         $this->cache->clear(); // samma resonemang som i handleSave()
         header('Location: /');
@@ -589,6 +682,11 @@ class Wiki
                 'mediaId' => $mediaId,
                 'isImage' => $mediaId->isImage(),
                 'size'    => $this->media->filesize($mediaId),
+                'references' => $this->references->imageReferences($mediaId),
+                'siteUses' => array_values(array_filter(array_map(function ($key, $label) use ($mediaId) {
+                    $path = parse_url($this->config[$key] ?? '', PHP_URL_PATH);
+                    return is_string($path) && rawurldecode($path) === rawurldecode($mediaId->url()) ? $label : null;
+                }, ['header_logo', 'header_logo_dark', 'footer_logo', 'favicon'], ['Header (ljust)', 'Header (mörkt)', 'Footer', 'Favicon']))),
             ];
         };
 

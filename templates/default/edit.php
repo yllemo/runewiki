@@ -335,7 +335,10 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             // Tabell
             { label: 'tabell',             ins: '| ${1:Kolumn 1} | ${2:Kolumn 2} |\n|---|---|\n| ${3:cell} | ${4:cell} |', detail: 'Markdown-tabell (2×2)' },
             // Frontmatter-startblock
-            { label: '--- frontmatter',    ins: '---\ntitle: ${1:Titel}\ndate: ${2:ÅÅÅÅ-MM-DD}\ntags: [${3}]\n---\n\n# ${1:Titel}\n\n${4}', detail: 'YAML-frontmatter + H1' },
+            { label: 'yaml frontmatter',   ins: '---\ntitle: ${1:Titel}\ntags: [${2}]\n---\n\n${0}', detail: 'YAML-frontmatter med titel och tom tagglista', frontmatter: true },
+            { label: 'mermaid flödesschema', ins: '```mermaid\nflowchart LR\n    A[${1:Start}] --> B[${2:Slut}]\n```\n${0}', detail: 'Mermaid: flödesschema' },
+            { label: 'mermaid sekvensdiagram', ins: '```mermaid\nsequenceDiagram\n    participant A as ${1:Användare}\n    participant B as ${2:System}\n    A->>B: ${3:Förfrågan}\n    B-->>A: ${4:Svar}\n```\n${0}', detail: 'Mermaid: sekvensdiagram' },
+            { label: 'mermaid klassdiagram', ins: '```mermaid\nclassDiagram\n    class ${1:Exempel} {\n        +String ${2:namn}\n        +${3:metod}()\n    }\n```\n${0}', detail: 'Mermaid: klassdiagram' },
         ];
 
         monaco.languages.registerCompletionItemProvider('markdown', {
@@ -349,7 +352,10 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
 
                 var range = tokenRange(model, pos);
                 return {
-                    suggestions: MD.map(function (s) {
+                    suggestions: MD.filter(function (s) {
+                        // Frontmatter belongs at the start and must not be duplicated.
+                        return !s.frontmatter || (pos.lineNumber === 1 && model.getLineContent(1).trim() !== '---');
+                    }).map(function (s) {
                         return {
                             label: s.label,
                             kind: Kind.Snippet,

@@ -76,7 +76,7 @@ class FrontMatter
                     $items[] = $item;
                 }
             }
-            return $items ?: null;
+            return $items;
         }
 
         // Boolean

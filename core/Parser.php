@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '2';
+    public const VERSION = '3';
     private array $interwiki;
     private ?PageLoader $pageLoader;
     private ?PluginManager $plugins;
@@ -338,7 +338,7 @@ class Parser
     {
         // /namespace/page
         if (str_starts_with($href, '/') && strlen($href) > 1) {
-            $path = trim($href, '/');
+            $path = trim(rawurldecode($href), '/');
             try { return new PageId(str_replace('/', ':', $path)); } catch (\Throwable) { return null; }
         }
 

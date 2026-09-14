@@ -27,6 +27,7 @@ class PageId
 
     public function __construct(string $id)
     {
+        $id = str_replace(['/', '\\'], ':', $id);
         $id = trim($id, ": \t\n\r\0\x0B");
         $id = $id === '' ? 'start' : $id;
 
@@ -35,14 +36,10 @@ class PageId
             fn ($p) => $p !== ''
         ));
 
-        // Sanitera varje del: ta bort null-byte, backslash, snedstreck och
-        // path-traversal-sekvenser (.. och varianter) för att förhindra att
-        // ett sid-ID kan peka utanför content/-mappen.
+        // Use identical ASCII names on Linux and Windows, independent of locale
+        // and optional PHP extensions. Apply the same rule to namespaces/pages.
         $this->parts = array_values(array_filter(
-            array_map(function (string $part): string {
-                $part = str_replace(["\0", '\\', '/', '..'], '', $part);
-                return trim($part);
-            }, $parts),
+            array_map([self::class, 'normalizeSegment'], $parts),
             fn ($p) => $p !== ''
         ));
 
@@ -52,9 +49,36 @@ class PageId
         $this->id = implode(':', $this->parts);
     }
 
+    private static function normalizeSegment(string $part): string
+    {
+        $original = mb_strtolower(trim($part), 'UTF-8');
+        // These exact names are intentional wiki control files.
+        if (in_array($original, ['_sidebar', '_topbar'], true)) return $original;
+        $part = strtr($original, [
+            'å' => 'a', 'ä' => 'a', 'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ā' => 'a',
+            'ö' => 'o', 'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ø' => 'o', 'ō' => 'o',
+            'ü' => 'u', 'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ū' => 'u',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e', 'ē' => 'e',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i', 'ī' => 'i',
+            'ý' => 'y', 'ÿ' => 'y', 'ñ' => 'n', 'ń' => 'n', 'ç' => 'c', 'č' => 'c', 'ć' => 'c',
+            'š' => 's', 'ś' => 's', 'ž' => 'z', 'ź' => 'z', 'ż' => 'z', 'ł' => 'l',
+            'æ' => 'ae', 'œ' => 'oe', 'ß' => 'ss', 'ð' => 'd', 'þ' => 'th',
+        ]);
+        // Decomposed accents (e.g. a + combining diaeresis) normalize too.
+        $part = preg_replace('/\p{M}+/u', '', $part);
+        $part = preg_replace('/[^a-z0-9_-]+/', '_', $part);
+        $part = trim(preg_replace('/_+/', '_', $part), '_-');
+        // Never turn an all-symbol/non-Latin name into the existing start page.
+        if ($part === '') $part = 'sida-' . substr(hash('sha256', $original), 0, 16);
+        // Avoid Windows device names when the same repository is used locally.
+        if (preg_match('/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/', $part)) $part = 'sida-' . $part;
+        return $part;
+    }
+
     public static function fromRelativePath(string $relativePath, string $contentDir): self
     {
         $relativePath = str_replace('\\', '/', $relativePath);
+        $contentDir = str_replace('\\', '/', $contentDir);
         $relativePath = preg_replace('#^' . preg_quote(rtrim($contentDir, '/'), '#') . '/#', '', $relativePath);
         $relativePath = preg_replace('/\.md$/', '', $relativePath);
 

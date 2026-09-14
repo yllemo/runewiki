@@ -431,7 +431,7 @@ $footerHtml = $templates->render('footer', [
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI-chatt — <?= Helpers::e($siteName) ?></title>
-<link rel="icon" type="image/svg+xml" href="<?= Helpers::e($assetUrl('img/favicon.svg')) ?>">
+<link rel="icon" href="<?= Helpers::e($assetUrl($config['favicon'] ?? 'img/favicon.svg')) ?>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
@@ -638,7 +638,7 @@ body.footer-collapsed > footer, body.footer-collapsed > .gbg-index-band {
 
 <div class="toast" id="toast"></div>
 
-<script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"></script>
+<script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"<?= Helpers::linkSettingsAttributes($config) ?>></script>
 <script>
 /* ---------- IndexedDB ---------- */
 const DB_NAME='skillchat-db', STORE='kv';

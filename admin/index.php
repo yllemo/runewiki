@@ -63,6 +63,12 @@ function patchConfigValue(string $configPath, string $key, string $phpLiteral): 
     }
     $pattern = "/'" . preg_quote($key, '/') . "'(\s*)=>(\s*)[^,]+,/";
     if (!preg_match($pattern, $src)) {
+        // Existing installations do not yet have the optional favicon setting.
+        if (in_array($key, ['favicon', 'external_links_new_tab', 'distinct_link_colors', 'internal_link_color', 'external_link_color'], true) && preg_match('/\breturn\s*\[/', $src, $match, PREG_OFFSET_CAPTURE)) {
+            $start = $match[0][1] + strlen($match[0][0]);
+            $patched = substr($src, 0, $start) . "\n    '" . $key . "' => " . $phpLiteral . ',' . substr($src, $start);
+            return file_put_contents($configPath, $patched, LOCK_EX) !== false;
+        }
         return false; // nyckeln hittades inte i filen — rör den inte
     }
     $replacement = "'{$key}'\$1=>\$2" . addcslashes($phpLiteral, '\\$') . ',';
@@ -115,19 +121,20 @@ function logoTypeConfig(): array
         'header'      => ['configKey' => 'header_logo',      'default' => 'img/logo.svg', 'label' => 'Header (ljust läge)'],
         'header-dark' => ['configKey' => 'header_logo_dark', 'default' => '',             'label' => 'Header (mörkt läge)'],
         'footer'      => ['configKey' => 'footer_logo',      'default' => 'img/logo.svg', 'label' => 'Footer'],
+        'favicon'     => ['configKey' => 'favicon',          'default' => 'img/favicon.svg', 'label' => 'Favicon'],
     ];
 }
 
 /** Skriv-till-fil-namn för en logotyp av given typ ('header'/'header-dark'/'footer'), utan filändelse. */
 function logoBaseName(string $type): string
 {
-    return 'custom-' . $type . '-logo';
+    return $type === 'favicon' ? 'favicon' : 'custom-' . $type . '-logo';
 }
 
 /** Tar bort ev. tidigare uppladdad logotyp (oavsett .svg/.png) av given typ, så det aldrig ligger kvar en föråldrad fil. */
 function removeExistingLogo(string $imgDir, string $type, ?string $keepExtension = null): void
 {
-    foreach (['svg', 'png'] as $ext) {
+    foreach ($type === 'favicon' ? ['svg', 'png', 'ico'] : ['svg', 'png'] as $ext) {
         if ($ext === $keepExtension) continue;
         $path = $imgDir . '/' . logoBaseName($type) . '.' . $ext;
         if (is_file($path)) {
@@ -208,9 +215,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } else {
             $errors[] = 'Kunde inte skriva till config/strings.php (skrivrättigheter?).';
         }
+    } elseif ($action === 'save_links') {
+        $settings = [
+            'external_links_new_tab' => isset($_POST['external_links_new_tab']),
+            'distinct_link_colors' => isset($_POST['distinct_link_colors']),
+            'internal_link_color' => (string) ($_POST['internal_link_color'] ?? '#0077bc'),
+            'external_link_color' => (string) ($_POST['external_link_color'] ?? '#00446b'),
+        ];
+        if (!preg_match('/^#[0-9a-f]{6}$/i', $settings['internal_link_color']) || !preg_match('/^#[0-9a-f]{6}$/i', $settings['external_link_color'])) {
+            $errors[] = 'Välj giltiga färger för länkarna.';
+        } else {
+            $ok = true;
+            foreach ($settings as $key => $value) {
+                if (patchConfigValue($root . '/config/config.php', $key, var_export($value, true))) $config[$key] = $value;
+                else $ok = false;
+            }
+            if ($ok) $success = 'Länkinställningarna sparades.';
+            else $errors[] = 'Kunde inte spara alla länkinställningar till config/config.php.';
+        }
     } elseif ($action === 'save_settings') {
         $newSiteName    = trim((string) ($_POST['site_name'] ?? $siteName));
         $newAuthEnabled = isset($_POST['auth_enabled']);
+        $newHistoryEnabled = isset($_POST['history_enabled']);
         $configPath     = $root . '/config/config.php';
 
         $ok = true;
@@ -220,10 +246,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         if ($newAuthEnabled !== (bool) ($config['auth_enabled'] ?? false)) {
             $ok = $ok && patchConfigValue($configPath, 'auth_enabled', $newAuthEnabled ? 'true' : 'false');
         }
+        if ($newHistoryEnabled !== (bool) ($config['history_enabled'] ?? true)) {
+            $ok = $ok && patchConfigValue($configPath, 'history_enabled', $newHistoryEnabled ? 'true' : 'false');
+        }
 
         if ($ok) {
             $config['site_name']    = $newSiteName;
             $config['auth_enabled'] = $newAuthEnabled;
+            $config['history_enabled'] = $newHistoryEnabled;
             $siteName               = $newSiteName;
             $auth                   = new Auth($root . '/data/users/users.php', $newAuthEnabled);
             $success                = 'Inställningarna sparades.';
@@ -259,8 +289,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $errors[] = 'Filen är för stor (max 2 MB).';
                 } else {
                     $ext = strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION));
-                    if (!in_array($ext, ['svg', 'png'], true)) {
-                        $errors[] = 'Bara .svg och .png stöds.';
+                    $allowedExtensions = $type === 'favicon' ? ['svg', 'png', 'ico'] : ['svg', 'png'];
+                    if (!in_array($ext, $allowedExtensions, true)) {
+                        $errors[] = 'Tillåtna format: ' . implode(', ', $allowedExtensions) . '.';
                     } elseif (!is_dir($imgDir) && !mkdir($imgDir, 0775, true) && !is_dir($imgDir)) {
                         $errors[] = 'Kunde inte skapa ' . $imgDir . '.';
                     } else {
@@ -269,10 +300,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             $errors[] = 'Kunde inte spara filen på servern.';
                         } else {
                             $relPath = '/images/logos/' . logoBaseName($type) . '.' . $ext;
+                            if ($type === 'favicon') $relPath .= '?v=' . bin2hex(random_bytes(6));
                             if (patchConfigValue($root . '/config/config.php', $configKey, var_export($relPath, true))) {
                                 $config[$configKey] = $relPath;
                                 removeExistingLogo($imgDir, $type, $ext);
-                                $success = $label . '-logotypen uppdaterades.';
+                                $success = $label . ' uppdaterades.';
                             } else {
                                 $errors[] = 'Filen sparades men kunde inte skrivas till config/config.php (skrivrättigheter?).';
                             }
@@ -443,20 +475,38 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
             <input type="checkbox" name="auth_enabled" <?= !empty($config['auth_enabled']) ? 'checked' : '' ?>>
             <span>Kräv inloggning för att redigera (läsning är alltid öppet)</span>
         </label>
+        <label><input type="checkbox" name="history_enabled" <?= ($config['history_enabled'] ?? true) ? 'checked' : '' ?>> Spara versionshistorik separat i data/history/</label>
         <button type="submit" class="gbg-btn gbg-btn-primary">Spara inställningar</button>
     </form>
 
     <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">
-        <legend>Logotyper</legend>
+        <legend>Länkar</legend>
+        <form class="gbg-form" method="post" action="/admin/">
+            <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+            <input type="hidden" name="active_tab" value="webbplats">
+            <input type="hidden" name="action" value="save_links">
+            <label><input type="checkbox" name="external_links_new_tab" <?= ($config['external_links_new_tab'] ?? true) ? 'checked' : '' ?>> Öppna externa webblänkar i ny flik</label>
+            <p>Interna länkar öppnas i samma flik. En extern länk leder till en annan webbplats.</p>
+            <label><input type="checkbox" name="distinct_link_colors" <?= ($config['distinct_link_colors'] ?? true) ? 'checked' : '' ?>> Använd separata färger för interna och externa innehållslänkar</label>
+            <label>Intern länkfärg <input type="color" name="internal_link_color" value="<?= Helpers::e($config['internal_link_color'] ?? '#0077bc') ?>"></label>
+            <label>Extern länkfärg <input type="color" name="external_link_color" value="<?= Helpers::e($config['external_link_color'] ?? '#00446b') ?>"></label>
+            <p>Utan separata färger används temats färger. Länkar till sidor som saknas behåller sin varningsfärg.</p>
+            <button type="submit" class="gbg-btn gbg-btn-primary">Spara länkinställningar</button>
+        </form>
+    </fieldset>
+
+    <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">
+        <legend>Logotyper och favicon</legend>
         <p class="gbg-admin-lead">
             Headern byter bakgrund med ljust/mörkt läge (vit / nästan
             svart) och har därför två egna loggor som växlar live med
             temat — låt inte ljust läge visa en logga som drunknar mot
             en vit bakgrund. Sidfoten är alltid mörk oavsett tema och har
-            bara en egen logga.
+            bara en egen logga. Favicon visas i webbläsarfliken och kan vara
+            SVG, PNG eller ICO (max 2 MB).
         </p>
         <?php
-        $logoCurrentPaths = ['header' => $headerLogoPath, 'header-dark' => $headerLogoDarkPath, 'footer' => $footerLogoPath];
+        $logoCurrentPaths = ['header' => $headerLogoPath, 'header-dark' => $headerLogoDarkPath, 'footer' => $footerLogoPath, 'favicon' => $config['favicon'] ?? 'img/favicon.svg'];
         foreach (logoTypeConfig() as $logoType => $logoMeta):
             $currentPath = $logoCurrentPaths[$logoType];
             // header-dark utan egen uppladdning visar header_logo som förhandsvisning (det den faktiskt faller tillbaka på).
@@ -472,7 +522,7 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
                 <input type="hidden" name="active_tab" value="webbplats">
                 <input type="hidden" name="action" value="upload_logo">
                 <input type="hidden" name="logo_type" value="<?= Helpers::e($logoType) ?>">
-                <input type="file" name="logo_file" accept=".svg,.png" required>
+                <input type="file" name="logo_file" accept="<?= $logoType === 'favicon' ? '.svg,.png,.ico' : '.svg,.png' ?>" required>
                 <div class="gbg-admin-logo-actions">
                     <button type="submit" class="gbg-btn gbg-btn-primary">Ladda upp</button>
                     <?php if ($currentPath !== $logoMeta['default']): ?>
@@ -482,7 +532,7 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
             </form>
         </div>
         <?php endforeach; ?>
-        <p class="gbg-admin-lead">.svg eller .png, max 2 MB per fil.</p>
+        <p class="gbg-admin-lead">Logotyper: SVG eller PNG. Favicon: SVG, PNG eller ICO. Max 2 MB per fil.</p>
     </fieldset>
 
     <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">
@@ -530,5 +580,7 @@ echo $templates->render('layout', [
     'headerLogo'     => $headerLogoPath,
     'headerLogoDark' => $headerLogoDarkPath,
     'footerLogo'     => $footerLogoPath,
+    'favicon'        => $config['favicon'] ?? 'img/favicon.svg',
+    'linkSettings'   => $config,
     'bodyHtml'    => '<div class="gbg-admin">' . $bodyHtml . '</div>',
 ]);

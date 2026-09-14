@@ -43,6 +43,8 @@ function fmFormat(string $key, mixed $value): string
 <article class="wiki-page">
 
     <div class="gbg-page-tools">
+        <a class="gbg-btn gbg-btn-outline" href="<?= Helpers::e($pageId->url() . '?do=move') ?>">Byt namn / flytta</a>
+        <a class="gbg-btn gbg-btn-outline" href="<?= Helpers::e($pageId->url() . '?do=history') ?>">Versionshistorik</a>
         <a class="gbg-btn gbg-btn-outline" href="<?= Helpers::e($pageId->editUrl()) ?>">
             <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             <?= Helpers::e($strings['page_edit_button']) ?>
@@ -90,6 +92,18 @@ function fmFormat(string $key, mixed $value): string
     </div>
     <?php endif; ?>
 
+    <section class="gbg-backlinks" aria-label="Bakåtlänkar">
+        <h2>Bakåtlänkar <span>(<?= count($backlinks ?? []) ?>)</span></h2>
+        <?php if (empty($backlinks)): ?>
+            <p>Inga andra sidor länkar hit ännu.</p>
+        <?php else: ?>
+            <ul>
+                <?php foreach ($backlinks as $source): ?>
+                    <li><a href="<?= Helpers::e($source['url']) ?>"><?= Helpers::e($source['title']) ?></a> <small><?= Helpers::e($source['id']) ?></small></li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </section>
     <p class="gbg-page-id">Sid-ID: <code><?= Helpers::e($pageId->id()) ?></code></p>
 
 </article>

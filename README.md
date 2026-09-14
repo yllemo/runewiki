@@ -137,9 +137,14 @@ vill, det är bara ett förslag på en första struktur.
 - **CLI** för cache-tömning och sid-listning
 
 ### Säkerhet
-- **Valfri inloggning** (`auth_enabled` i config) — läsning alltid öppet,
-  redigering/spara/radera/media-uppladdning kan kräva inloggning
+- **Valfri inloggning** (`auth_enabled` i config) — läsning öppet som
+  standard, redigering/spara/radera/media-uppladdning kan kräva inloggning
   (`core/Auth.php`, användare via `php bin/cli.php create-user`)
+- **Finmaskig ACL per namespace och grupp** (`config/acl.php` + `core/Acl.php`,
+  tillämpas i `Wiki::canReadNamespace()`/`canEditNamespace()`) — se
+  "Inloggning och redigeringsrättigheter" nedan
+- **Inloggningen håller sig** (`session_lifetime_days` i config, standard 30
+  dagar) — glidande fönster, cookien förnyas vid varje besök som inloggad
 - XSS-skydd: inline Markdown-parser isolerar mönster med tokens; råa HTML-taggar escapes
 - CSRF-tokens på alla formulär (spara, radera, mediauppladdning, inloggning/utloggning)
 - Path traversal förhindras via PageId-sanitering (`..` tas bort ur varje del)
@@ -162,14 +167,14 @@ för nya länkar som tillkommer i chatten.
 
 | Fil | Syfte |
 |-----|-------|
-| `config/config.php` | Site-namn, tema, logotyper (header ljust/mörkt + footer), cache, auth, history m.m. |
+| `config/config.php` | Site-namn, tema, logotyper (header ljust/mörkt + footer), cache, auth, `session_lifetime_days`, history m.m. |
 | `config/plugins.php` | Aktivera plugins och sätt deras options |
 | `config/menu.php` | Huvudnavigering (åsidosätts av `content/_topbar.md` om den finns) |
 | `config/interwiki.php` | Interwiki-genvägar |
 | `config/media.php` | Tillåtna filtyper och maxstorlek |
-| `config/namespaces.php` | Egen meny per namespace (aktivt); tema/ACL läses in men tillämpas ej ännu |
+| `config/namespaces.php` | Egen meny per namespace (aktivt); `'acl'` (public/login/private) styr läsrätt, se "Inloggning och redigeringsrättigheter" |
 | `config/strings.php` | Skriv över UI-texter (tagline, sidfot, knappar, inloggning m.m.) |
-| `config/acl.php` | Grupper för framtida finmaskig ACL (ej kopplad in ännu) |
+| `config/acl.php` | Grupper för läs-/redigeringsrätt per namespace (kombineras med `namespaces.php`:s `'acl'`) — tilldelas konton via adminpanelen eller CLI:t |
 
 ## YAML-frontmatter
 
@@ -246,6 +251,15 @@ skrivskyddade JSON-endpoints som chattens JS använder:
 - `?action=search-content&q=...` — fritext- eller `tag:`-sökning (för `/search`)
 - `?action=get-content&id=...` — hämtar en enskild sidas råinnehåll
 - `?action=list-tags` — listar alla taggar med antal sidor (för `/tag`)
+
+`list-content`, `search-content`, `get-content`, `list-tags` och
+`list-namespaces` respekterar samma läsrätt per namespace som resten av
+wikin (se "Finmaskig ACL per namespace och grupp") — en sida i ett
+namespace man saknar läsrätt till visas eller hittas inte via `/chat`
+heller, oavsett om man frågar direkt eller via ett `/search`/`/files`-
+kommando. Undantaget är skills `include`-fält i `SKILL.md`
+(`?action=get-skill`): en skill som en admin skapat kan medvetet bunta in
+valfria sidor, ACL-filtreras inte.
 
 ### Skapa en skill
 
@@ -346,11 +360,53 @@ här installationen, med ett standardkonto klart att logga in med:
 > `/admin/` så snart du kan — det sparas då som en riktig bcrypt-hash.
 
 Sätt `auth_enabled: false` istället för en helt öppen wiki (alla kan läsa
-och redigera, ingen inloggning behövs). Med `true` gäller: läsning är
-öppet för alla, men redigering/spara/radera/media-uppladdning kräver
-inloggning (`core/Auth.php::canEdit()`, tillämpas i `core/Wiki.php`). Ett
-försök att redigera utan att vara inloggad skickas till `/?do=login` och
-hamnar tillbaka där man kom ifrån efter lyckad inloggning.
+och redigera, ingen inloggning behövs, ACL nedan gör då ingenting). Med
+`true` gäller som grundregel: läsning är öppet för alla, men redigering/
+spara/radera/media-uppladdning kräver inloggning
+(`core/Auth.php::canEdit()`, tillämpas i `core/Wiki.php`). Ett försök att
+redigera utan att vara inloggad skickas till `/?do=login` och hamnar
+tillbaka där man kom ifrån efter lyckad inloggning. Man behöver inte logga
+in på nytt varje gång — se "Hur länge en inloggning håller sig" nedan.
+
+### Finmaskig ACL per namespace och grupp
+
+Utöver grundregeln ovan kan du begränsa LÄSNING per namespace och styra
+REDIGERING per grupp — två delar som samverkar:
+
+1. **`config/namespaces.php`:s `'acl'`-nyckel** styr läsrätten till ett
+   namespace: `public` (standard, alla läser), `login` (kräver inloggning,
+   vilket konto som helst) eller `private` (kräver inloggning OCH en grupp
+   med uttrycklig läs- eller redigeringsrätt till just det namespacet).
+2. **`config/acl.php`:s grupper** styr vad ett konto FÅR göra — varje grupp
+   är en lista rättighetssträngar, t.ex. `'*'` (allt), `'projekt:edit'`
+   (läs+redigera bara namespacet `projekt`) eller `'*:read'` (bara läsa,
+   överallt). Inbyggda grupper: `admin` (allt), `editor` (läs+redigera
+   överallt — standard för konton utan egna grupper, se nedan) och
+   `reader` (bara läsa). Lägg till egna grupper i filen för finare
+   uppdelning.
+
+Vilka grupper ETT KONTO tillhör sätts under **Admin → Användare** (bocka i
+grupper per konto) eller `php bin/cli.php set-groups <namn> <grupp1,grupp2>`
+— inte i `config/acl.php`, som bara definierar vad gruppnamnen FÅR göra.
+Ett konto som aldrig fått egna grupper räknas som `editor` (kan redigera
+överallt), så en uppgradering från en äldre installation inte plötsligt
+låser ute befintliga redaktörer. Redigeringsrätt kräver alltid `edit`/`*`
+för namespacet, oavsett `'acl'`-läge. Namespaces utan egen `'acl'`-rad
+ärver rotens (`namespaces.php`:s nyckel `''`).
+
+Sökträffar, bakåtlänkar, sidindexet i sidfoten och mediaöversikten
+(`/images`) filtreras alla efter samma läsrätt, så ett namespace med
+`acl: private` läcker varken titlar eller filnamn till den som saknar
+behörighet.
+
+### Hur länge en inloggning håller sig
+
+`session_lifetime_days` i `config/config.php` (standard 30, ändras även
+under **Admin → Webbplats**) styr hur länge man förblir inloggad utan att
+logga in på nytt. Glidande fönster: cookien förnyas vid varje besök som
+inloggad (`Auth::refreshSessionCookie()`), så aktiva konton loggas aldrig
+ut mitt i användningen — bara efter `session_lifetime_days` dagars total
+inaktivitet, eller om man loggar ut/rensar cookies för hand.
 
 ### Adminpanel (/admin/) — ingen CLI-åtkomst krävs
 
@@ -362,12 +418,14 @@ synlig när man är inloggad. Fyra flikar (klientväxlade, ingen sidladdning):
   OpenShift eller annan hosting utan shell/PHP CLI-åtkomst: en vanlig
   POST-request kör `password_hash()` i webbserverns egen PHP-process.
 - **Användare** — skapa/ta bort inloggningsanvändare (kan inte ta bort
-  sitt eget inloggade konto).
+  sitt eget inloggade konto), samt bocka i vilka **grupper**
+  (`config/acl.php`) varje konto tillhör — se "Finmaskig ACL" ovan.
 - **Texter** — alla UI-texter (`Helpers::defaultStrings()`, grupperade i
   fieldsets: header/sidfot, navigering, sidverktyg, AI Chat, sidindex,
   inloggning, mitt konto) — skriver `config/strings.php`. Ett tomt fält
   återställer den texten till standardvärdet; en egen knapp återställer allt.
-- **Webbplats** — sitenamn, `auth_enabled`, samt **tre logotyp-uppladdningar**
+- **Webbplats** — sitenamn, `auth_enabled`, `session_lifetime_days`,
+  export av `/content` som .zip, samt **tre logotyp-uppladdningar**
   (`.svg`/`.png`, max 2 MB var): header (ljust läge), header (mörkt läge)
   och footer — laddas upp till
   `images/logos/custom-<header|header-dark|footer>-logo.<ext>`
@@ -379,20 +437,21 @@ synlig när man är inloggad. Fyra flikar (klientväxlade, ingen sidladdning):
 
 Panelen kräver bara att man är inloggad (`Auth::currentUser()`), oavsett
 `auth_enabled` — annars vore den låst ute om man behövde slå på
-inställningen härifrån första gången.
+inställningen härifrån första gången. Panelen är inte ACL-begränsad: vem
+som helst som är inloggad kommer åt hela `/admin/`, oavsett gruppmedlemskap.
 
 Har du shell-åtkomst går samma sak (och underhåll i övrigt) att göra via
 CLI:t istället — se `## CLI` nedan.
 
-Kontona sparas i `data/users/users.php` (`'användarnamn' => lösenord`,
-blockerad för direktåtkomst av `.htaccess`) — antingen en bcrypt-hash
-(`$2y$...`, från `password_hash()`) eller klartext som en snabb startpunkt
-utan CLI/adminpanel (t.ex. det första kontot på en helt ny installation:
-skapa filen för hand med ett klartextlösenord, logga in, byt det direkt på
-`/admin/`). Rör aldrig hasharna för hand. Modellen är binär: inloggad = kan
-redigera allt. Mer finmaskig behörighet per namespace/grupp
-(`config/acl.php`, `config/namespaces.php`:s `acl`-nyckel) är förberedd
-men inte kopplad in än.
+Kontona sparas i `data/users/users.php` (blockerad för direktåtkomst av
+`.htaccess`) som `'användarnamn' => ['password' => ..., 'groups' => [...]]`.
+Lösenordet är antingen en bcrypt-hash (`$2y$...`, från `password_hash()`)
+eller klartext som en snabb startpunkt utan CLI/adminpanel (t.ex. det
+första kontot på en helt ny installation: skapa filen för hand med ett
+klartextlösenord, logga in, byt det direkt på `/admin/`). Äldre installationer
+kan fortfarande ha kontona som en ren `'användarnamn' => lösenord`-sträng
+(utan `groups`) — läses in precis som förut och tolkas som gruppen `editor`
+tills du sätter egna grupper. Rör aldrig hasharna för hand.
 
 ## CLI
 
@@ -401,7 +460,8 @@ php bin/cli.php clear-cache          # Töm data/cache/
 php bin/cli.php list-pages           # Lista alla sid-ID:n
 php bin/cli.php create-user <namn>   # Skapa/uppdatera en inloggningsanvändare (sparar hash)
 php bin/cli.php delete-user <namn>   # Ta bort en inloggningsanvändare
-php bin/cli.php list-users           # Lista användare (flaggar konton som ligger i klartext)
+php bin/cli.php list-users           # Lista användare (grupper + klartext-flagga)
+php bin/cli.php set-groups <namn> <grupp1,grupp2>  # Sätt kontots grupper (config/acl.php), tomt tar bort alla
 php bin/cli.php help
 ```
 
@@ -466,14 +526,14 @@ historikformatet importeras inte automatiskt.
 
 ## Kända begränsningar
 
-- **Auth är binärt** — `auth_enabled: true` betyder "inloggad = full
-  redigeringsrätt", ingen roll-/gruppbaserad begränsning ännu (se
-  "Inloggning och redigeringsrättigheter" ovan). En helt ny installation
-  (`config.example.php`) har den avstängd som standard.
-- **Finmaskig ACL** — `config/acl.php`:s grupper och `config/namespaces.php`:s
-  `acl`-nyckel (public/login/private per namespace) läses in men tillämpas
-  inte ännu. `namespaces.php`:s `menu`-nyckel (egen meny per namespace)
-  fungerar dock redan.
+- **Adminpanelen är inte ACL-begränsad** — grupper (`config/acl.php`) styr
+  bara läs-/redigeringsrätt till wikisidor och media per namespace; vem som
+  helst som är inloggad kommer åt hela `/admin/` (användare, texter,
+  webbplatsinställningar, export). En helt ny installation
+  (`config.example.php`) har `auth_enabled` avstängd som standard.
+- **Mediaöversiktens uppladdningsknapp** i den samlade `/images`-vyn laddar
+  alltid upp till ROTEN, oavsett vilka enskilda namespaces som visas —
+  borttagningsknappen per fil respekterar däremot rätt namespace.
 - **Sökning utan index** — filgenomsökning vid varje sökning; tillräckligt för
   mindre wikis, skalbart med indexbaserad implementation utan API-ändringar.
 - **Monaco Editor** kräver internet (laddas från CDN vid redigering).

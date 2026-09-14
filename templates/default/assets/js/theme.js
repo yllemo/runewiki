@@ -89,20 +89,22 @@ document.addEventListener('DOMContentLoaded', function () {
     toggleBtn.addEventListener('click', gbgToggleTheme);
   }
 
-  // ── Dropdown-menyer (sök / meny) i huvudmenyn ──────────────────────
+  // ── Dropdown-menyer (sök / meny i huvudmenyn, "..."-menyn på sidan) ──
+  // Triggerknappen kan vara .gbg-tool-btn (header) eller en vanlig
+  // .gbg-btn (t.ex. sidverktygsraden) — [aria-haspopup] täcker båda.
   var dropdowns = Array.prototype.slice.call(document.querySelectorAll('.gbg-dropdown'));
 
   function closeAll(except) {
     dropdowns.forEach(function (dd) {
       if (dd === except) return;
       dd.classList.remove('is-open');
-      var btn = dd.querySelector('.gbg-tool-btn');
+      var btn = dd.querySelector('[aria-haspopup]');
       if (btn) btn.setAttribute('aria-expanded', 'false');
     });
   }
 
   dropdowns.forEach(function (dd) {
-    var btn = dd.querySelector('.gbg-tool-btn');
+    var btn = dd.querySelector('[aria-haspopup]');
     var menu = dd.querySelector('.gbg-dropdown-menu');
     if (!btn || !menu) return;
 

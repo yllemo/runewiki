@@ -2,35 +2,41 @@
 /**
  * config/acl.php
  *
- * FRAMTIDA finmaskig behörighet: grupper/rättigheter tänkta att kombineras
- * med en namespace-nivås 'acl' (public/login/private) i config/namespaces.php
- * — läses in men tillämpas INTE ännu (se README "Kända begränsningar").
+ * Grupper för finmaskig behörighet, kopplade in i core/Acl.php och
+ * tillämpade i core/Wiki.php (Wiki::canReadNamespace()/canEditNamespace()).
+ * Kombineras med namespace-nivåns 'acl'-läge (public/login/private) i
+ * config/namespaces.php — se kommentaren där.
  *
- * Det som FAKTISKT är kopplat idag är den enkla, globala växeln:
- *   - config.php:s 'auth_enabled' = false (standard): helt öppen wiki,
- *     alla kan läsa OCH redigera.
- *   - 'auth_enabled' = true: läsning är fortfarande öppet för alla, men
- *     redigering/spara/radera/media-uppladdning kräver inloggning
- *     (core/Auth.php::canEdit(), tillämpas i core/Wiki.php).
+ * Varje grupp är en lista rättighetssträngar:
+ *   "*"                 — full åtkomst (läs + redigera) till ALLA namespaces
+ *   "<namespace>"        — läs + redigera ETT namespace (samma som "<namespace>:*")
+ *   "<namespace>:read"   — bara läsrätt till ett namespace
+ *   "<namespace>:edit"   — läs- och redigeringsrätt till ett namespace
+ *   "*:read" / "*:edit"  — samma rättighet men för alla namespaces
  *
- * Användarkonton för den enkla växeln ovan hanteras INTE här, utan i
- * data/users/users.php ('användarnamn' => password_hash(...)) — skapas
- * och tas bort med:
+ * <namespace> är den exakta mappen under /content (t.ex. "projekt"), inte
+ * punktseparerade filnamnsdelar. Roten (sidor utan eget namespace, t.ex.
+ * "start") har namespace "" (tom sträng) — skriv "" om du vill ge en
+ * grupp rätt bara till rotsidorna.
  *
- *   php bin/cli.php create-user <användarnamn>
- *   php bin/cli.php delete-user <användarnamn>
- *   php bin/cli.php list-users
+ * Vilka grupper en användare har sätts per konto (adminpanelen, fliken
+ * "Användare", eller "php bin/cli.php set-groups <namn> <grupp1,grupp2>")
+ * — inte här. Den här filen definierar bara VAD varje gruppnamn FÅR göra.
+ * En användare utan egna grupper räknas som "editor" (samma rättigheter
+ * alla inloggade hade innan ACL kopplades in), så befintliga konton
+ * fortsätter fungera precis som förut efter en uppgradering.
  *
- * Alla användare som skapas där kan redigera allt (binärt: inloggad
- * eller inte). Grupperna nedan är ett skelett för en senare, mer
- * finmaskig behörighetsmodell (t.ex. "editor" får bara redigera vissa
- * namespaces) och har ingen effekt förrän den kopplas in.
+ * ACL gäller bara när 'auth_enabled' är true i config.php — annars är
+ * hela wikin öppen för alla, som vanligt.
  */
 
 return [
     'groups' => [
-        'admin'  => ['*'],           // full åtkomst till allt
-        'editor' => ['content:*'],   // kan redigera allt innehåll
-        'reader' => ['content:read'],
+        'admin'  => ['*'],       // full åtkomst (läs + redigera) till allt
+        'editor' => ['*:edit'],  // kan läsa och redigera alla namespaces (standard för konton utan egna grupper)
+        'reader' => ['*:read'],  // kan bara läsa — ge den här gruppen till konton som ska in i namespaces med acl: private, men inte redigera
+
+        // Exempel: en grupp som bara får redigera ETT namespace:
+        // 'projekt-redaktor' => ['projekt:edit'],
     ],
 ];

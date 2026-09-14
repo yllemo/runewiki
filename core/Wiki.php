@@ -22,6 +22,9 @@ class Wiki
     private Cache $cache;
     private Search $search;
     private Auth $auth;
+    private Acl $acl;
+    /** True om config/acl.php faktiskt definierar minst en grupp — se canEditNamespace(). */
+    private bool $aclConfigured;
     private History $history;
     private NamespaceResolver $namespaces;
     private ?array $topbarMenu;
@@ -43,6 +46,7 @@ class Wiki
         $namespaceConfig = Helpers::loadConfig($this->root . '/config/namespaces.php');
         $interwikiConfig = Helpers::loadConfig($this->root . '/config/interwiki.php');
         $pluginConfig    = Helpers::loadConfig($this->root . '/config/plugins.php');
+        $aclConfig       = Helpers::loadConfig($this->root . '/config/acl.php');
 
         // Menyprioritet (se menuFor()):
         //   1. content/_topbar.md — om den finns styr den ALLTID toppmenyn,
@@ -68,7 +72,9 @@ class Wiki
         $this->templates  = new TemplateEngine($templatesDir, $config['theme'] ?? 'default');
         $this->cache      = new Cache($dataDir . '/cache', (bool) ($config['cache_enabled'] ?? true));
         $this->search     = new Search($contentDir);
-        $this->auth       = new Auth($dataDir . '/users/users.php', (bool) ($config['auth_enabled'] ?? false));
+        $this->auth       = new Auth($dataDir . '/users/users.php', (bool) ($config['auth_enabled'] ?? false), (int) ($config['session_lifetime_days'] ?? 30));
+        $this->acl        = new Acl($aclConfig['groups'] ?? []);
+        $this->aclConfigured = !empty($aclConfig['groups']);
         $this->history    = new History($dataDir . '/history', (bool) ($config['history_enabled'] ?? true));
         $this->namespaces = new NamespaceResolver($namespaceConfig);
     }
@@ -109,6 +115,80 @@ class Wiki
     }
 
     /**
+     * Läsrätt för $namespace — se config/namespaces.php:s 'acl'-kommentar
+     * (public/login/private). Bara verksamt när auth_enabled är true;
+     * annars (standard) är hela wikin öppen, som innan ACL fanns.
+     */
+    private function canReadNamespace(string $namespace): bool
+    {
+        if (!$this->auth->isEnabled()) {
+            return true;
+        }
+        $mode = $this->namespaces->settingsFor($namespace)['acl'] ?? 'public';
+        if ($mode === 'public') {
+            return true;
+        }
+        $user = $this->auth->currentUser();
+        if ($user === null) {
+            return false;
+        }
+        if ($mode === 'login') {
+            return true;
+        }
+        // 'private': inloggning räcker inte — kräver en grupp med
+        // uttrycklig läs- eller redigeringsrätt till just detta namespace.
+        return $this->acl->can($this->auth->groupsFor($user), $namespace, 'read');
+    }
+
+    /**
+     * Redigeringsrätt för $namespace — kräver inloggning (om auth_enabled)
+     * OCH en grupp (config/acl.php) med edit/"*" för namespacet. Ersätter
+     * Auth::canEdit() på alla ställen som faktiskt rör EN sidas/ETT
+     * namespaces innehåll (Auth::canEdit() själv är kvar som den grova
+     * "är man inloggad alls"-kollen, t.ex. för att visa/dölja UI).
+     */
+    private function canEditNamespace(string $namespace): bool
+    {
+        if (!$this->auth->isEnabled()) {
+            return true;
+        }
+        $user = $this->auth->currentUser();
+        if ($user === null) {
+            return false;
+        }
+        // Skyddsnät: om config/acl.php av någon anledning saknar grupper helt
+        // (borttagen fil, misslyckad deploy m.m.) ska det INTE tyst låsa ute
+        // alla inloggade från att redigera — degradera till samma öppna
+        // "inloggad = kan redigera"-beteende som innan ACL fanns, istället
+        // för ett förvirrande "saknar behörighet" utan uppenbar orsak.
+        if (!$this->aclConfigured) {
+            return true;
+        }
+        return $this->acl->can($this->auth->groupsFor($user), $namespace, 'edit');
+    }
+
+    /**
+     * Nekad åtkomst till $namespace: skickar till inloggning om man inte
+     * är inloggad alls (samma som requireLogin()), annars en 403-sida —
+     * man ÄR inloggad men saknar rätt grupp för just det här namespacet,
+     * så att skicka till inloggningsformuläret igen vore meningslöst.
+     */
+    private function accessDenied(string $namespace, string $returnTo): string
+    {
+        if ($this->auth->currentUser() === null) {
+            return $this->requireLogin($returnTo);
+        }
+        http_response_code(403);
+        $id = new PageId($namespace !== '' ? $namespace : 'start');
+        return $this->templates->render('layout', $this->baseData($id, [
+            'view'     => 'error',
+            'page'     => ['title' => 'Åtkomst nekad'],
+            'pageId'   => $id,
+            'bodyHtml' => '<p>Du är inloggad, men har inte behörighet till det här namespacet.</p>',
+        ]));
+    }
+
+    /**
      * Löser vilken toppmeny som gäller för sidans namespace.
      *
      * content/_topbar.md (om den finns) styr ALLTID menyn, site-wide —
@@ -130,6 +210,16 @@ class Wiki
     private function baseData(PageId $id, array $extra = []): array
     {
         $sidebarRaw = $this->pages->sidebar($id);
+
+        // Sidindexet i sidfoten ska inte avslöja namespaces man saknar
+        // läsrätt till (t.ex. acl: private) — filtrera bort dem per grupp.
+        $pageTree = Helpers::buildPageTree($this->pages);
+        foreach (array_keys($pageTree) as $ns) {
+            if (!$this->canReadNamespace($ns === '_root' ? '' : $ns)) {
+                unset($pageTree[$ns]);
+            }
+        }
+
         return array_merge([
             'siteName'  => $this->config['site_name'] ?? 'RuneWiki',
             'lang'      => $this->config['language'] ?? 'sv',
@@ -143,7 +233,7 @@ class Wiki
             'assetUrl'  => fn ($p) => $this->templates->assetUrl($p),
             'sidebarHtml' => $sidebarRaw ? $this->parser->toHtml($sidebarRaw) : '',
             'currentId' => $id->id(),
-            'pageTree'  => Helpers::buildPageTree($this->pages),
+            'pageTree'  => $pageTree,
             // Styr login/logout-UI:t i header.php — se Auth::canEdit().
             'authEnabled' => $this->auth->isEnabled(),
             'currentUser' => $this->auth->currentUser(),
@@ -162,6 +252,10 @@ class Wiki
     private function handleView(string $rawId): string
     {
         $id = new PageId($rawId);
+
+        if (!$this->canReadNamespace($id->namespace())) {
+            return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? $id->url());
+        }
 
         if (!$this->pages->exists($id)) {
             return $this->templates->render('layout', $this->baseData($id, [
@@ -194,8 +288,15 @@ class Wiki
         ]);
         $bodyHtml = $ctx['html'] ?? $bodyHtml;
 
+        // Bakåtlänkar från namespaces man saknar läsrätt till ska inte
+        // avslöja att de källsidorna existerar.
+        $backlinks = array_values(array_filter(
+            $this->references->backlinks($id),
+            fn (array $source) => $this->canReadNamespace((new PageId($source['id']))->namespace())
+        ));
+
         $renderedPage = $this->templates->render('page', [
-            'backlinks' => $this->references->backlinks($id),
+            'backlinks' => $backlinks,
             'page'     => $page['meta'],
             'pageId'   => $id,
             'bodyHtml' => $bodyHtml,
@@ -212,12 +313,16 @@ class Wiki
 
     /**
      * ?do=download — laddar ner sidans råa .md-fil (frontmatter + brödtext,
-     * exakt som den ligger på disk). Läsning är alltid öppet, precis som
-     * handleView(), så det här kräver ingen inloggning.
+     * exakt som den ligger på disk). Samma läsrätt som handleView() —
+     * öppet för alla om inte ACL säger annat (config/namespaces.php).
      */
     private function handleDownload(string $rawId): string
     {
-        $id   = new PageId($rawId);
+        $id = new PageId($rawId);
+        if (!$this->canReadNamespace($id->namespace())) {
+            http_response_code(403);
+            return 'Åtkomst nekad.';
+        }
         $page = $this->pages->load($id);
         if ($page === null) {
             http_response_code(404);
@@ -233,11 +338,11 @@ class Wiki
 
     private function handleEdit(string $rawId): string
     {
-        if (!$this->auth->canEdit()) {
-            return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+        $id = new PageId($rawId);
+        if (!$this->canEditNamespace($id->namespace())) {
+            return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
         }
 
-        $id = new PageId($rawId);
         $existing = $this->pages->load($id);
 
         $newBody = str_starts_with(basename($id->toFilePath($this->root . '/content')), '_')
@@ -264,8 +369,9 @@ class Wiki
 
     private function handleSave(string $rawId): string
     {
-        if (!$this->auth->canEdit()) {
-            return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+        $namespace = (new PageId($rawId))->namespace();
+        if (!$this->canEditNamespace($namespace)) {
+            return $this->accessDenied($namespace, $_SERVER['REQUEST_URI'] ?? '/');
         }
 
         if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
@@ -368,8 +474,8 @@ class Wiki
 
     private function handleMove(string $rawId): string
     {
-        if (!$this->auth->canEdit()) return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
         $id = new PageId($rawId);
+        if (!$this->canEditNamespace($id->namespace())) return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
         $targetInput = is_string($_POST['target_id'] ?? null) ? trim($_POST['target_id']) : '';
         $target = null; $plan = null; $error = null; $success = null;
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -380,6 +486,9 @@ class Wiki
                 try {
                     if ($targetInput === '') throw new RuntimeException('Ange ett nytt sid-ID.');
                     $target = new PageId($targetInput);
+                    if (!$this->canEditNamespace($target->namespace())) {
+                        throw new RuntimeException('Du har inte redigeringsrätt i målets namespace.');
+                    }
                     $mover = new PageMover($this->pages, $this->history);
                     if (($_POST['confirm_move'] ?? '') === '1') {
                         $fingerprint = is_string($_POST['fingerprint'] ?? null) ? $_POST['fingerprint'] : '';
@@ -406,8 +515,8 @@ class Wiki
 
     private function handleHistory(string $rawId): string
     {
-        if (!$this->auth->canEdit()) return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
         $id = new PageId($rawId);
+        if (!$this->canEditNamespace($id->namespace())) return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
         $revision = $_POST['revision'] ?? $_GET['revision'] ?? '';
         $revision = is_string($revision) ? $revision : '';
         $raw = $revision !== '' ? $this->history->read($id, $revision) : null;
@@ -446,8 +555,9 @@ class Wiki
 
     private function handleDelete(string $rawId): string
     {
-        if (!$this->auth->canEdit()) {
-            return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+        $namespace = (new PageId($rawId))->namespace();
+        if (!$this->canEditNamespace($namespace)) {
+            return $this->accessDenied($namespace, $_SERVER['REQUEST_URI'] ?? '/');
         }
 
         if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
@@ -479,6 +589,13 @@ class Wiki
         $results = $isTagSearch
             ? $this->search->queryByTag($tagName ?? '')
             : $this->search->query($term);
+
+        // Sökträffar i namespaces man saknar läsrätt till ska inte
+        // avslöja titel/utdrag i resultatlistan.
+        $results = array_values(array_filter(
+            $results,
+            fn (array $r) => $this->canReadNamespace((new PageId($r['id']))->namespace())
+        ));
 
         // Erbjud "skapa sida" bara vid vanlig textsökning, inte tagg-sökning
         // — och bara om ingen sida med exakt det ID:t redan finns (annars
@@ -573,11 +690,11 @@ class Wiki
         $isAjax = ($_POST['ajax'] ?? '') === '1'
             || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
 
-        if (!$this->auth->canEdit()) {
+        if (!$this->canEditNamespace($namespace)) {
             if ($isAjax) {
-                return $this->jsonResponse(['ok' => false, 'error' => 'Inte inloggad.'], 401);
+                return $this->jsonResponse(['ok' => false, 'error' => 'Inte inloggad eller saknar behörighet till namespacet.'], 401);
             }
-            return $this->handleMediaList($namespace, 'Fel: Inte inloggad.');
+            return $this->handleMediaList($namespace, 'Fel: Inte inloggad eller saknar behörighet till namespacet.');
         }
 
         if ($isAjax && empty($_POST) && empty($_FILES) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
@@ -610,9 +727,9 @@ class Wiki
 
     private function handleMediaDelete(string $namespace): string
     {
-        if (!$this->auth->canEdit()) {
+        if (!$this->canEditNamespace($namespace)) {
             http_response_code(403);
-            return $this->handleMediaList($namespace, 'Fel: Du måste vara inloggad för att ta bort bilder.');
+            return $this->handleMediaList($namespace, 'Fel: Du måste vara inloggad, med rätt behörighet, för att ta bort bilder.');
         }
         if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
             http_response_code(403);
@@ -642,10 +759,11 @@ class Wiki
 
     /**
      * /images (utan namespace i URL:en) visar en global översikt över ALLA
-     * namespaces med media på en gång; /images/<namespace> visar (och
-     * laddar upp till) bara det namespacet. Uppladdning kräver inloggning
-     * när auth_enabled = true (canUpload skickas till temat, som döljer
-     * formuläret annars) — läsning/bläddring är alltid öppet.
+     * namespaces med media man har läsrätt till på en gång; /images/<namespace>
+     * visar (och laddar upp till) bara det namespacet. Uppladdning/borttagning
+     * kräver redigeringsrätt (canEditNamespace()) när auth_enabled = true;
+     * bläddring kräver läsrätt (canReadNamespace()) — se config/namespaces.php:s
+     * 'acl'-kommentar. Standard (public) är öppet för alla, som innan ACL fanns.
      */
     private function handleMediaList(string $namespace, ?string $uploadMessage = null): string
     {
@@ -666,11 +784,23 @@ class Wiki
         try {
             $maybeFile = new MediaId($namespace);
             if ($this->media->exists($maybeFile)) {
+                if (!$this->canReadNamespace($maybeFile->namespace())) {
+                    http_response_code(403);
+                    return '';
+                }
                 $this->serveMediaFile($maybeFile);
                 return '';
             }
         } catch (\Throwable) {
             // Tomt/ogiltigt medie-ID (t.ex. /images-roten) — fortsätt som listning.
+        }
+
+        // Ett enskilt namespace man saknar läsrätt till (acl: login/private)
+        // ska inte gå att bläddra i — men /images (roten, $namespace === '')
+        // ska fortfarande visa översikten, bara utan de otillåtna gruppernas
+        // namespaces (filtreras bort nedan).
+        if ($namespace !== '' && !$this->canReadNamespace($namespace)) {
+            return $this->accessDenied($namespace, $_SERVER['REQUEST_URI'] ?? '/images');
         }
 
         // Berikar varje ID med MediaId, om det är en bild (miniatyr kontra
@@ -691,7 +821,11 @@ class Wiki
         };
 
         if ($namespace === '') {
-            $groupedFiles = array_map(fn (array $ids) => array_map($enrich, $ids), $this->media->listAllNamespaces());
+            $allFiles = $this->media->listAllNamespaces();
+            // Filtrera bort namespaces man saknar läsrätt till ur den
+            // samlade översikten — samma resonemang som pageTree i baseData().
+            $readableFiles = array_intersect_key($allFiles, array_flip(array_filter(array_keys($allFiles), fn ($ns) => $this->canReadNamespace($ns))));
+            $groupedFiles = array_map(fn (array $ids) => array_map($enrich, $ids), $readableFiles);
             $title = 'Mediahanterare — alla namespaces';
         } else {
             $groupedFiles = [$namespace => array_map($enrich, $this->media->listNamespace($namespace))];
@@ -700,10 +834,18 @@ class Wiki
 
         $id = new PageId('start');
 
+        // Redigeringsrätt per NAMESPACE i den listade gruppen — inte bara
+        // rotens (kan skilja sig åt i den samlade översikten, där olika
+        // namespaces kan höra till olika grupper/acl-lägen). Borttagnings-
+        // knappen per rad använder den här kartan; uppladdningsformuläret
+        // (alltid till $namespace, roten i den globala vyn) använder $canUpload.
+        $canEditByNamespace = array_combine(array_keys($groupedFiles), array_map(fn ($ns) => $this->canEditNamespace($ns), array_keys($groupedFiles)));
+
         $listHtml = $this->templates->render('media', [
             'namespace'     => $namespace,
             'groupedFiles'  => $groupedFiles,
-            'canUpload'     => $this->auth->canEdit(),
+            'canUpload'     => $this->canEditNamespace($namespace),
+            'canEditByNamespace' => $canEditByNamespace,
             'strings'       => $this->strings,
             'uploadMessage' => $uploadMessage,
         ]);

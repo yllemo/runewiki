@@ -7,7 +7,8 @@
  * översikt över ALLA namespaces med media på en gång, grupperat med en
  * rubrik per namespace. Bilder visas som miniatyrer i ett rutnät; övriga
  * filtyper som ikonkort. Uppladdningsformuläret visas bara om $canUpload
- * är true (Auth::canEdit() — kräver inloggning när auth_enabled = true).
+ * är true (Wiki::canEditNamespace() — kräver inloggning OCH rätt grupp
+ * när auth_enabled = true, se config/acl.php).
  *
  * Bildväljaren i editorn (edit.php:s "Bläddra i media"-knapp) är en egen
  * inbäddad modal där, byggd direkt från $allMedia — den återanvänder INTE
@@ -20,6 +21,12 @@
  * $uploadMessage: sätts av Wiki::handleMediaUpload(), som
  * renderar DEN HÄR mallen direkt i samma svar efter ett uppladdnings-
  * försök (ingen redirect).
+ *
+ * $canEditByNamespace: [namespace => bool] — redigeringsrätt per
+ * namespace i $groupedFiles (kan skilja sig mellan namespaces i den
+ * globala översikten när ACL/grupper är i bruk, se config/acl.php).
+ * Styr borttagningsknappen per rad; $canUpload (en enda bool, alltid för
+ * $namespace/roten) styr bara uppladdningsformuläret högst upp.
  */
 $isGlobalView = $namespace === '';
 // Match directory URLs directly so a DirectorySlash redirect cannot discard the POST body.
@@ -44,7 +51,7 @@ foreach ($groupedFiles as $groupItems) {
     <p class="gbg-admin-lead">Endast bilder: PNG, JPG, GIF, SVG, WEBP.</p>
     <?php else: ?>
         <p class="gbg-admin-lead">
-            <a href="/?do=login&redirect_to=<?= urlencode($uploadTarget) ?>">Logga in</a> för att kunna ladda upp filer — bläddring är alltid öppet.
+            <a href="/?do=login&redirect_to=<?= urlencode($uploadTarget) ?>">Logga in</a> för att kunna ladda upp filer.
         </p>
     <?php endif; ?>
 
@@ -80,7 +87,7 @@ foreach ($groupedFiles as $groupItems) {
                             <span class="gbg-media-size"><?= Helpers::e(Helpers::formatBytes($f['size'])) ?></span>
                         </div>
                         <code class="gbg-media-embed" title="Klistra in i sidans Markdown för att bädda in filen">{{<?= Helpers::e($f['id']) ?>}}</code>
-                        <?php if ($canUpload ?? false): ?>
+                        <?php if ($canEditByNamespace[$ns] ?? ($canUpload ?? false)): ?>
                             <?php $usageCount = count($f['references']) + count($f['siteUses']); ?>
                             <form class="gbg-media-delete" method="post" action="<?= Helpers::e($uploadTarget) ?>?do=delete"
                                   data-filename="<?= Helpers::e($mediaId->filename()) ?>"

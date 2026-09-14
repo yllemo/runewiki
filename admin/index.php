@@ -10,11 +10,15 @@
  * håller sig kort istället för en enda lång sida:
  *
  *   - Mitt lösenord   — byt eget lösenord (sparas alltid som bcrypt-hash)
- *   - Användare       — skapa/ta bort inloggningsanvändare
+ *   - Användare       — skapa/ta bort inloggningsanvändare, sätt vilka
+ *                        grupper (config/acl.php) varje konto tillhör —
+ *                        styr läs-/redigeringsrätt per namespace, se
+ *                        core/Acl.php/Wiki::canEditNamespace()
  *   - Texter          — alla UI-texter (Helpers::defaultStrings()), skriver
  *                        config/strings.php
  *   - Webbplats       — sitenamn, header-/footer-logotyp (uppladdning),
- *                        auth_enabled — skriver config/config.php
+ *                        auth_enabled, inloggningens livslängd, export av
+ *                        /content — skriver config/config.php
  *
  * Bara synlig om man är inloggad (Auth::currentUser()) — OAVSETT
  * 'auth_enabled' i config.php, så en administratör kan slå på den
@@ -36,7 +40,7 @@ $lang      = $config['language'] ?? 'sv';
 $theme     = $config['theme'] ?? 'default';
 $templates = new TemplateEngine($root . '/templates', $theme);
 $assetUrl  = fn (string $p) => $templates->assetUrl($p);
-$auth      = new Auth($root . '/data/users/users.php', (bool) ($config['auth_enabled'] ?? false));
+$auth      = new Auth($root . '/data/users/users.php', (bool) ($config['auth_enabled'] ?? false), (int) ($config['session_lifetime_days'] ?? 30));
 $strings   = Helpers::resolveStrings($root, $siteName);
 
 // Gate: måste vara inloggad. Kollar currentUser() direkt (inte canEdit()),
@@ -47,6 +51,58 @@ if (!$auth->currentUser()) {
     exit;
 }
 $currentUser = $auth->currentUser();
+
+/**
+ * ?do=export_content — packar hela /content (alla .md-sidor, oavsett
+ * namespace) i en .zip och skickar den som nedladdning. Ren läsning, så
+ * en GET räcker (som Wiki::handleDownload för enskilda sidor) — sidan
+ * kräver ändå inloggning via auth-gaten ovan.
+ */
+function exportContentZip(string $contentDir): void
+{
+    if (!class_exists('ZipArchive')) {
+        http_response_code(500);
+        echo 'PHP-tillägget "zip" saknas på servern, kan inte skapa zip-filen.';
+        return;
+    }
+
+    $tmpFile = tempnam(sys_get_temp_dir(), 'runewiki_export_');
+    $zip = new ZipArchive();
+    if ($tmpFile === false || $zip->open($tmpFile, ZipArchive::OVERWRITE) !== true) {
+        http_response_code(500);
+        echo 'Kunde inte skapa zip-filen.';
+        return;
+    }
+
+    if (is_dir($contentDir)) {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($contentDir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        foreach ($files as $file) {
+            $relative = ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen($contentDir))), '/');
+            $localPath = 'content/' . $relative;
+            if ($file->isDir()) {
+                $zip->addEmptyDir($localPath);
+            } else {
+                $zip->addFile($file->getPathname(), $localPath);
+            }
+        }
+    }
+    $zip->close();
+
+    $filename = 'runedown_content-' . date('Y-m-d') . '.zip';
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . filesize($tmpFile));
+    readfile($tmpFile);
+    unlink($tmpFile);
+}
+
+if (($_GET['do'] ?? '') === 'export_content') {
+    exportContentZip($root . '/content');
+    exit;
+}
 
 /**
  * Riktad textersättning av en enkel 'nyckel' => värde,-rad i config.php.
@@ -64,7 +120,7 @@ function patchConfigValue(string $configPath, string $key, string $phpLiteral): 
     $pattern = "/'" . preg_quote($key, '/') . "'(\s*)=>(\s*)[^,]+,/";
     if (!preg_match($pattern, $src)) {
         // Existing installations do not yet have the optional favicon setting.
-        if (in_array($key, ['favicon', 'external_links_new_tab', 'distinct_link_colors', 'internal_link_color', 'external_link_color'], true) && preg_match('/\breturn\s*\[/', $src, $match, PREG_OFFSET_CAPTURE)) {
+        if (in_array($key, ['favicon', 'external_links_new_tab', 'distinct_link_colors', 'internal_link_color', 'external_link_color', 'session_lifetime_days'], true) && preg_match('/\breturn\s*\[/', $src, $match, PREG_OFFSET_CAPTURE)) {
             $start = $match[0][1] + strlen($match[0][0]);
             $patched = substr($src, 0, $start) . "\n    '" . $key . "' => " . $phpLiteral . ',' . substr($src, $start);
             return file_put_contents($configPath, $patched, LOCK_EX) !== false;
@@ -182,6 +238,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } else {
             $success = 'Sparade användaren "' . $username . '" (lösenord sparat som hash).';
         }
+    } elseif ($action === 'save_user_groups') {
+        $username = trim((string) ($_POST['username'] ?? ''));
+        $groups   = array_values(array_filter(array_map('strval', (array) ($_POST['groups'] ?? []))));
+        if ($username === '') {
+            $errors[] = 'Inget användarnamn angivet.';
+        } elseif (!$auth->setUserGroups($username, $groups)) {
+            $errors[] = 'Kunde inte spara grupper för "' . $username . '" (kontot finns inte, eller skrivrättigheter saknas).';
+        } else {
+            $success = 'Grupper sparade för "' . $username . '".';
+        }
     } elseif ($action === 'delete_user') {
         $username = trim((string) ($_POST['username'] ?? ''));
         if ($username === $currentUser) {
@@ -237,6 +303,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $newSiteName    = trim((string) ($_POST['site_name'] ?? $siteName));
         $newAuthEnabled = isset($_POST['auth_enabled']);
         $newHistoryEnabled = isset($_POST['history_enabled']);
+        $newSessionDays = (int) ($_POST['session_lifetime_days'] ?? ($config['session_lifetime_days'] ?? 30));
+        $newSessionDays = max(1, min(365, $newSessionDays));
         $configPath     = $root . '/config/config.php';
 
         $ok = true;
@@ -249,13 +317,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         if ($newHistoryEnabled !== (bool) ($config['history_enabled'] ?? true)) {
             $ok = $ok && patchConfigValue($configPath, 'history_enabled', $newHistoryEnabled ? 'true' : 'false');
         }
+        if ($newSessionDays !== (int) ($config['session_lifetime_days'] ?? 30)) {
+            $ok = $ok && patchConfigValue($configPath, 'session_lifetime_days', var_export($newSessionDays, true));
+        }
 
         if ($ok) {
             $config['site_name']    = $newSiteName;
             $config['auth_enabled'] = $newAuthEnabled;
             $config['history_enabled'] = $newHistoryEnabled;
+            $config['session_lifetime_days'] = $newSessionDays;
             $siteName               = $newSiteName;
-            $auth                   = new Auth($root . '/data/users/users.php', $newAuthEnabled);
+            $auth                   = new Auth($root . '/data/users/users.php', $newAuthEnabled, $newSessionDays);
             $success                = 'Inställningarna sparades.';
         } else {
             $errors[] = 'Kunde inte spara till config/config.php (skrivrättigheter?). Ändra värdet för hand där istället.';
@@ -318,6 +390,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
 $users = $auth->listUsernames();
 sort($users);
+
+// Tillgängliga grupper (fliken "Användare") — definieras i config/acl.php,
+// tillämpas i core/Acl.php/Wiki::canEditNamespace()/canReadNamespace().
+$aclGroups = array_keys(Helpers::loadConfig($root . '/config/acl.php')['groups'] ?? []);
 
 $rawStrings = Helpers::loadConfig($root . '/config/strings.php', Helpers::defaultStrings());
 $defaultStrings = Helpers::defaultStrings();
@@ -385,25 +461,59 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
     <?php if (empty($users)): ?>
         <p class="gbg-admin-lead">Inga användare ännu.</p>
     <?php else: ?>
+    <?php if (empty($aclGroups)): ?>
+        <p class="gbg-login-error">Inga grupper definierade i config/acl.php — lägg till minst en grupp där för att kunna sätta behörighet per namespace.</p>
+    <?php endif; ?>
     <ul class="gbg-admin-user-list">
         <?php foreach ($users as $u): ?>
-            <li>
-                <span><?= Helpers::e($u) ?></span>
-                <?php if ($auth->hasPlaintextPassword($u)): ?>
-                    <span class="gbg-admin-flag" title="Lösenordet ligger i klartext, inte hashat">klartext</span>
+            <li class="gbg-admin-user-row">
+                <div class="gbg-admin-user-head">
+                    <span><?= Helpers::e($u) ?></span>
+                    <?php if ($auth->hasPlaintextPassword($u)): ?>
+                        <span class="gbg-admin-flag" title="Lösenordet ligger i klartext, inte hashat">klartext</span>
+                    <?php endif; ?>
+                    <?php if ($u !== $currentUser): ?>
+                        <form method="post" action="/admin/" onsubmit="return confirm('Ta bort användaren &quot;<?= Helpers::e($u) ?>&quot;?');">
+                            <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+                            <input type="hidden" name="active_tab" value="anvandare">
+                            <input type="hidden" name="action" value="delete_user">
+                            <input type="hidden" name="username" value="<?= Helpers::e($u) ?>">
+                            <button type="submit" class="btn btn-danger" style="padding:.3rem .7rem; font-size:.78rem">Ta bort</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+                <?php if (!empty($aclGroups)): ?>
+                <?php $userGroups = $auth->groupsFor($u); ?>
+                <form method="post" action="/admin/" class="gbg-admin-user-groups">
+                    <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+                    <input type="hidden" name="active_tab" value="anvandare">
+                    <input type="hidden" name="action" value="save_user_groups">
+                    <input type="hidden" name="username" value="<?= Helpers::e($u) ?>">
+                    <?php foreach ($aclGroups as $g): ?>
+                        <label class="gbg-checkbox-label">
+                            <input type="checkbox" name="groups[]" value="<?= Helpers::e($g) ?>" <?= in_array($g, $userGroups, true) ? 'checked' : '' ?>>
+                            <span><?= Helpers::e($g) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <button type="submit" class="gbg-btn gbg-btn-outline" style="padding:.3rem .7rem; font-size:.78rem">Spara grupper</button>
+                </form>
+                <?php if (empty($userGroups)): ?>
+                    <p class="gbg-admin-flag" style="margin:0">Inga grupper — kan varken läsa "login"/"private"-namespaces eller redigera något.</p>
                 <?php endif; ?>
-                <?php if ($u !== $currentUser): ?>
-                    <form method="post" action="/admin/" onsubmit="return confirm('Ta bort användaren &quot;<?= Helpers::e($u) ?>&quot;?');">
-                        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
-                        <input type="hidden" name="active_tab" value="anvandare">
-                        <input type="hidden" name="action" value="delete_user">
-                        <input type="hidden" name="username" value="<?= Helpers::e($u) ?>">
-                        <button type="submit" class="btn btn-danger" style="padding:.3rem .7rem; font-size:.78rem">Ta bort</button>
-                    </form>
                 <?php endif; ?>
             </li>
         <?php endforeach; ?>
     </ul>
+    <p class="gbg-admin-lead">
+        Grupper avgör vilka namespaces ett konto får läsa/redigera
+        (<code>config/acl.php</code>, kombinerat med <code>'acl'</code>-läget
+        per namespace i <code>config/namespaces.php</code>). Nya konton och
+        äldre konton som aldrig fått egna grupper visas här som
+        <strong>editor</strong> (kan redigera överallt, samma som innan
+        grupper fanns) — bocka i/ur och spara för att ändra. Sparar du utan
+        någon ibockad grupp alls tappar kontot ALL läs-/redigeringsrätt
+        till namespaces med striktare ACL.
+    </p>
     <?php endif; ?>
 
     <h3>Ny användare</h3>
@@ -473,9 +583,14 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
         </label>
         <label class="gbg-checkbox-label">
             <input type="checkbox" name="auth_enabled" <?= !empty($config['auth_enabled']) ? 'checked' : '' ?>>
-            <span>Kräv inloggning för att redigera (läsning är alltid öppet)</span>
+            <span>Kräv inloggning för att redigera (läsning är öppet, om inte ett namespace har striktare ACL — se fliken "Användare" och config/namespaces.php)</span>
         </label>
         <label><input type="checkbox" name="history_enabled" <?= ($config['history_enabled'] ?? true) ? 'checked' : '' ?>> Spara versionshistorik separat i data/history/</label>
+        <label>
+            <span>Håll mig inloggad (dagar)</span>
+            <input type="number" name="session_lifetime_days" min="1" max="365" value="<?= Helpers::e((string) ($config['session_lifetime_days'] ?? 30)) ?>" style="max-width:8rem">
+        </label>
+        <p class="gbg-admin-lead">Hur länge en inloggning håller sig utan ny inloggning — glidande fönster, förnyas vid varje besök. Gäller nya inloggningar (redan inloggade sessioner uppdateras vid nästa sidladdning).</p>
         <button type="submit" class="gbg-btn gbg-btn-primary">Spara inställningar</button>
     </form>
 
@@ -533,6 +648,16 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
         </div>
         <?php endforeach; ?>
         <p class="gbg-admin-lead">Logotyper: SVG eller PNG. Favicon: SVG, PNG eller ICO. Max 2 MB per fil.</p>
+    </fieldset>
+
+    <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">
+        <legend>Exportera innehåll</legend>
+        <p class="gbg-admin-lead">
+            Ladda ner hela <code>/content</code> (alla sidors .md-filer, i
+            alla namespace) som en zip-fil — t.ex. för backup eller för att
+            flytta innehållet till en annan installation.
+        </p>
+        <a class="gbg-btn gbg-btn-primary" href="/admin/?do=export_content">Ladda ner .zip</a>
     </fieldset>
 
     <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">

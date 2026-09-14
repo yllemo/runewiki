@@ -6,7 +6,8 @@
     "license": "MIT",
     "require": {
         "php": ">=8.1",
-        "ext-mbstring": "*"
+        "ext-mbstring": "*",
+        "ext-zip": "*"
     },
     "autoload": {
         "classmap": ["core/", "plugins/"]

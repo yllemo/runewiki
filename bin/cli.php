@@ -10,7 +10,11 @@
  *   list-pages           Listar alla sid-ID:n i content/
  *   create-user <namn>   Skapar/uppdaterar en inloggningsanvändare
  *   delete-user <namn>   Tar bort en inloggningsanvändare
- *   list-users           Listar alla inloggningsanvändare
+ *   list-users           Listar alla inloggningsanvändare (med grupper)
+ *   set-groups <namn> <grupp1,grupp2,...>
+ *                        Sätter kontots grupper (config/acl.php) — avgör
+ *                        vilka namespaces det får läsa/redigera. Tomt
+ *                        (t.ex. "") tar bort ALLA grupper.
  *   help                 Visar denna hjälptext
  */
 
@@ -36,6 +40,7 @@ match ($command) {
     'create-user'  => cmdCreateUser($root, $argv[2] ?? ''),
     'delete-user'  => cmdDeleteUser($root, $argv[2] ?? ''),
     'list-users'   => cmdListUsers($root),
+    'set-groups'   => cmdSetGroups($root, $argv[2] ?? '', $argv[3] ?? null),
     'help'         => cmdHelp(),
     default        => (function () use ($command) {
         echo "Okänt kommando: {$command}\n";
@@ -152,10 +157,46 @@ function cmdListUsers(string $root): void
         return;
     }
     foreach ($users as $username) {
-        $flag = $auth->hasPlaintextPassword($username) ? '  (KLARTEXT — kör create-user för att hasha)' : '';
-        echo $username . $flag . "\n";
+        $flag   = $auth->hasPlaintextPassword($username) ? '  (KLARTEXT — kör create-user för att hasha)' : '';
+        $groups = $auth->groupsFor($username);
+        $groupsLabel = $groups === [] ? 'inga grupper (ingen åtkomst utöver publika namespaces)' : implode(', ', $groups);
+        echo $username . $flag . "  [" . $groupsLabel . "]\n";
     }
     echo "\n" . count($users) . " användare totalt.\n";
+}
+
+/** Sätter ett kontos grupper (config/acl.php) — avgör namespace-behörighet, se core/Acl.php. */
+function cmdSetGroups(string $root, string $username, ?string $groupsArg): void
+{
+    $username = trim($username);
+    if ($username === '' || $groupsArg === null) {
+        fwrite(STDERR, "Användning: php bin/cli.php set-groups <användarnamn> <grupp1,grupp2,...>\n");
+        fwrite(STDERR, "Tomt (\"\") tar bort ALLA grupper från kontot.\n");
+        exit(1);
+    }
+
+    $auth = authFor($root);
+    if (!$auth->userExists($username)) {
+        fwrite(STDERR, "Ingen användare med namnet \"{$username}\" hittades.\n");
+        exit(1);
+    }
+
+    $groups = array_values(array_filter(array_map('trim', explode(',', $groupsArg)), fn ($g) => $g !== ''));
+
+    $definedGroups = array_keys(Helpers::loadConfig($root . '/config/acl.php')['groups'] ?? []);
+    $unknown = array_diff($groups, $definedGroups);
+    if ($unknown !== []) {
+        echo "OBS: grupperna \"" . implode('", "', $unknown) . "\" finns inte i config/acl.php ännu — sparas ändå, men ger ingen effekt förrän de definieras där.\n";
+    }
+
+    if (!$auth->setUserGroups($username, $groups)) {
+        fwrite(STDERR, "Kunde inte spara till data/users/users.php (rättigheter?).\n");
+        exit(1);
+    }
+
+    echo $groups === []
+        ? "Tog bort alla grupper från \"{$username}\" — kontot har nu ingen läs-/redigeringsrätt utöver publika namespaces.\n"
+        : "Satte grupperna [" . implode(', ', $groups) . "] för \"{$username}\".\n";
 }
 
 function cmdHelp(): void
@@ -172,11 +213,16 @@ Kommandon:
   create-user <namn>   Skapar/uppdaterar en inloggningsanvändare (lösenord
                         frågas interaktivt) i data/users/users.php
   delete-user <namn>   Tar bort en inloggningsanvändare
-  list-users           Listar alla inloggningsanvändare
+  list-users           Listar alla inloggningsanvändare (med grupper)
+  set-groups <namn> <grupp1,grupp2,...>
+                        Sätter kontots grupper (config/acl.php) — styr
+                        läs-/redigeringsrätt per namespace (core/Acl.php).
+                        Tomt ("") tar bort alla grupper.
   help                 Visar denna hjälptext
 
 Sätt 'auth_enabled' => true i config/config.php för att kräva inloggning
-vid redigering/spara/radera/media-uppladdning — läsning är alltid öppet.
+vid redigering/spara/radera/media-uppladdning — läsning är öppet, om inte
+ett namespace har striktare ACL (config/namespaces.php + config/acl.php).
 
 HELP;
 }

@@ -51,6 +51,42 @@ spl_autoload_register(function (string $class) use ($root) {
     }
 });
 
+// Läses in HÄR (innan ?action=-dispatchen längre ner) — inte bara i
+// HTML-bootstrappet nedanför — eftersom JSON-endpointerna som läser
+// /content (list-content, search-content, get-content, list-namespaces,
+// list-tags) måste respektera SAMMA läsrätt som core/Wiki.php:s ?do=view
+// (config/namespaces.php:s 'acl' + config/acl.php:s grupper), annars vore
+// ACL:en verkningslös för allt som går via /chat. Se chatCanReadNamespace().
+$config     = require $root . '/config/config.php';
+$namespaces = new NamespaceResolver(Helpers::loadConfig($root . '/config/namespaces.php'));
+$acl        = new Acl(Helpers::loadConfig($root . '/config/acl.php')['groups'] ?? []);
+$auth       = new Auth($root . '/data/users/users.php', (bool) ($config['auth_enabled'] ?? false), (int) ($config['session_lifetime_days'] ?? 30));
+
+/**
+ * Läsrätt för ett namespace i /chat:s JSON-endpoints — MÅSTE hållas i
+ * synk med Wiki::canReadNamespace() i core/Wiki.php (samma policy).
+ * Duplicerad hellre än delad här: chat/index.php är medvetet fristående
+ * från Wiki-klassen (se filkommentaren), och policyn är liten och stabil.
+ */
+function chatCanReadNamespace(Auth $auth, NamespaceResolver $namespaces, Acl $acl, string $namespace): bool
+{
+    if (!$auth->isEnabled()) {
+        return true;
+    }
+    $mode = $namespaces->settingsFor($namespace)['acl'] ?? 'public';
+    if ($mode === 'public') {
+        return true;
+    }
+    $user = $auth->currentUser();
+    if ($user === null) {
+        return false;
+    }
+    if ($mode === 'login') {
+        return true;
+    }
+    return $acl->can($auth->groupsFor($user), $namespace, 'read');
+}
+
 /** Saniterar ett skill-slug (mappnamn): bara a-z 0-9 _ - tillåts. Skyddar mot path traversal. */
 function chatSanitizeSlug(string $slug): string
 {
@@ -201,13 +237,16 @@ function chatGetSkill(string $skillsDir, string $contentDir, string $rawSlug): a
  *
  * @return array<int, array{id:string, title:string, url:string, mtime:int}>
  */
-function chatListContent(string $contentDir, string $sort = 'alpha', string $filter = ''): array
+function chatListContent(string $contentDir, string $sort, string $filter, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
     $pages  = new PageLoader($contentDir);
     $filter = trim($filter);
     $out    = [];
     foreach ($pages->listAll() as $id) {
         $pageId   = new PageId($id);
+        if (!chatCanReadNamespace($auth, $namespaces, $acl, $pageId->namespace())) {
+            continue;
+        }
         $filePath = $pageId->toFilePath($contentDir);
         $filename = basename($filePath, '.md');
         if ($filter !== '' && mb_stripos($filename, $filter) === false) {
@@ -235,17 +274,21 @@ function chatListContent(string $contentDir, string $sort = 'alpha', string $fil
  * "ns:namespace" listar alla sidor i ett namespace (mapp) — används av
  * /namespace (/folder)-kommandot.
  */
-function chatSearchContent(string $contentDir, string $term): array
+function chatSearchContent(string $contentDir, string $term, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
     $search = new Search($contentDir);
     $term   = trim($term);
     if (str_starts_with($term, 'tag:')) {
-        return $search->queryByTag(substr($term, 4));
+        $results = $search->queryByTag(substr($term, 4));
+    } elseif (str_starts_with($term, 'ns:')) {
+        $results = $search->queryByNamespace(substr($term, 3));
+    } else {
+        $results = $search->query($term);
     }
-    if (str_starts_with($term, 'ns:')) {
-        return $search->queryByNamespace(substr($term, 3));
-    }
-    return $search->query($term);
+    return array_values(array_filter(
+        $results,
+        fn (array $r) => chatCanReadNamespace($auth, $namespaces, $acl, (new PageId($r['id']))->namespace())
+    ));
 }
 
 /**
@@ -255,12 +298,15 @@ function chatSearchContent(string $contentDir, string $term): array
  * Helpers::buildPageTree() använder för sidfotens sidindex.
  * @return array<int, array{ns:string, label:string, count:int}>
  */
-function chatListNamespaces(string $contentDir): array
+function chatListNamespaces(string $contentDir, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
     $pages  = new PageLoader($contentDir);
     $counts = [];
     foreach ($pages->listAll() as $id) {
-        $ns  = (new PageId($id))->namespace();
+        $ns = (new PageId($id))->namespace();
+        if (!chatCanReadNamespace($auth, $namespaces, $acl, $ns)) {
+            continue;
+        }
         $key = $ns === '' ? '_root' : $ns;
         $counts[$key] = ($counts[$key] ?? 0) + 1;
     }
@@ -285,12 +331,16 @@ function chatListNamespaces(string $contentDir): array
  * sidor per tagg, för chattens /tag-kommando.
  * @return array<int, array{tag:string, count:int}>
  */
-function chatListTags(string $contentDir): array
+function chatListTags(string $contentDir, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
     $pages  = new PageLoader($contentDir);
     $counts = [];
     foreach ($pages->listAll() as $id) {
-        $page = $pages->load(new PageId($id));
+        $pageId = new PageId($id);
+        if (!chatCanReadNamespace($auth, $namespaces, $acl, $pageId->namespace())) {
+            continue;
+        }
+        $page = $pages->load($pageId);
         if ($page === null) {
             continue;
         }
@@ -311,7 +361,7 @@ function chatListTags(string $contentDir): array
 }
 
 /** Hämtar en enskild sidas råinnehåll (för att lägga till i chattens kontext). */
-function chatGetContent(string $contentDir, string $rawId): array
+function chatGetContent(string $contentDir, string $rawId, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
     if (trim($rawId) === '') {
         return ['error' => 'Inget sid-ID angivet.'];
@@ -320,6 +370,9 @@ function chatGetContent(string $contentDir, string $rawId): array
         $pageId = new PageId($rawId);
     } catch (\Throwable) {
         return ['error' => 'Ogiltigt sid-ID.'];
+    }
+    if (!chatCanReadNamespace($auth, $namespaces, $acl, $pageId->namespace())) {
+        return ['error' => 'Sidan hittades inte.'];
     }
     $loaded = (new PageLoader($contentDir))->load($pageId);
     if ($loaded === null) {
@@ -350,39 +403,40 @@ if ($action === 'list-content') {
     header('Content-Type: application/json; charset=utf-8');
     $sort   = ($_GET['sort'] ?? '') === 'date' ? 'date' : 'alpha';
     $filter = (string) ($_GET['filter'] ?? '');
-    echo json_encode(chatListContent($contentDir, $sort, $filter), JSON_UNESCAPED_UNICODE);
+    echo json_encode(chatListContent($contentDir, $sort, $filter, $auth, $namespaces, $acl), JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($action === 'search-content') {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(chatSearchContent($contentDir, (string) ($_GET['q'] ?? '')), JSON_UNESCAPED_UNICODE);
+    echo json_encode(chatSearchContent($contentDir, (string) ($_GET['q'] ?? ''), $auth, $namespaces, $acl), JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($action === 'get-content') {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(chatGetContent($contentDir, (string) ($_GET['id'] ?? '')), JSON_UNESCAPED_UNICODE);
+    echo json_encode(chatGetContent($contentDir, (string) ($_GET['id'] ?? ''), $auth, $namespaces, $acl), JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($action === 'list-tags') {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(chatListTags($contentDir), JSON_UNESCAPED_UNICODE);
+    echo json_encode(chatListTags($contentDir, $auth, $namespaces, $acl), JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($action === 'list-namespaces') {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(chatListNamespaces($contentDir), JSON_UNESCAPED_UNICODE);
+    echo json_encode(chatListNamespaces($contentDir, $auth, $namespaces, $acl), JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 // ── HTML-sidan (inte en ?action=-endpoint): bootstrapa exakt det som
 // behövs för att återanvända AKTIVT temas riktiga header.php/footer.php,
 // så /chat alltid är synkad med samma tema, sitenamn och toppmeny som
-// resten av wikin.
-$config    = require $root . '/config/config.php';
+// resten av wikin. $config/$namespaces/$auth är redan inlästa högst upp
+// (innan ?action=-dispatchen), så bara det som är unikt för HTML-sidan
+// sätts här.
 $siteName  = $config['site_name'] ?? 'RuneWiki';
 $lang      = $config['language'] ?? 'sv';
 $templates = new TemplateEngine($root . '/templates', $config['theme'] ?? 'default');
@@ -391,16 +445,14 @@ $pages     = new PageLoader($contentDir);
 // Samma menyprioritet som core/Wiki.php (menuFor()): _topbar.md styr ALLTID
 // om den finns, annars en ev. 'menu'-override för rot-namespacet i
 // config/namespaces.php, annars global config/menu.php.
-$namespaces = new NamespaceResolver(Helpers::loadConfig($root . '/config/namespaces.php'));
-$menu       = Helpers::loadTopbarMenu($contentDir)
+$menu = Helpers::loadTopbarMenu($contentDir)
     ?? ($namespaces->settingsFor('')['menu'] ?? Helpers::loadConfig($root . '/config/menu.php'));
 // Samma texter (tagline, sidfotstexter m.m.) som resten av wikin —
 // skrivs över i config/strings.php, se Helpers::resolveStrings().
 $strings = Helpers::resolveStrings($root, $siteName);
-// Samma inloggningsstatus som resten av wikin, så login/logout-knappen i
-// headern stämmer även på /chat (auth styr bara redigering, inte /chat
-// själv — chatten kräver ingen inloggning).
-$auth = new Auth($root . '/data/users/users.php', (bool) ($config['auth_enabled'] ?? false));
+// $auth används här bara för login/logout-knappen i headern (auth styr
+// bara redigering på den vanliga wikin, inte /chat-SIDAN själv — men
+// JSON-endpointerna ovan respekterar ACL:ens läsrätt, se chatCanReadNamespace()).
 
 // view='chat' (inte 'page'/'missing') gör att header.php automatiskt döljer
 // "Redigera"-länken och brödsmulorna — de hör bara hemma på riktiga sidvyer.

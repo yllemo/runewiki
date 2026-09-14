@@ -27,6 +27,10 @@ class References
             $id = new PageId($sourceId);
             $page = $this->pages->load($id);
             if (!$page) continue;
+            // _sidebar/_topbar är styrfiler (menylänkar), inte riktiga sidor —
+            // deras länkar ska inte synas som bakåtlänkar på målsidorna.
+            $leaf = $id->nameParts()[count($id->nameParts()) - 1] ?? '';
+            $isSystemSource = in_array($leaf, ['_sidebar', '_topbar'], true);
             $source = ['id' => $id->id(), 'title' => (string) ($page['meta']['title'] ?? $id->title()), 'url' => $id->url()];
             // Code examples are escaped by Parser, so they cannot become references.
             $html = $parser->toHtml($page['body']);
@@ -44,7 +48,7 @@ class References
                 $path = rawurldecode($url['path'] ?? '/');
                 if (str_starts_with($path, '/images/')) {
                     $this->index['images'][$path][$sourceId] = $source;
-                } elseif (strtolower($match[1]) === 'a' && str_starts_with($path, '/') && !preg_match('#^/(admin|chat)(/|$)#', $path)) {
+                } elseif (!$isSystemSource && strtolower($match[1]) === 'a' && str_starts_with($path, '/') && !preg_match('#^/(admin|chat)(/|$)#', $path)) {
                     parse_str($url['query'] ?? '', $query);
                     if (isset($query['do']) && !in_array($query['do'], ['view', 'edit'], true)) continue;
                     $target = new PageId(trim($path, '/'));

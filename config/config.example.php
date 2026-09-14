@@ -51,6 +51,10 @@ return [
     // Skapa användare med: php bin/cli.php create-user <användarnamn>
     'auth_enabled'     => false,
 
+    // Hur länge en inloggning håller i sig utan att man behöver logga in
+    // igen (glidande fönster, förnyas vid varje besök — se Auth::refreshSessionCookie()).
+    'session_lifetime_days' => 30,
+
     // Versionering av sidor (core/History.php)
     'history_enabled'  => true,
 ];

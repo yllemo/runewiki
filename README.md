@@ -55,6 +55,10 @@ vill, det är bara ett förslag på en första struktur.
   tas sidan bort istället för att spara en tom `.md`-fil
 
 ### Innehåll och syntax
+- Färgade Markdown-boxar: `::: info`, `::: warning`, `::: tip`, `::: note`
+  m.fl., avslutade med `:::`. Egen rubrik och Markdown-innehåll stöds,
+  liksom GitHub-alerts (`> [!NOTE]`). Mallar finns via Ctrl+Space → `box`;
+  syntaxguiden visar alla typer och exempel. Färgerna följer ljust/mörkt läge.
 - **YAML-frontmatter** — titel, datum, taggar, status m.m. renderas som snygg metadata-rad
 - **Titel från rubrik** — första `# Rubrik` blir sidans titel; sid-ID som fallback
 - **Taggar** — klickbara, söker fram alla sidor med samma tagg

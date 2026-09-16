@@ -25,7 +25,13 @@
 
 class Parser
 {
-    public const VERSION = '3';
+    public const VERSION = '4';
+    private const CALLOUTS = [
+        'simple' => '', 'info' => 'Information', 'note' => 'Notering',
+        'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
+        'danger' => 'Varning', 'caution' => 'Varning', 'help' => 'Hjälp',
+        'download' => 'Nedladdning', 'todo' => 'Att göra', 'success' => 'Klart',
+    ];
     private array $interwiki;
     private ?PageLoader $pageLoader;
     private ?PluginManager $plugins;
@@ -89,6 +95,20 @@ class Parser
             if (preg_match('/^\x01CODEBLOCK\d+\x01$/', trim($line))) {
                 $html[] = trim($line); $i++; continue;
             }
+            $callout = $this->calloutOpening($line);
+            if ($callout !== null) {
+                $depth = 1;
+                for ($end = $i + 1; $end < $count; $end++) {
+                    if ($this->calloutOpening($lines[$end]) !== null) $depth++;
+                    elseif (preg_match('/^ {0,3}:::[ \t]*$/', $lines[$end]) && --$depth === 0) break;
+                }
+                // Leave an unclosed container as text instead of swallowing the page.
+                if ($end < $count) {
+                    $html[] = $this->renderCallout($callout['type'], $callout['title'], implode("\n", array_slice($lines, $i + 1, $end - $i - 1)));
+                    $i = $end + 1;
+                    continue;
+                }
+            }
             if (preg_match('/^ {0,3}(#{1,6})\s+(.+?)\s*#*$/', $line, $m)) {
                 $level = strlen($m[1]);
                 $html[] = "<h{$level}>" . $this->inline($m[2]) . "</h{$level}>";
@@ -121,7 +141,12 @@ class Parser
                 while ($i < $count && preg_match('/^ {0,3}> ?(.*)$/', $lines[$i], $m)) {
                     $quote[] = $m[1]; $i++;
                 }
-                $html[] = '<blockquote>' . $this->renderBlocks(implode("\n", $quote)) . '</blockquote>';
+                if (preg_match('/^\[!([a-z]+)\](?:[ \t]+(.*))?$/i', $quote[0], $alert) && array_key_exists(strtolower($alert[1]), self::CALLOUTS)) {
+                    array_shift($quote);
+                    $html[] = $this->renderCallout(strtolower($alert[1]), $alert[2] ?? '', $this->extractFencedCode(implode("\n", $quote)));
+                } else {
+                    $html[] = '<blockquote>' . $this->renderBlocks(implode("\n", $quote)) . '</blockquote>';
+                }
                 continue;
             }
             if (preg_match('/^( *)([-+*]|\d+[.)])\s+(.*)$/', $line, $m)) {
@@ -172,9 +197,25 @@ class Parser
 
     private function startsBlock(array $lines, int $i): bool
     {
-        return preg_match('/^\s*(?:#{1,6}\s|>|[-+*]\s|\d+[.)]\s|\x01CODEBLOCK|(?:-\s*){3,}$|(?:\*\s*){3,}$|(?:_\s*){3,}$)/', $lines[$i])
+        return $this->calloutOpening($lines[$i]) !== null
+            || preg_match('/^\s*(?:#{1,6}\s|>|[-+*]\s|\d+[.)]\s|\x01CODEBLOCK|(?:-\s*){3,}$|(?:\*\s*){3,}$|(?:_\s*){3,}$)/', $lines[$i])
             || (isset($lines[$i + 1]) && ((str_contains($lines[$i], '|') && $this->tableAlignment($lines[$i + 1]) !== null)
                 || preg_match('/^ {0,3}(?:=+|-+)\s*$/', $lines[$i + 1])));
+    }
+
+    private function calloutOpening(string $line): ?array
+    {
+        if (!preg_match('/^ {0,3}:::[ \t]*([a-z]+)(?:[ \t]+(.*))?[ \t]*$/i', $line, $match)) return null;
+        $type = strtolower($match[1]);
+        return array_key_exists($type, self::CALLOUTS) ? ['type' => $type, 'title' => trim($match[2] ?? '')] : null;
+    }
+
+    private function renderCallout(string $type, string $title, string $body): string
+    {
+        $title = $title !== '' ? $title : self::CALLOUTS[$type];
+        return '<aside class="md-callout md-callout-' . $type . '">'
+            . ($title !== '' ? '<p class="md-callout-title">' . $this->inline($title) . '</p>' : '')
+            . '<div class="md-callout-body">' . $this->renderBlocks($body) . '</div></aside>';
     }
 
     private function tableCells(string $line): array

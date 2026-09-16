@@ -100,6 +100,63 @@ lodrätt streck i en cell. Wikilänkar och inline-kod fungerar också i tabeller
 Du kan även skriva ~~överstruken text~~ och använda `_kursiv_` eller
 `__fet__` text. Vanliga Markdown-bilder stöds: `![Alt-text](/images/bild.png)`.
 
+## Informationsboxar
+
+Skriv `::: typ` följt av innehåll och avsluta med `:::` på en egen rad.
+En egen rubrik kan skrivas efter typen. Boxen stödjer samma Markdown som
+resten av sidan: listor, tabeller, länkar, bilder, kodblock och Mermaid.
+Tryck **Ctrl+Space** och skriv **box** i editorn för färdiga mallar.
+
+````markdown
+::: info Bra att veta
+Här finns **viktig information** och en [[start|länk till startsidan]].
+
+- Första punkten
+- Andra punkten
+:::
+
+::: warning Innan du fortsätter
+Säkerhetskopiera först.
+:::
+````
+
+::: info Bra att veta
+Boxar kan innehålla **Markdown**, listor och [[start|wikilänkar]].
+:::
+
+::: tip Tips
+Använd en kort rubrik som förklarar innehållet.
+:::
+
+::: warning Innan du fortsätter
+Läs instruktionerna innan du ändrar något.
+:::
+
+| Typ | Utseende / användning |
+| --- | --- |
+| `simple` | Neutral grå box, ingen standardrubrik |
+| `info` | Blå information |
+| `note` | Blågrå notering |
+| `tip` | Gul ton för tips |
+| `important`, `warning` | Orange, viktigt eller varning |
+| `danger`, `caution` | Röd varning |
+| `help` | Lila hjälp |
+| `download`, `success` | Grön nedladdning eller klart |
+| `todo` | Turkos att göra |
+
+GitHub-stil fungerar också:
+
+```markdown
+> [!NOTE]
+> En notering med **Markdown**.
+>
+> - En punkt
+```
+
+I GitHub-stil måste varje rad i boxen börja med `>`. För längre innehåll
+är `:::`-formen enklare. Boxar kan ligga inuti andra boxar; varje box
+behöver en egen avslutande `:::`. Färgerna anpassas till ljust och mörkt läge.
+
 ## Mermaid-diagram
 
 Ett kodblock märkt `mermaid` renderas som ett riktigt diagram, både på

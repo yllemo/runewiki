@@ -341,6 +341,18 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             { label: 'mermaid klassdiagram', ins: '```mermaid\nclassDiagram\n    class ${1:Exempel} {\n        +String ${2:namn}\n        +${3:metod}()\n    }\n```\n${0}', detail: 'Mermaid: klassdiagram' },
         ];
 
+        [
+            ['simple', 'Enkel box'], ['info', 'Information'], ['note', 'Notering'],
+            ['tip', 'Tips'], ['important', 'Viktigt'], ['warning', 'Varning'],
+            ['danger', 'Fara'], ['help', 'Hjälp'], ['download', 'Nedladdning'],
+            ['todo', 'Att göra'], ['success', 'Klart'],
+        ].forEach(function (box) {
+            MD.push({ label: 'box ' + box[0] + ' — ' + box[1],
+                ins: '::: ' + box[0] + ' ${1:' + box[1] + '}\n${2:Innehåll med **Markdown**}\n:::\n${0}',
+                detail: 'Färgad Markdown-box: ' + box[1] });
+        });
+        MD.push({ label: 'box GitHub alert', ins: '> [!${1|NOTE,TIP,IMPORTANT,WARNING,CAUTION|}]\n> ${2:Innehåll}\n${0}', detail: 'GitHub-kompatibel informationsruta' });
+
         monaco.languages.registerCompletionItemProvider('markdown', {
             // Inga triggerCharacters — den här listan (rubriker, fetstil,
             // kodblock m.m.) ska bara visas när man uttryckligen ber om det

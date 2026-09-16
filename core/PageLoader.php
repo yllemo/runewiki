@@ -17,7 +17,7 @@ class PageLoader
         return is_file($id->toFilePath($this->contentDir));
     }
 
-    /** @return array{meta: array, body: string, raw: string}|null */
+    /** @return array{meta: array, body: string, raw: string, title: string}|null */
     public function load(PageId $id): ?array
     {
         $path = $id->toFilePath($this->contentDir);
@@ -27,7 +27,31 @@ class PageLoader
         $raw = file_get_contents($path);
         [$meta, $body] = FrontMatter::parse($raw);
 
-        return ['meta' => $meta, 'body' => $body, 'raw' => $raw];
+        return ['meta' => $meta, 'body' => $body, 'raw' => $raw, 'title' => self::displayTitle($id, $meta, $body)];
+    }
+
+    /** H1 är visningstitel; metadata och filnamn används som reserv. */
+    public static function displayTitle(PageId $id, array $meta, string $body): string
+    {
+        $fence = null;
+        foreach (preg_split('/\R/u', $body) as $line) {
+            if (preg_match('/^ {0,3}(`{3,}|~{3,})(.*)$/', $line, $marker)) {
+                if ($fence === null) $fence = $marker[1];
+                elseif ($marker[1][0] === $fence[0] && strlen($marker[1]) >= strlen($fence) && trim($marker[2]) === '') $fence = null;
+                continue;
+            }
+            if ($fence !== null || !preg_match('/^ {0,3}#[ \t]+(.+?)\s*$/u', $line, $heading)) continue;
+            $title = preg_replace('/[ \t]+#+[ \t]*$/', '', $heading[1]);
+            // Titlar är ren text, inte HTML eller Markdown.
+            $title = preg_replace('/!?\[([^\[\]]+)\]\([^)]*\)/u', '$1', $title);
+            $title = preg_replace('/\[\[(?:[^|\]]+\|)?([^\]]+)\]\]/u', '$1', $title);
+            $title = preg_replace('/(\*\*|__|~~|`+)(.*?)\1/u', '$2', $title);
+            $title = preg_replace('/(?<!\w)([*_])([^*_]+)\1(?!\w)/u', '$2', $title);
+            $title = trim(html_entity_decode(strip_tags($title), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            if ($title !== '') return $title;
+        }
+        return isset($meta['title']) && is_scalar($meta['title']) && trim((string) $meta['title']) !== ''
+            ? trim((string) $meta['title']) : $id->title();
     }
 
     public function save(PageId $id, array $meta, string $body): void

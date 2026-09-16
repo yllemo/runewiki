@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '4';
+    public const VERSION = '5';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
@@ -37,7 +37,7 @@ class Parser
     private ?PluginManager $plugins;
     private array $codeBlocks = [];
 
-    public function __construct(array $interwiki = [], ?PageLoader $pageLoader = null, ?PluginManager $plugins = null)
+    public function __construct(array $interwiki = [], ?PageLoader $pageLoader = null, ?PluginManager $plugins = null, private ?Closure $canReadPage = null)
     {
         $this->interwiki  = $interwiki;
         $this->pageLoader = $pageLoader;
@@ -304,6 +304,7 @@ class Parser
         $label = null;
         if (str_contains($inner, '|')) {
             [$inner, $label] = array_map('trim', explode('|', $inner, 2));
+            $label = html_entity_decode($label, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
         // Absolut URL inuti [[ ]]
@@ -363,6 +364,9 @@ class Parser
         $class  = $exists ? 'wikilink-exists' : 'wikilink-new';
         $href   = $exists ? $pageId->url() : $pageId->editUrl();
         $text   = $label ?? $pageId->title();
+        if ($label === null && $exists && $this->pageLoader && (!$this->canReadPage || ($this->canReadPage)($pageId))) {
+            $text = $this->pageLoader->load($pageId)['title'] ?? $text;
+        }
         $title  = $exists ? $pageId->id() : $pageId->id() . ' (skapa sida)';
 
         return '<a class="' . $class . '" href="' . Helpers::e($href) . '" title="' . Helpers::e($title) . '">'

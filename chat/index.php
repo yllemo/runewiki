@@ -232,7 +232,7 @@ function chatGetSkill(string $skillsDir, string $contentDir, string $rawSlug): a
  *
  * $sort: 'alpha' (default, "-a") sorterar A–Ö på sid-ID, 'date' ("-d")
  * sorterar på senast ändrad fil (nyast först).
- * $filter: fritext som måste finnas i FILNAMNET (inte innehållet) —
+ * $filter: fritext som måste finnas i filnamnet eller visningstiteln —
  * matchar sista delen av sid-ID:t (t.ex. "syntax" i "hjalp:syntax").
  *
  * @return array<int, array{id:string, title:string, url:string, mtime:int}>
@@ -249,12 +249,13 @@ function chatListContent(string $contentDir, string $sort, string $filter, Auth 
         }
         $filePath = $pageId->toFilePath($contentDir);
         $filename = basename($filePath, '.md');
-        if ($filter !== '' && mb_stripos($filename, $filter) === false) {
+        $title = $pages->load($pageId)['title'] ?? $pageId->title();
+        if ($filter !== '' && mb_stripos($filename . "\n" . $title, $filter) === false) {
             continue;
         }
         $out[] = [
             'id'    => $id,
-            'title' => $pageId->title(),
+            'title' => $title,
             'url'   => $pageId->url(),
             'mtime' => is_file($filePath) ? filemtime($filePath) : 0,
         ];

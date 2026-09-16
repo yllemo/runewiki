@@ -68,7 +68,8 @@ class Wiki
         $this->pages      = new PageLoader($contentDir);
         $this->references = new References($this->pages, $interwikiConfig);
         $this->media      = new Media($mediaDir, $mediaConfig);
-        $this->parser     = new Parser($interwikiConfig, $this->pages, $this->plugins);
+        $this->parser     = new Parser($interwikiConfig, $this->pages, $this->plugins,
+            fn (PageId $id) => $this->canReadNamespace($id->namespace()));
         $this->templates  = new TemplateEngine($templatesDir, $config['theme'] ?? 'default');
         $this->cache      = new Cache($dataDir . '/cache', (bool) ($config['cache_enabled'] ?? true));
         $this->search     = new Search($contentDir);
@@ -270,12 +271,14 @@ class Wiki
 
         $filePath = $id->toFilePath($this->root . '/content');
         $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath) . '-parser-' . Parser::VERSION;
-        $bodyHtml = $this->cache->get($cacheKey);
+        // Länktitlar kan bero på besökarens läsrättigheter.
+        $cacheTitles = !$this->aclConfigured && empty($this->config['auth_enabled']);
+        $bodyHtml = $cacheTitles ? $this->cache->get($cacheKey) : null;
 
         $page = $this->pages->load($id);
         if ($bodyHtml === null) {
             $bodyHtml = $this->parser->toHtml($page['body']);
-            $this->cache->set($cacheKey, $bodyHtml);
+            if ($cacheTitles) $this->cache->set($cacheKey, $bodyHtml);
         }
 
         // Hooks som alltid körs, även vid cache-träff
@@ -297,7 +300,7 @@ class Wiki
 
         $renderedPage = $this->templates->render('page', [
             'backlinks' => $backlinks,
-            'page'     => $page['meta'],
+            'page'     => array_merge($page['meta'], ['title' => $page['title']]),
             'pageId'   => $id,
             'bodyHtml' => $bodyHtml,
             'strings'  => $this->strings,
@@ -305,7 +308,7 @@ class Wiki
 
         return $this->templates->render('layout', $this->baseData($id, [
             'view'     => 'page',
-            'page'     => array_merge(['title' => $id->title()], $page['meta']),
+            'page'     => array_merge($page['meta'], ['title' => $page['title']]),
             'pageId'   => $id,
             'bodyHtml' => $renderedPage,
         ]));
@@ -352,7 +355,11 @@ class Wiki
             'pageId'    => $id,
             'body'      => $existing['raw'] ?? $newBody,
             'isNew'     => $existing === null,
-            'allPages'  => $this->pages->listAll(),
+            'allPages'  => array_map(function (string $rawId): array {
+                $pageId = new PageId($rawId);
+                return ['id' => $rawId, 'title' => $this->pages->load($pageId)['title'] ?? $pageId->title()];
+            }, array_values(array_filter($this->pages->listAll(),
+                fn (string $rawId) => $this->canReadNamespace((new PageId($rawId))->namespace())))),
             // Platta ut [namespace => [id, ...]] till en enda lista — matar
             // {{-autokompletteringen och klistra-in-bild-uppladdningen i
             // editorn (se edit.php).
@@ -582,6 +589,8 @@ class Wiki
 
     private function handleSearch(string $term): string
     {
+        $suggest = ($_GET['format'] ?? '') === 'suggest';
+        if ($suggest) $term = mb_substr(trim($term), 0, 200);
         $id          = new PageId('start');
         $isTagSearch = str_starts_with($term, 'tag:');
         $tagName     = $isTagSearch ? trim(substr($term, 4)) : null;
@@ -596,6 +605,27 @@ class Wiki
             $results,
             fn (array $r) => $this->canReadNamespace((new PageId($r['id']))->namespace())
         ));
+
+        if ($suggest) {
+            $score = static function (array $result) use ($term): int {
+                $title = mb_strtolower((string) $result['title']);
+                $id = mb_strtolower($result['id']);
+                $needle = mb_strtolower($term);
+                if ($title === $needle || $id === $needle) return 0;
+                if (str_starts_with($title, $needle) || str_starts_with($id, $needle)) return 1;
+                if (str_contains($title, $needle) || str_contains($id, $needle)) return 2;
+                return 3;
+            };
+            usort($results, static fn (array $a, array $b) => $score($a) <=> $score($b));
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: private, no-store');
+            return json_encode([
+                'results' => array_map(static fn (array $r) => [
+                    'title' => (string) $r['title'], 'id' => $r['id'], 'url' => $r['url'],
+                ], array_slice($results, 0, 8)),
+                'total' => count($results),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
 
         // Erbjud "skapa sida" bara vid vanlig textsökning, inte tagg-sökning
         // — och bara om ingen sida med exakt det ID:t redan finns (annars

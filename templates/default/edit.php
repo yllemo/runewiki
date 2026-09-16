@@ -10,7 +10,7 @@
  * till /images (samma namespace som sidan som redigeras) och ![alt](url)
  * skrivs in vid markören.
  */
-$allPagesJson  = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE);
+$allPagesJson  = json_encode($allPages ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 $allMediaJson  = json_encode($allMedia ?? [], JSON_UNESCAPED_UNICODE);
 $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
 ?>
@@ -105,6 +105,61 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             }
             return pos.lineNumber > 1;
         }
+
+        // Fortsätt listor med Enter, men låt Monaco hantera förslag/snippets.
+        var continueList = editor.createContextKey('wikiContinueList', false);
+        function listAtCursor() {
+            var model = editor.getModel();
+            var selections = editor.getSelections();
+            if (!model || !selections || selections.length !== 1 || !selections[0].isEmpty()) return null;
+            var pos = editor.getPosition();
+            var line = model.getLineContent(pos.lineNumber);
+            var match = line.match(/^([ \t]*)([-+*])([ \t]+)(?:\[([ xX])\]([ \t]+|$))?/);
+            if (!match || pos.column <= match[0].length || inFrontmatter(model, pos)) return null;
+            // Listliknande text i fenced code (även Mermaid) ska lämnas orörd.
+            var fence = null;
+            for (var i = 1; i < pos.lineNumber; i++) {
+                var codeLine = model.getLineContent(i);
+                var marker = codeLine.match(/^\s*(`{3,}|~{3,})(.*)$/);
+                if (!marker) continue;
+                if (!fence) {
+                    fence = marker[1];
+                } else if (marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) {
+                    fence = null;
+                }
+            }
+            if (fence || /^\s*(?:\*\s*){3,}$/.test(line) || /^\s*(?:-\s*){3,}$/.test(line)) return null;
+            return { pos: pos, line: line, match: match };
+        }
+        function updateListContext() {
+            continueList.set(!!listAtCursor());
+        }
+        editor.onDidChangeCursorSelection(updateListContext);
+        editor.onDidChangeModelContent(updateListContext);
+        updateListContext();
+        editor.addCommand(monaco.KeyCode.Enter, function () {
+            var item = listAtCursor();
+            if (!item) {
+                editor.trigger('keyboard', 'type', { text: '\n' });
+                return;
+            }
+            var pos = item.pos;
+            var match = item.match;
+            var empty = !item.line.substring(match[0].length).trim();
+            var prefix = match[1] + match[2] + ' ' + (match[4] !== undefined ? '[ ] ' : '');
+            var range = empty
+                ? new monaco.Range(pos.lineNumber, 1, pos.lineNumber, item.line.length + 1)
+                : new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column);
+            editor.pushUndoStop();
+            editor.executeEdits('continue-list', [{ range: range, text: empty ? match[1] : '\n' + prefix }], [
+                new monaco.Selection(
+                    empty ? pos.lineNumber : pos.lineNumber + 1, (empty ? match[1].length : prefix.length) + 1,
+                    empty ? pos.lineNumber : pos.lineNumber + 1, (empty ? match[1].length : prefix.length) + 1
+                ),
+            ]);
+            editor.pushUndoStop();
+            editor.revealPositionInCenterIfOutsideViewport(editor.getPosition());
+        }, 'editorTextFocus && wikiContinueList && !suggestWidgetVisible && !inSnippetMode && !editorReadonly');
 
         /** Nycklar som redan finns i frontmatter (för att undvika dubletter). */
         function existingFmKeys(model) {
@@ -244,16 +299,19 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
 
                 return {
                     suggestions: allPages
-                        .filter(function (p) { return p.toLowerCase().indexOf(lower) !== -1; })
+                        .filter(function (p) { return (p.id + ' ' + p.title).toLowerCase().indexOf(lower) !== -1; })
                         .map(function (page) {
+                            // Dessa tecken avslutar annars wikilänkens syntax.
+                            var title = page.title.replace(/[&|\[\]{}\\`]/g, function (ch) { return '&#' + ch.charCodeAt(0) + ';'; });
                             return {
-                                label: page,
+                                label: page.id,
+                                filterText: page.id + ' ' + page.title,
                                 kind: Kind.File,
-                                insertText: page + ']]',
+                                insertText: page.id + '|' + title + ']]',
                                 range: range,
-                                detail: 'Wiki-sida',
-                                documentation: { value: '`[[' + page + ']]`' },
-                                sortText: (page.toLowerCase().startsWith(lower) ? '0' : '1') + page,
+                                detail: page.title,
+                                documentation: { value: '`[[' + page.id + '|' + title + ']]`' },
+                                sortText: (page.id.toLowerCase().startsWith(lower) ? '0' : '1') + page.id,
                             };
                         })
                 };

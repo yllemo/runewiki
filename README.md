@@ -38,14 +38,23 @@ vill, det är bara ett förslag på en första struktur.
 ## Funktioner
 
 ### Redigering
-- **Monaco Editor** (VS Code) med IntelliSense för tre kontexter:
+- **Monaco Editor** (VS Code) med IntelliSense för fyra kontexter:
   - YAML-frontmatter (nycklar och värden inuti `---`-blocket)
   - Markdown-snippets (rubriker, formatering, kodblock, listor, tabeller, wiki-syntax)
-  - Wiki-interlinks `[[...]]` med förslag på befintliga sid-ID:n
+  - Wiki-interlinks `[[...]]` med sökning på sid-ID och visningstitel
+  - Media-embeds `{{...}}` med förslag på uppladdade filer
 - Förslagen dyker bara upp när man ber om dem — <kbd>Ctrl+Space</kbd>
-  (alla tre) eller automatiskt när man skriver `[[` (wiki-interlinks) —
+  eller automatiskt när man skriver `[[` (wiki-interlinks) eller `{{` (media) —
   inte medan man skriver löpande text
 - Hela råfilen (inkl. frontmatter) visas och redigeras i ett enda fönster
+- **Automatisk listfortsättning** — Enter efter en punkt (`-`, `*`, `+`)
+  eller checkbox (`- [ ]`) skapar nästa punkt med samma indrag. En bockad
+  ruta (`- [x]`) följs av en tom ruta. Enter på en tom punkt avslutar
+  listan; Shift+Enter ger vanlig radbrytning. Kodblock och frontmatter
+  påverkas inte av listfortsättningen.
+- Wiki-länkförslagen infogar både sid-ID och titel, exempelvis
+  `[[demo:demo|Demo av detta]]`. Den insatta länktexten är fast; skriv
+  `[[demo:demo]]` om texten ska följa sidans framtida rubrikändringar.
 - Spara-knapp både ovanför och nedanför editorn
 - "AI Chat"-knapp direkt ovanför sidans innehåll (bredvid Redigera/Sök
   liknande) öppnar `/chat` med just den sidan redan laddad i kontexten
@@ -60,7 +69,12 @@ vill, det är bara ett förslag på en första struktur.
   liksom GitHub-alerts (`> [!NOTE]`). Mallar finns via Ctrl+Space → `box`;
   syntaxguiden visar alla typer och exempel. Färgerna följer ljust/mörkt läge.
 - **YAML-frontmatter** — titel, datum, taggar, status m.m. renderas som snygg metadata-rad
-- **Titel från rubrik** — första `# Rubrik` blir sidans titel; sid-ID som fallback
+- **Titel från rubrik** — första H1 (`# Rubrik`) används som visningstitel,
+  därefter `title:` i frontmatter och sist sid-ID. H1 går även före en
+  tidigare automatiskt sparad frontmatter-titel. Rubriker i kodblock
+  räknas inte. Samma titel används i sidvisning, interna länkar utan egen
+  etikett, sökning, bakåtlänkar och chattens sidlistor. Egen länktext i
+  `[[sida|Egen text]]` behålls alltid.
 - **Taggar** — klickbara, söker fram alla sidor med samma tagg
 - **Wikilänkar:** `[[namespace:sida]]` och `[[namespace/sida]]`
 - **Röda länkar** — sidor som inte finns visas med röd streckad länk och leder till `?do=edit`
@@ -74,7 +88,15 @@ vill, det är bara ett förslag på en första struktur.
 - Standard Markdown: rubriker, fet/kursiv, kod/kodblock, listor, citat, tabeller
 
 ### Sökning
-- Fulltextsökning i titel och brödtext
+- Fulltextsökning i sid-ID, visningstitel och brödtext
+- **Liveförslag i huvudmenyn** — större sökruta med upp till åtta förslag
+  medan du skriver. Exakta titel-/ID-träffar visas först, därefter
+  prefixträffar, övriga titel-/ID-träffar och träffar i brödtexten.
+  Varje förslag visar titel och sid-ID och följer sidans läsrättigheter.
+  Klicka på ett förslag eller välj med ↑/↓ och öppna med Enter.
+  Escape stänger förslagen; Enter utan markerat förslag eller Sök-knappen
+  öppnar den vanliga sökresultatsidan. Fördröjda svar från äldre sökningar
+  ersätter inte aktuella förslag.
 - `tag:nyckelord` söker exakt tagg-matchning i frontmatter
 - "Skapa sida"-förslag när inga träffar hittas
 
@@ -112,6 +134,8 @@ vill, det är bara ett förslag på en första struktur.
   Markdown-filer som redan ligger i kontexten — valda sidor läggs i
   kontexten precis som en skill-fil
 - Egna filer/`.zip`/mappar kan även laddas upp manuellt i chatten
+- Sidlistor och sökträffar visar sidans H1-titel med samma reservregler
+  som wikin. `/files` kan filtrera på både filnamn och visningstitel.
 - Markdown- och Mermaid-rendering av svar (diagrammen ritas om live om man
   togglar ljust/mörkt läge — precis som på vanliga wikisidor), filförhandsvisning,
   export av chatten till Markdown
@@ -135,6 +159,8 @@ vill, det är bara ett förslag på en första struktur.
 
 ### Teknik och drift
 - **Cache** — självläkande HTML-cache via `filemtime`; atomära skrivningar med `rename()`; gamla versioner rensas automatiskt
+  Sidornas HTML-cache används inte när inloggning eller grupp-ACL är
+  aktiverad, eftersom automatiska länktitlar kan bero på läsrättigheter.
 - **Plugin-system** med hooks: `after_parse`, `page_view`, `before_save`, `after_save`
 - **Utbytbara teman** — kopiera `templates/default/`, byt `theme` i config
 - **Versionshistorik** — ögonblicksbilder vid sparning (aktiveras via config)

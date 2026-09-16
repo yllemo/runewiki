@@ -23,6 +23,15 @@ slås ihop med `.` till filnamnet.
 Egen länktext: `[[namespace:sida|Egen text]]`. Snedstreck fungerar också:
 `[[namespace/sida]]` normaliseras automatiskt till kolon.
 
+Sidans första `# Rubrik` används som titel i interna länkar, sökning och
+chattens sidlistor. Saknas H1 används `title:` i frontmatter, därefter
+filnamnet. Rubriker inuti kodblock räknas inte.
+`[[demo:demo]]` visar alltså **Demo av detta** om målsidan börjar med
+`# Demo av detta`. Egen länktext efter `|` behålls alltid.
+Editorns `[[`-förslag söker på både sid-ID och titel och infogar
+`[[demo:demo|Demo av detta]]`. Den infogade texten är fast; använd
+`[[demo:demo]]` om länktexten ska följa framtida rubrikändringar.
+
 ## Markdown-länkar
 
 `[text](/namespace/sida)` och `[text](namespace:sida)` fungerar som interna
@@ -61,6 +70,11 @@ Sätt `tags: [en, två]` i frontmatten så blir de klickbara badges som söker
 fram alla sidor med samma tagg (`tag:nyckelord`).
 
 ## Standard-Markdown
+
+I editorn fortsätter **Enter** automatiskt punktlistor (`-`, `*`, `+`) och
+checkboxar (`- [ ]`) på nästa rad, med samma indrag. En bockad checkbox
+(`- [x]`) ger en ny tom checkbox. Tryck **Enter** på en tom listpunkt för
+att avsluta listan. **Shift+Enter** ger en vanlig radbrytning.
 
 **Fet text**, *kursiv text*, `inline-kod`, kodblock med språkmarkering,
 punktlistor, numrerade listor och citat:

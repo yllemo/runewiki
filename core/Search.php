@@ -39,7 +39,7 @@ class Search
                 $page    = $loader->load($candidateId);
                 $results[] = [
                     'id'      => $exactId,
-                    'title'   => $page['meta']['title'] ?? $candidateId->title(),
+                    'title'   => $page['title'],
                     'excerpt' => $this->excerpt($page['body'], $term),
                     'url'     => $candidateId->url(),
                 ];
@@ -55,13 +55,13 @@ class Search
             if (!$page) {
                 continue;
             }
-            $haystack = ($page['meta']['title'] ?? '') . "\n" . $page['body'];
+            $haystack = $id . "\n" . $page['title'] . "\n" . $page['body'];
             if (mb_stripos($haystack, $term) === false) {
                 continue;
             }
             $results[] = [
                 'id'      => $id,
-                'title'   => $page['meta']['title'] ?? $pageId->title(),
+                'title'   => $page['title'],
                 'excerpt' => $this->excerpt($page['body'], $term),
                 'url'     => $pageId->url(),
             ];
@@ -99,7 +99,7 @@ class Search
             $excerpt = trim($page['body']);
             $results[] = [
                 'id'      => $id,
-                'title'   => $page['meta']['title'] ?? $pageId->title(),
+                'title'   => $page['title'],
                 'excerpt' => mb_substr($excerpt, 0, 140) . (mb_strlen($excerpt) > 140 ? '…' : ''),
                 'url'     => $pageId->url(),
             ];
@@ -138,7 +138,7 @@ class Search
             $excerpt = trim($page['body']);
             $results[] = [
                 'id'      => $id,
-                'title'   => $page['meta']['title'] ?? $pageId->title(),
+                'title'   => $page['title'],
                 'excerpt' => mb_substr($excerpt, 0, 140) . (mb_strlen($excerpt) > 140 ? '…' : ''),
                 'url'     => $pageId->url(),
             ];

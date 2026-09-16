@@ -94,9 +94,108 @@ document.addEventListener('DOMContentLoaded', function () {
   // .gbg-btn (t.ex. sidverktygsraden) — [aria-haspopup] täcker båda.
   var dropdowns = Array.prototype.slice.call(document.querySelectorAll('.gbg-dropdown'));
 
+  var searchMenu = document.querySelector('.gbg-dropdown-menu--search');
+  if (searchMenu) {
+    var searchInput = searchMenu.querySelector('input[type="search"]');
+    var suggestions = document.getElementById('gbg-search-suggestions');
+    var searchStatus = document.getElementById('gbg-search-status');
+    var searchTimer, searchController;
+    var searchVersion = 0, selectedSuggestion = -1;
+    function clearSuggestions() {
+      suggestions.replaceChildren();
+      suggestions.hidden = true;
+      selectedSuggestion = -1;
+      searchInput.setAttribute('aria-expanded', 'false');
+      searchInput.removeAttribute('aria-activedescendant');
+    }
+    function cancelSuggestions() {
+      clearTimeout(searchTimer);
+      if (searchController) searchController.abort();
+      searchVersion++;
+      clearSuggestions();
+    }
+    function requestSuggestions() {
+      cancelSuggestions();
+      var query = searchInput.value.trim();
+      var version = searchVersion;
+      if (!query) {
+        searchStatus.textContent = 'Skriv för att hitta sidor. Välj med ↓ ↑ och Enter.';
+        return;
+      }
+      searchStatus.textContent = 'Söker…';
+      searchTimer = setTimeout(async function () {
+        searchController = new AbortController();
+        try {
+          var response = await fetch('/?do=search&format=suggest&q=' + encodeURIComponent(query), {
+            signal: searchController.signal, headers: { Accept: 'application/json' }
+          });
+          if (!response.ok) throw new Error('search');
+          var data = await response.json();
+          if (version !== searchVersion) return;
+          data.results.forEach(function (result, index) {
+            var option = document.createElement('a');
+            option.className = 'gbg-search-option';
+            option.id = 'gbg-search-option-' + index;
+            option.href = result.url;
+            option.role = 'option';
+            option.tabIndex = -1;
+            option.setAttribute('aria-selected', 'false');
+            var title = document.createElement('strong');
+            title.textContent = result.title;
+            var path = document.createElement('small');
+            path.textContent = result.id;
+            option.append(title, path);
+            suggestions.appendChild(option);
+          });
+          suggestions.hidden = !data.results.length;
+          searchInput.setAttribute('aria-expanded', String(!!data.results.length));
+          searchStatus.textContent = data.total
+            ? 'Visar ' + data.results.length + ' av ' + data.total + ' träffar. ↓ ↑ och Enter öppnar sidan. Sök visar alla.'
+            : 'Inga sidor hittades. Tryck Enter för vanlig sökning.';
+        } catch (error) {
+          if (version === searchVersion && error.name !== 'AbortError') {
+            searchStatus.textContent = 'Förslagen kunde inte hämtas. Tryck Enter för vanlig sökning.';
+          }
+        }
+      }, 180);
+    }
+    searchMenu.addEventListener('click', function (event) { event.stopPropagation(); });
+    searchInput.addEventListener('input', function (event) {
+      if (!event.isComposing) requestSuggestions();
+    });
+    searchInput.addEventListener('compositionend', requestSuggestions);
+    searchInput.addEventListener('focus', requestSuggestions);
+    searchInput.addEventListener('keydown', function (event) {
+      if (event.isComposing) return;
+      var options = suggestions.children;
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && options.length) {
+        event.preventDefault();
+        selectedSuggestion = event.key === 'ArrowDown'
+          ? (selectedSuggestion + 1) % options.length
+          : (selectedSuggestion < 0 ? options.length - 1 : (selectedSuggestion + options.length - 1) % options.length);
+        Array.from(options).forEach(function (option, index) {
+          option.setAttribute('aria-selected', String(index === selectedSuggestion));
+        });
+        searchInput.setAttribute('aria-activedescendant', options[selectedSuggestion].id);
+        options[selectedSuggestion].scrollIntoView({ block: 'nearest' });
+      } else if (event.key === 'Enter' && selectedSuggestion >= 0) {
+        event.preventDefault();
+        options[selectedSuggestion].click();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelSuggestions();
+        searchMenu.parentElement.querySelector('button[aria-haspopup]').focus();
+      }
+    });
+    searchMenu.addEventListener('focusout', function (event) {
+      if (!searchMenu.contains(event.relatedTarget)) cancelSuggestions();
+    });
+  }
+
   function closeAll(except) {
     dropdowns.forEach(function (dd) {
       if (dd === except) return;
+      if (dd.dataset.dropdown === 'search' && searchMenu) cancelSuggestions();
       dd.classList.remove('is-open');
       var btn = dd.querySelector('[aria-haspopup]');
       if (btn) btn.setAttribute('aria-expanded', 'false');
@@ -118,6 +217,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (willOpen) {
         var input = menu.querySelector('input[type="search"]');
         if (input) input.focus();
+      } else if (dd.dataset.dropdown === 'search' && searchMenu) {
+        cancelSuggestions();
       }
     });
   });

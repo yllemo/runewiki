@@ -90,9 +90,11 @@ $crumbParts = ($showEditLink && $currentTarget !== '') ? explode(':', $currentTa
                     <form class="gbg-search-form" action="/" method="get">
                         <input type="hidden" name="do" value="search">
                         <input type="search" name="q" placeholder="<?= Helpers::e($strings['search_placeholder']) ?>" aria-label="<?= Helpers::e($strings['nav_search']) ?>"
-                               value="<?= isset($_GET['q']) ? Helpers::e($_GET['q']) : '' ?>" autofocus>
+                               value="<?= isset($_GET['q']) ? Helpers::e($_GET['q']) : '' ?>" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="gbg-search-suggestions" aria-describedby="gbg-search-status">
                         <button type="submit"><?= Helpers::e($strings['search_button']) ?></button>
                     </form>
+                    <div id="gbg-search-suggestions" role="listbox" aria-label="Sidförslag" hidden></div>
+                    <p id="gbg-search-status" class="gbg-search-status" role="status">Skriv för att hitta sidor. Välj med ↓ ↑ och Enter.</p>
                 </div>
             </div>
 

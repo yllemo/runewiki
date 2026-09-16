@@ -31,7 +31,7 @@ class References
             // deras länkar ska inte synas som bakåtlänkar på målsidorna.
             $leaf = $id->nameParts()[count($id->nameParts()) - 1] ?? '';
             $isSystemSource = in_array($leaf, ['_sidebar', '_topbar'], true);
-            $source = ['id' => $id->id(), 'title' => (string) ($page['meta']['title'] ?? $id->title()), 'url' => $id->url()];
+            $source = ['id' => $id->id(), 'title' => $page['title'], 'url' => $id->url()];
             // Code examples are escaped by Parser, so they cannot become references.
             $html = $parser->toHtml($page['body']);
             preg_match_all('/<(a|img)\b[^>]*\b(?:href|src)="([^"]*)"[^>]*>/i', $html, $matches, PREG_SET_ORDER);

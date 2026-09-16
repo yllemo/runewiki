@@ -74,6 +74,7 @@ class Router
         $id = $path === '' ? 'start' : str_replace('/', ':', rawurldecode($path));
 
         $action = match (true) {
+            $do === 'reader' => 'reader',
             $do === 'move' => 'move',
             $do === 'history' => 'history',
             $do === 'restore' && $method === 'POST' => 'history',

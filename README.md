@@ -141,8 +141,22 @@ vill, det är bara ett förslag på en första struktur.
   export av chatten till Markdown
 - Sidfoten (sidindex + footer) är dold som standard för mer plats åt
   chatten — ett klick visar den igen, och valet minns sig mellan besök
+- Långa AI-svar hålls ovanför skrivrutan med ett tydligt mellanrum.
+  Automatisk scrollning följer även ändringar i skrivrutans och innehållets
+  höjd. Scrolla upp för att läsa äldre text utan att dras tillbaka;
+  scrollningen följer med igen när du återvänder till botten.
 
 ### Navigering och layout
+- **Läs- och exportläge** i artikelns ”…”-meny öppnar den aktuella sidan
+  i en fristående vy (`?do=reader`) med valbar fullskärm. Vyn har utskrift,
+  PDF/Word/HTML/Markdown/text-export, statistik, sökning, uppläsning och
+  MP3-export samt inställningar för textstorlek, sidbredd, innehållsförteckning
+  och Mermaid. Läsrättigheterna gäller även här. Export- och talbibliotek
+  laddas från externa tjänster; tillgängliga röster beror på webbläsaren.
+  Wikilänkar och färgade boxar renderas med wikins parser. Knappen
+  ”Till artikeln” återgår till den vanliga vyn. Dokument-/Markdown-växling,
+  Nytt och Kopiera ingår inte; Markdown finns kvar som exportformat.
+  Referensfilen `html/print.html` är lokal och ingår inte i Git eller driften.
 - Kollapsbart sidindex i sidfoten — träd per namespace, paginerat med "Visa fler"
 - Sidopanel per namespace via `_sidebar.md`
 - Toppmenyns knappar styrs via `content/_topbar.md` (punktlista av länkar) — faller

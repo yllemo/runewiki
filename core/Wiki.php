@@ -87,6 +87,7 @@ class Wiki
 
         echo match ($intent['action']) {
             'view'         => $this->handleView($intent['id']),
+            'reader'       => $this->handleReader($intent['id']),
             'edit'         => $this->handleEdit($intent['id']),
             'save'         => $this->handleSave($intent['id']),
             'delete'       => $this->handleDelete($intent['id']),
@@ -319,6 +320,29 @@ class Wiki
      * exakt som den ligger på disk). Samma läsrätt som handleView() —
      * öppet för alla om inte ACL säger annat (config/namespaces.php).
      */
+    private function handleReader(string $rawId): string
+    {
+        $id = new PageId($rawId);
+        if (!$this->canReadNamespace($id->namespace())) {
+            return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
+        }
+        $page = $this->pages->load($id);
+        if ($page === null) {
+            http_response_code(404);
+            return 'Sidan hittades inte.';
+        }
+        header('Cache-Control: private, no-store');
+        return $this->templates->render('reader', [
+            'articleUrl' => $id->url(),
+            'readerData' => [
+                'raw' => $page['raw'],
+                'html' => $this->parser->toHtml($page['body']),
+                'title' => $page['title'],
+                'filename' => str_replace(':', '_', $id->id()),
+            ],
+        ]);
+    }
+
     private function handleDownload(string $rawId): string
     {
         $id = new PageId($rawId);

@@ -1368,7 +1368,7 @@ aside#sidebar {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 1rem;
   overscroll-behavior: contain; scrollbar-gutter: stable;
 }
-.layout > main { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.layout > main { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
 
 /* ── Dropzone / skill-väljare ── */
 
@@ -1418,7 +1418,8 @@ aside#sidebar.has-skill:not(.picker-open) .skill-picker-summary { display: flex;
 
 /* ── Chattyta ── */
 
-.chat-scroll { flex: 1; overflow-y: auto; padding: 1.4rem; display: flex; flex-direction: column; gap: 1rem; }
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 1.4rem; padding-bottom: 2rem; scroll-padding-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+.chat-scroll > * { flex-shrink: 0; }
 .empty-state { margin: auto; text-align: center; max-width: 430px; color: var(--text-secondary); }
 .empty-state .ico { font-size: 2.6rem; margin-bottom: .6rem; }
 .empty-state h2 { color: var(--text-color); margin: .2rem 0 .6rem; font-weight: 700; }

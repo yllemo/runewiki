@@ -1175,7 +1175,24 @@ function enhanceCodeBlocks(container, opts){
     else { buildCodeBlock(pre, lang, source); }
   });
 }
-function scrollBottom(){const s=$('chatScroll'); s.scrollTop=s.scrollHeight;}
+// Följ botten även efter layoutändringar, men låt användaren läsa äldre text.
+const chatViewport=$('chatScroll');
+let followChatBottom=true;
+let chatScrollFrame=null;
+chatViewport.addEventListener('scroll', ()=>{
+  followChatBottom=chatViewport.scrollHeight-chatViewport.clientHeight-chatViewport.scrollTop<48;
+}, {passive:true});
+function scrollBottom(force=false){
+  if(force) followChatBottom=true;
+  if(!followChatBottom || chatScrollFrame!==null)return;
+  chatScrollFrame=requestAnimationFrame(()=>{
+    chatScrollFrame=null;
+    if(followChatBottom)chatViewport.scrollTop=chatViewport.scrollHeight;
+  });
+}
+const chatResizeObserver=new ResizeObserver(()=>scrollBottom());
+chatResizeObserver.observe(chatViewport);
+chatResizeObserver.observe(document.querySelector('.composer'));
 
 /**
  * role: 'user' (ren text) | 'assistant' (Markdown, renderas) |
@@ -1196,7 +1213,8 @@ function addMsg(role, text){
   else if(role==='system'){bubble.innerHTML=text;}
   else{bubble.innerHTML=renderMd(text);}
   $('chatScroll').appendChild(wrap);
-  scrollBottom();
+  chatResizeObserver.observe(wrap);
+  scrollBottom(true);
   return bubble;
 }
 

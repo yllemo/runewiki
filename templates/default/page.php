@@ -60,6 +60,10 @@ function fmFormat(string $key, mixed $value): string
                 <span class="gbg-sr-only"><?= Helpers::e($strings['menu_label']) ?></span>
             </button>
             <div class="gbg-dropdown-menu">
+                <a class="gbg-dropdown-item" href="<?= Helpers::e($pageId->url() . '?do=reader') ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>
+                    Läs- och exportläge
+                </a>
                 <a class="gbg-dropdown-item" href="<?= Helpers::e($pageId->url() . '?do=move') ?>">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z" opacity="0"/><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/><path d="M15 21h4a2 2 0 0 0 2-2v-4"/></svg>
                     Byt namn / flytta

@@ -1,0 +1,23 @@
+.mmd-viewer { width: calc(100vw - 24px); max-width: none; height: calc(100dvh - 24px); max-height: none; padding: 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-color); color: var(--text-color); box-shadow: 0 20px 80px #0006; }
+.mmd-viewer[open] { display: flex; flex-direction: column; }
+.mmd-viewer::backdrop { background: #0b1224bb; backdrop-filter: blur(4px); }
+.mmd-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .75rem 1rem; border-bottom: 1px solid var(--border-color); }
+.mmd-toolbar strong { margin-right: auto; }
+.mmd-toolbar button { border: 1px solid var(--border-color); border-radius: 6px; padding: .5rem .75rem; min-height: 40px; background: var(--bg-subtle); color: inherit; cursor: pointer; font: inherit; }
+.mmd-toolbar output { min-width: 4em; text-align: center; font-variant-numeric: tabular-nums; }
+.mmd-viewport { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: grab; touch-action: none; background: var(--bg-color); }
+.mmd-viewport.is-dragging { cursor: grabbing; }
+.mmd-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.mmd-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; user-select: none; }
+.mmd-canvas svg { display: block; pointer-events: none; }
+.mmd-help { margin: 0; padding: .6rem 1rem; border-top: 1px solid var(--border-color); font-size: .8rem; color: var(--text-secondary); }
+
+.mmd-canvas img { display:block; pointer-events:none; max-width:none; max-height:none; object-fit:contain; }
+.mmd-viewer { margin:auto; }
+.mmd-viewer .mmd-toolbar strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:45%; }
+img.gbg-lightbox-img[role="button"] { cursor:zoom-in; }
+img.gbg-lightbox-img:focus-visible { outline:2px solid var(--accent, #0077bc); outline-offset:3px; }
+.wiki-embed { margin:1.25rem 0; width:100%; }
+.wiki-embed iframe { display:block; width:100%; max-width:100%; border:1px solid var(--border-color, #ccc); border-radius:8px; background:white; }
+.wiki-embed figcaption { margin-top:.5rem; font-size:.9rem; }
+@media print { .mmd-viewer, .wiki-embed iframe { display:none !important; } }

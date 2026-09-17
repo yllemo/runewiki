@@ -48,6 +48,11 @@ document.addEventListener('DOMContentLoaded', function () {
     try { url = new URL(link.getAttribute('href'), location.href); } catch (_) { return; }
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
     var external = url.origin !== location.origin;
+    if (link.dataset.newTab === 'true') {
+      link.target = '_blank';
+      link.relList.add('noopener', 'noreferrer');
+      return;
+    }
     link.classList.toggle('gbg-link-external', external);
     link.classList.toggle('gbg-link-internal', !external);
     if (external) {

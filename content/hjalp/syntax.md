@@ -47,6 +47,29 @@ Genvägar konfigurerade i `config/interwiki.php`:
 
 ## Media
 
+SVG-bilder infogas som vanliga bilder, exempelvis
+`![Översikt](/images/oversikt.svg)` eller `{{oversikt.svg|Översikt}}`.
+Klicka på bilden för zoom och panorering. Dra för att flytta bilden,
+använd mushjulet eller +/− för zoom och **Anpassa** för att återställa.
+Tangentbord: Enter öppnar, pilar panorerar, 0 anpassar och Escape stänger.
+
+## Inbäddade sidor (iframe)
+
+Skriv på en egen rad, eller välj **iframe inbäddad sida** via Ctrl+Space:
+
+```text
+{{iframe:https://example.com|Exempelsida|600}}
+```
+
+Sista värdet är höjden i pixlar (200–1600, standard 600); bredden följer
+sidan. Titel och höjd kan utelämnas. Under ramen finns alltid en länk som
+öppnar sidan i en ny flik. Även interna adresser som `/hjalp/syntax` stöds.
+Webbplatsen som bäddas in kan förbjuda iframe-visning; använd då länken
+under ramen. Ramen är isolerad, vilket kan begränsa inloggning och vissa
+interaktiva funktioner på den inbäddade sidan.
+
+## Ladda upp och bädda in media
+
 Ladda upp en fil på [/images](/images) och bädda in den i en sida:
 
 ```

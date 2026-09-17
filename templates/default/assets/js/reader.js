@@ -237,6 +237,9 @@ statsDialog.addEventListener('click', (e) => {
 const ttsDialog = $('ttsDialog');
 const ttsStatus = $('ttsStatus');
 const ttsRate = $('ttsRate');
+const ttsVoice = $('ttsVoice');
+let selectedVoiceKey = '';
+try { selectedVoiceKey = localStorage.getItem('runewiki-reader-voice') || ''; } catch {}
 const btnTtsPlay = $('btnTtsPlay');
 const btnTtsPause = $('btnTtsPause');
 const btnTtsStop = $('btnTtsStop');
@@ -310,9 +313,38 @@ function showTtsPosition(element) {
   element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
 }
 
+function voiceKey(voice) {
+  return JSON.stringify([voice.voiceURI, voice.name, voice.lang]);
+}
+
+function refreshVoices() {
+  const voices = window.speechSynthesis?.getVoices() || [];
+  ttsVoice.replaceChildren(new Option('Automatiskt – svensk röst om tillgänglig', ''));
+  voices.sort((a, b) => {
+    const swedish = Number(b.lang.toLowerCase().startsWith('sv')) - Number(a.lang.toLowerCase().startsWith('sv'));
+    return swedish || a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name);
+  }).forEach(voice => {
+    ttsVoice.add(new Option(voice.name + ' – ' + voice.lang + (voice.localService ? ' (lokal)' : ''), voiceKey(voice)));
+  });
+  if (selectedVoiceKey && !voices.some(voice => voiceKey(voice) === selectedVoiceKey)) {
+    ttsVoice.add(new Option('Sparad röst är inte tillgänglig – automatiskt val används', selectedVoiceKey));
+  }
+  ttsVoice.value = selectedVoiceKey;
+  ttsVoice.disabled = !window.speechSynthesis;
+}
+
+ttsVoice.addEventListener('change', () => {
+  selectedVoiceKey = ttsVoice.value;
+  try { localStorage.setItem('runewiki-reader-voice', selectedVoiceKey); } catch {}
+  if (ttsActive || window.speechSynthesis?.paused) stopSpeaking('Rösten ändrades. Tryck Läs upp för att börja om.');
+});
+window.speechSynthesis?.addEventListener('voiceschanged', refreshVoices);
+refreshVoices();
+
 function preferredSwedishVoice() {
   const voices = window.speechSynthesis?.getVoices() || [];
-  return voices.find(v => v.lang.toLowerCase() === 'sv-se') ||
+  return voices.find(v => voiceKey(v) === selectedVoiceKey) ||
+    voices.find(v => v.lang.toLowerCase() === 'sv-se') ||
     voices.find(v => v.lang.toLowerCase().startsWith('sv')) || null;
 }
 
@@ -363,6 +395,7 @@ function stopSpeaking(message = 'Uppläsningen stoppades.') {
 
 btns.tts.addEventListener('click', async () => {
   await ensureDocMode();
+  refreshVoices();
   ttsStatus.textContent = ttsText() ? 'Redo.' : 'Dokumentet saknar text att läsa upp.';
   if (!ttsDialog.open) ttsDialog.show();
 });

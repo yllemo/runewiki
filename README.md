@@ -64,6 +64,13 @@ vill, det är bara ett förslag på en första struktur.
   tas sidan bort istället för att spara en tom `.md`-fil
 
 ### Innehåll och syntax
+- **Iframe** — `{{iframe:https://example.com|Titel|600}}` på egen rad
+  bäddar in en sida med valfri titel och höjd. Ctrl+Space → `iframe`
+  infogar mallen. En länk under ramen öppnar alltid sidan i ny flik.
+  Målsidans regler kan hindra inbäddning; ramen körs isolerad.
+- **SVG med zoom** — vanliga Markdown-bilder och SVG-media öppnas vid
+  klick i samma zoom- och panoreringsvisare som Mermaid. Mushjul, dra,
+  +/−, piltangenter, Anpassa och Escape stöds, även i Läs- och exportläget.
 - Färgade Markdown-boxar: `::: info`, `::: warning`, `::: tip`, `::: note`
   m.fl., avslutade med `:::`. Egen rubrik och Markdown-innehåll stöds,
   liksom GitHub-alerts (`> [!NOTE]`). Mallar finns via Ctrl+Space → `box`;
@@ -153,6 +160,10 @@ vill, det är bara ett förslag på en första struktur.
   MP3-export samt inställningar för textstorlek, sidbredd, innehållsförteckning
   och Mermaid. Läsrättigheterna gäller även här. Export- och talbibliotek
   laddas från externa tjänster; tillgängliga röster beror på webbläsaren.
+  Under Läs upp kan du välja röst bland dem som webbläsaren hittar;
+  röstnamn och språk visas och valet sparas lokalt. Automatiskt val
+  prioriterar svenska. Röstvalet gäller uppläsning, medan MP3-exporten
+  använder sin separata svenska talsyntes.
   Wikilänkar och färgade boxar renderas med wikins parser. Knappen
   ”Till artikeln” återgår till den vanliga vyn. Dokument-/Markdown-växling,
   Nytt och Kopiera ingår inte; Markdown finns kvar som exportformat.

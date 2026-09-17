@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '5';
+    public const VERSION = '6';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
@@ -92,6 +92,20 @@ class Parser
         for ($i = 0, $count = count($lines); $i < $count;) {
             $line = $lines[$i];
             if (trim($line) === '') { $i++; continue; }
+            if (preg_match('/^ {0,3}\{\{iframe:([^|{}]+)(?:\|([^|{}]*))?(?:\|(\d+))?\}\}[ \t]*$/', $line, $frame)) {
+                $url = trim($frame[1]);
+                $absolute = filter_var($url, FILTER_VALIDATE_URL) && in_array(strtolower(parse_url($url, PHP_URL_SCHEME) ?? ''), ['http', 'https'], true);
+                $relative = preg_match('~^/(?!/)[^\\\\\s<>]*$~', $url);
+                if (($absolute || $relative) && !preg_match('/[\x00-\x20\\\\]/', $url)) {
+                    $title = trim($frame[2] ?? '') ?: 'Inbäddad sida';
+                    $height = max(200, min(1600, (int) ($frame[3] ?? 600)));
+                    $html[] = '<figure class="wiki-embed"><iframe src="' . Helpers::e($url) . '" title="' . Helpers::e($title)
+                        . '" height="' . $height . '" loading="lazy" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerpolicy="strict-origin-when-cross-origin"></iframe>'
+                        . '<figcaption><a href="' . Helpers::e($url) . '" target="_blank" rel="noopener noreferrer" data-new-tab="true">'
+                        . Helpers::e($title) . ' — öppna i ny flik ↗</a></figcaption></figure>';
+                    $i++; continue;
+                }
+            }
             if (preg_match('/^\x01CODEBLOCK\d+\x01$/', trim($line))) {
                 $html[] = trim($line); $i++; continue;
             }
@@ -198,6 +212,7 @@ class Parser
     private function startsBlock(array $lines, int $i): bool
     {
         return $this->calloutOpening($lines[$i]) !== null
+            || preg_match('/^ {0,3}\{\{iframe:/', $lines[$i])
             || preg_match('/^\s*(?:#{1,6}\s|>|[-+*]\s|\d+[.)]\s|\x01CODEBLOCK|(?:-\s*){3,}$|(?:\*\s*){3,}$|(?:_\s*){3,}$)/', $lines[$i])
             || (isset($lines[$i + 1]) && ((str_contains($lines[$i], '|') && $this->tableAlignment($lines[$i + 1]) !== null)
                 || preg_match('/^ {0,3}(?:=+|-+)\s*$/', $lines[$i + 1])));

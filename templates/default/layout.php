@@ -43,6 +43,8 @@ $hasSidebar = trim($sidebarHtml ?? '') !== '';
         <?php include __DIR__ . '/footer.php'; ?>
     </div>
 
+    <link rel="stylesheet" href="<?= Helpers::e($assetUrl('css/viewer.css')) ?>">
+    <script src="<?= Helpers::e($assetUrl('js/viewer.js')) ?>"></script>
     <script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"<?= Helpers::linkSettingsAttributes($linkSettings ?? []) ?>></script>
     <?php if (str_contains($bodyHtml ?? '', 'language-mermaid')): ?>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>

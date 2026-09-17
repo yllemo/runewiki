@@ -747,6 +747,12 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
     <button class="stats-close" id="btnTtsClose" type="button" aria-label="Stäng">×</button>
   </div>
   <div class="tts-body">
+    <label class="tts-field">Röst
+      <select id="ttsVoice" aria-describedby="ttsVoiceHint">
+        <option value="">Automatiskt – svensk röst om tillgänglig</option>
+      </select>
+    </label>
+    <p class="tts-status" id="ttsVoiceHint">Röster som webbläsaren har tillgång till. Valet gäller uppläsning; MP3 använder en separat svensk röst.</p>
     <label class="tts-field">Uppläsningshastighet
       <select id="ttsRate">
         <option value="0.8">Långsam</option>
@@ -771,6 +777,8 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
 <div id="toast"></div>
 
 <script type="application/json" id="reader-data"><?= json_encode($readerData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
+<link rel="stylesheet" href="/templates/default/assets/css/viewer.css">
+<script src="/templates/default/assets/js/viewer.js"></script>
 <script type="module" src="/templates/default/assets/js/reader.js"></script>
 </body>
 </html>

@@ -121,21 +121,38 @@ class ByrakrazyPlugin implements PluginInterface
         return preg_replace_callback('/@@([^@]+)@@/', fn ($m) => $values[$m[1]] ?? $m[0], $text);
     }
 
-    /** Placera innehåll i sidans brödtext utan att flytta YAML-frontmatter. */
-    private function insertFragment(string $raw, string $fragment, string $mode): string
+    /** Hitta den namngivna regeln på målsidan med byteposition i råfilen. */
+    private function pagemodRule(string $raw, string $name): ?array
+    {
+        preg_match_all('~<pagemod(?:\s+([^>]*))?>\s*\n?(.*?)</pagemod>~si', $raw, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        foreach ($matches as $match) {
+            $parts = preg_split('/\s+/', trim($match[1][0] ?? ''));
+            if (($parts[0] ?? '') === $name) {
+                return [
+                    'text' => $match[0][0], 'offset' => $match[0][1],
+                    'body' => $match[2][0], 'mode' => $parts[1] ?? 'output_after',
+                ];
+            }
+        }
+        return null;
+    }
+
+    /** Placera innehåll vid regelblocket; radslutet kommer från regelns innehåll. */
+    private function insertFragment(string $raw, string $fragment, int $trailingLines, string $mode, int $offset, int $length): string
     {
         $newline = str_contains($raw, "\r\n") ? "\r\n" : "\n";
-        $fragment = str_replace("\n", $newline, trim(str_replace(["\r\n", "\r"], "\n", $fragment), "\n"));
-        if ($mode === 'output_after') {
-            return rtrim($raw, "\r\n") . ($raw === '' ? '' : $newline . $newline) . $fragment . $newline;
+        $fragment = str_replace("\n", $newline, str_replace(["\r\n", "\r"], "\n", $fragment));
+        $ending = str_repeat($newline, $trailingLines);
+        if ($mode === 'output_before') {
+            $before = substr($raw, 0, $offset);
+            return $before . $fragment . $ending . substr($raw, $offset);
         }
-
-        // Frontmatter måste ligga överst för att FrontMatter::parse ska hitta den.
-        if (preg_match('/\A(---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|$))(.*)\z/s', $raw, $match)) {
-            return rtrim($match[1], "\r\n") . $newline . $newline . $fragment
-                . (trim($match[2], "\r\n") === '' ? $newline : $newline . $newline . ltrim($match[2], "\r\n"));
-        }
-        return $fragment . (trim($raw, "\r\n") === '' ? $newline : $newline . $newline . ltrim($raw, "\r\n"));
+        $end = $offset + $length;
+        $after = substr($raw, $end);
+        preg_match('/\A(?:[ \t]*(?:\r\n|\r|\n))*/', $after, $leading);
+        $beforeFragment = $leading[0] !== '' ? $leading[0] : $newline;
+        return substr($raw, 0, $end) . $beforeFragment . $fragment . $ending
+            . substr($after, strlen($leading[0]));
     }
 
     public function submit(array $ctx): array
@@ -202,23 +219,19 @@ class ByrakrazyPlugin implements PluginInterface
             $page = ($ctx['can_read'])($target) ? $pages->load($target) : null;
             if (!$page || !$ruleName) $result = ['error' => 'Målsidan eller pagemod-regeln saknas.'];
             else {
-                $rules = $this->blocks($ctx['page']['body'], 'pagemod');
-                $result = ['error' => 'Pagemod-regeln finns inte.'];
-                foreach ($rules as $rule) {
-                    $parts = preg_split('/\s+/', trim($rule[1] ?? ''));
-                    if (($parts[0] ?? '') !== $ruleName) continue;
-                    $fragment = trim($this->fill($rule[2], $values), "\n");
-                    $raw = $page['raw'];
-                    $mode = $parts[1] ?? 'output_after';
-                    if (!in_array($mode, ['output_before', 'output_after'], true)) {
-                        $result = ['error' => 'Ogiltig placering i pagemod-regeln.'];
-                    } elseif ($fragment === '') {
-                        $result = ['error' => 'Pagemod-regeln ger inget innehåll.'];
-                    } else {
-                        $result = ['target' => $target->id(), 'raw' => $this->insertFragment($raw, $fragment, $mode), 'create' => false];
-                    }
-                    break;
-                }
+                $rule = $this->pagemodRule($page['raw'], $ruleName);
+                $filledBody = $rule ? $this->fill($rule['body'], $values) : '';
+                preg_match('/((?:[ \t]*(?:\r\n|\r|\n))+[ \t]*)$/', $filledBody, $trailing);
+                $trailingLines = isset($trailing[1]) ? preg_match_all('/\r\n|\r|\n/', $trailing[1]) : 0;
+                $fragment = isset($trailing[1]) ? substr($filledBody, 0, -strlen($trailing[1])) : $filledBody;
+                if (!$rule) $result = ['error' => 'Pagemod-regeln finns inte på målsidan.'];
+                elseif (!in_array($rule['mode'], ['output_before', 'output_after'], true)) $result = ['error' => 'Ogiltig placering i pagemod-regeln.'];
+                elseif (trim($fragment) === '') $result = ['error' => 'Pagemod-regeln ger inget innehåll.'];
+                else $result = [
+                    'target' => $target->id(),
+                    'raw' => $this->insertFragment($page['raw'], $fragment, $trailingLines, $rule['mode'], $rule['offset'], strlen($rule['text'])),
+                    'create' => false,
+                ];
             }
         } else {
             [$templateName, $targetName] = array_pad($action['args'], 2, '');

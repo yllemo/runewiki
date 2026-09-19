@@ -18,9 +18,13 @@ submit "Add"
 </pagemod>
 ```
 
-`action pagemod MÅLSIDA REGEL` ändrar en befintlig sida. Använd `.` som målsida för sidan med formuläret. Regeln definieras i ett `<pagemod NAMN output_after>` eller `<pagemod NAMN output_before>`-block på samma sida. Regeln visas inte för läsaren. `output_after` lägger text sist i brödtexten; `output_before` lägger den först i brödtexten, efter eventuell YAML-frontmatter. Båda sätter en tom rad mellan det nya och befintliga innehållet.
+`action pagemod MÅLSIDA REGEL` ändrar en befintlig sida. Använd `.` som målsida för sidan med formuläret. Regeln definieras i ett `<pagemod NAMN output_after>` eller `<pagemod NAMN output_before>`-block på **målsidan**. Regeln visas inte för läsaren. `output_after` lägger ny text direkt under `</pagemod>`; `output_before` lägger den direkt ovanför `<pagemod ...>`. Annat innehåll på sidan behåller sin placering.
 
-För att lägga till en punkt högst upp byter du regelns öppningsrad till `<pagemod add_down output_before>`. Formulärets `action pagemod start add_down` är oförändrad.
+Radsluten **efter den nya texten** följer regelns innehåll. En rad mellan `* @@Item@@` och `</pagemod>` ger en radbrytning efter den infogade punkten. En extra tom rad inne i blocket ger också en extra tom rad efter punkten. Pluginet lägger inte till en sådan tom rad automatiskt.
+
+Om sidan redan har `* test3` under blocket blir resultatet utan extra tom rad i regeln `* nytt` följt direkt på nästa rad av `* test3`. Med en extra tom rad före `</pagemod>` blir det en tom rad mellan punkterna.
+
+För att lägga till en punkt ovanför blocket byter du regelns öppningsrad till `<pagemod add_down output_before>`. Formulärets `action pagemod start add_down` är oförändrad. Om formuläret och målsidan skiljer sig åt måste pagemod-blocket finnas på målsidan.
 
 ## Skapa sida från mall
 

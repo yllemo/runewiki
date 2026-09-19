@@ -90,6 +90,7 @@ class Wiki
             'reader'       => $this->handleReader($intent['id']),
             'edit'         => $this->handleEdit($intent['id']),
             'save'         => $this->handleSave($intent['id']),
+            'form'         => $this->handleForm($intent['id']),
             'delete'       => $this->handleDelete($intent['id']),
             'history'      => $this->handleHistory($intent['id']),
             'move'         => $this->handleMove($intent['id']),
@@ -274,12 +275,14 @@ class Wiki
         $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath) . '-parser-' . Parser::VERSION;
         // Länktitlar kan bero på besökarens läsrättigheter.
         $cacheTitles = !$this->aclConfigured && empty($this->config['auth_enabled']);
-        $bodyHtml = $cacheTitles ? $this->cache->get($cacheKey) : null;
+        $dynamicPage = $this->plugins->hasHook('page_markdown');
+        $bodyHtml = $cacheTitles && !$dynamicPage ? $this->cache->get($cacheKey) : null;
 
         $page = $this->pages->load($id);
         if ($bodyHtml === null) {
-            $bodyHtml = $this->parser->toHtml($page['body']);
-            if ($cacheTitles) $this->cache->set($cacheKey, $bodyHtml);
+            $markdown = $this->plugins->trigger('page_markdown', ['id' => $id->id(), 'markdown' => $page['body']])['markdown'] ?? $page['body'];
+            $bodyHtml = $this->parser->toHtml($markdown);
+            if ($cacheTitles && !$dynamicPage) $this->cache->set($cacheKey, $bodyHtml);
         }
 
         // Hooks som alltid körs, även vid cache-träff
@@ -396,6 +399,55 @@ class Wiki
             'pageId'   => $id,
             'bodyHtml' => $editForm,
         ]));
+    }
+
+    private function handleForm(string $rawId): string
+    {
+        $source = new PageId($rawId);
+        if (!$this->canReadNamespace($source->namespace()) || !$this->pages->exists($source)) {
+            http_response_code(404);
+            return '';
+        }
+        if (!Helpers::verifyCsrf(is_string($_POST['csrf_token'] ?? null) ? $_POST['csrf_token'] : null)) {
+            http_response_code(403);
+            return 'Ogiltig förfrågan (CSRF-token).';
+        }
+        $ctx = $this->plugins->trigger('form_submit', [
+            'source_id' => $source->id(), 'post' => $_POST,
+            'page' => $this->pages->load($source), 'pages' => $this->pages,
+            'can_read' => fn (PageId $id) => $this->canReadNamespace($id->namespace()),
+        ]);
+        if (!isset($ctx['form_result'])) {
+            http_response_code(400);
+            return 'Okänt formulär.';
+        }
+        $result = $ctx['form_result'];
+        try {
+            if (isset($result['error'])) throw new RuntimeException($result['error']);
+            $target = new PageId($result['target']);
+            if (!$this->canEditNamespace($target->namespace())) {
+                return $this->accessDenied($target->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
+            }
+            if (!empty($result['create'])) {
+                $this->pages->createRaw($target, $result['raw']);
+            } else {
+                $existing = $this->pages->load($target);
+                if (!$existing) throw new RuntimeException('Målsidan finns inte.');
+                $this->history->snapshot($target, $existing['raw']);
+                $this->pages->saveRaw($target, $result['raw']);
+            }
+            $this->cache->clear();
+            $saved = $this->pages->load($target);
+            $this->plugins->trigger('after_save', ['id' => $target->id(), 'title' => $saved['title'], 'body' => $saved['body']]);
+            header('Location: ' . $target->url(), true, 303);
+            return '';
+        } catch (Throwable $e) {
+            http_response_code(422);
+            return $this->templates->render('layout', $this->baseData($source, [
+                'view' => 'error', 'page' => ['title' => 'Formulärfel'], 'pageId' => $source,
+                'bodyHtml' => '<p>' . Helpers::e($e->getMessage()) . '</p><p><a href="' . Helpers::e($source->url()) . '">Tillbaka</a></p>',
+            ]));
+        }
     }
 
     private function handleSave(string $rawId): string

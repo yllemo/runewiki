@@ -391,6 +391,13 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             { label: '[[wp>Wikipedia]]',   ins: '[[wp>${1:Artikel}]]',                                               detail: 'Wikipedia interwiki' },
             { label: '{{media}}',          ins: '{{${1:namespace:fil.png}}}',                                        detail: 'Media-embed (bild/fil)' },
             { label: '{{media|alt}}',      ins: '{{${1:namespace:fil.png}|${2:alt-text}}}',                         detail: 'Media-embed med alt-text' },
+            // Byråkrazy: formulär på sidan och formulär som skapar en sida från mall.
+            { label: 'Byråkrazy: lägg till på sidan',
+              ins: '<form>\naction pagemod . add_down\nfieldset "Nytt objekt"\ntextbox "Item"\nfieldset ""\nsubmit "Lägg till"\n</form>\n\n<pagemod add_down output_after>\n* @@Item@@\n</pagemod>\n${0}',
+              detail: 'Formulär som lägger till en punkt på den här sidan' },
+            { label: 'Byråkrazy: skapa sida från mall',
+              ins: '<form>\naction template ${1:mallar:artikel} artiklar:@@Rubrik@@\nfieldset "Ny artikel"\ntextbox "Rubrik"\ntextarea "Text"\nhidden "Taggar" "${2:wiki, nyhet}"\nfieldset ""\nsubmit "Skapa sida"\n</form>\n${0}',
+              detail: 'Skapar en ny sida från en mall med @@Rubrik@@, @@Text@@ och @@Taggar@@' },
             // Tabell
             { label: 'tabell',             ins: '| ${1:Kolumn 1} | ${2:Kolumn 2} |\n|---|---|\n| ${3:cell} | ${4:cell} |', detail: 'Markdown-tabell (2×2)' },
             // Frontmatter-startblock

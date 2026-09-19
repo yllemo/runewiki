@@ -18,6 +18,8 @@
 
 return [
 
+    'byrakrazy' => ['enabled' => true, 'options' => []],
+
     'example-plugin' => [
         'enabled' => false,
         'options' => [

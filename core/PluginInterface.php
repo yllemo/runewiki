@@ -15,6 +15,11 @@
  *                   Context: ['id' => string, 'html' => string,
  *                             'page_meta' => array, 'file_path' => string,
  *                             'page' => array]
+ *   page_markdown — kan ändra Markdown före parsning; gör sidan dynamisk.
+ *                   Context: ['id' => string, 'markdown' => string]
+ *   form_submit   — hanterar POST ?do=form efter CSRF-kontroll.
+ *                   Context: ['source_id', 'post', 'page', 'pages', 'can_read'];
+ *                   returnera 'form_result' med target/raw/create eller error.
  *
  *   before_save   — körs innan en sida sparas; kan modifiera 'title'/'body'.
  *                   Context: ['id' => string, 'title' => string,

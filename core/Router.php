@@ -79,6 +79,7 @@ class Router
             $do === 'history' => 'history',
             $do === 'restore' && $method === 'POST' => 'history',
             $do === 'save' && $method === 'POST' => 'save',
+            $do === 'form' && $method === 'POST' => 'form',
             $do === 'delete' && $method === 'POST' => 'delete',
             $do === 'edit'  => 'edit',
             $do === 'download' => 'download',

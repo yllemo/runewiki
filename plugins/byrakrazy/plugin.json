@@ -1,0 +1,6 @@
+{
+  "name": "Byråkrazy",
+  "version": "0.1.0",
+  "description": "Formulär för att skapa Markdown-sidor från mallar och ändra befintliga sidor.",
+  "hooks": ["page_markdown", "page_view", "form_submit"]
+}

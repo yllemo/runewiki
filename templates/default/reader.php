@@ -64,6 +64,8 @@ header.toolbar .brand {
   margin-right: auto;
   white-space: nowrap;
 }
+.btn.mobile-menu-toggle { display: none; }
+.toolbar-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 0.55rem; flex: 1 1 650px; min-width: 0; }
 
 .btn {
   border: none;
@@ -578,6 +580,50 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
 }
 #toast.show { opacity: 0.94; }
 
+@media (max-width: 760px) {
+  header.toolbar { padding: 0.55rem 0.85rem; gap: 0.65rem; flex-wrap: nowrap; }
+  header.toolbar .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 1rem; }
+  .btn.mobile-menu-toggle {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+  .toolbar-actions {
+    display: none;
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    max-height: calc(100vh - 60px);
+    max-height: calc(100dvh - 60px);
+    overflow-y: auto;
+    padding: 0.75rem;
+    background: var(--gs-blue);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  }
+  .toolbar-actions.is-open { display: grid; gap: 0.5rem; }
+  .toolbar-actions > .btn, .toolbar-actions > .export-menu,
+  .toolbar-actions .export-menu > .btn { width: 100%; justify-content: flex-start; }
+  .toolbar-actions .filename-badge { max-width: none; }
+  .export-menu-panel { position: static; width: 100%; margin-top: 0.4rem; box-shadow: none; }
+  #page {
+    width: 100%; max-width: none; margin: 0 auto;
+    padding: 1.35rem 1rem 3rem;
+    box-shadow: none; border-radius: 0;
+  }
+  #settingsPanel {
+    top: 62px; left: 0.75rem; right: 0.75rem; width: auto;
+    max-height: calc(100dvh - 75px); overflow-y: auto;
+  }
+  #searchPanel { top: 62px; left: 0.5rem; right: 0.5rem; flex-wrap: wrap; }
+  #searchInput { width: 100%; flex: 1 0 100%; }
+  #dropzone { margin: 1rem; padding: 2rem 1rem; }
+  #content pre, #content table { max-width: 100%; }
+}
+
 /* ============ Print ============ */
 @page { margin: 18mm 16mm; size: A4; }
 
@@ -640,8 +686,10 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
 <body>
 
 <header class="toolbar">
-  <a class="btn btn-outline" href="<?= Helpers::e($articleUrl) ?>">← Till artikeln</a>
   <div class="brand">Läs- och exportläge</div>
+  <button class="btn btn-outline mobile-menu-toggle" id="btnMobileMenu" type="button" aria-label="Öppna meny" aria-controls="toolbarActions" aria-expanded="false">☰</button>
+  <div class="toolbar-actions" id="toolbarActions">
+  <a class="btn btn-outline" href="<?= Helpers::e($articleUrl) ?>">← Till artikeln</a>
   <button class="btn btn-outline" id="btnFullscreen" type="button">⛶ Fullskärm</button>
   <span class="filename-badge" id="filenameBadge" title=""></span>
   <button class="btn btn-light" id="btnOpen">📂 Öppna .md</button>
@@ -660,6 +708,7 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
     </div>
   </div>
   <button class="btn btn-outline" id="btnSettings" title="Inställningar">⚙️</button>
+  </div>
 </header>
 
 <div id="settingsPanel" hidden>
@@ -779,6 +828,34 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
 <script type="application/json" id="reader-data"><?= json_encode($readerData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
 <link rel="stylesheet" href="/templates/default/assets/css/viewer.css">
 <script src="/templates/default/assets/js/viewer.js"></script>
+<script>
+(() => {
+  const button = document.getElementById('btnMobileMenu');
+  const actions = document.getElementById('toolbarActions');
+  const close = () => {
+    actions.classList.remove('is-open');
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-label', 'Öppna meny');
+  };
+  button.addEventListener('click', () => {
+    const open = actions.classList.toggle('is-open');
+    button.setAttribute('aria-expanded', String(open));
+    button.setAttribute('aria-label', open ? 'Stäng meny' : 'Öppna meny');
+  });
+  actions.addEventListener('click', (event) => {
+    if (event.target.closest('button, a') && !event.target.closest('#btnExportToggle')) close();
+  });
+  document.addEventListener('click', (event) => {
+    if (!actions.contains(event.target) && event.target !== button) close();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close();
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 760) close();
+  });
+})();
+</script>
 <script type="module" src="/templates/default/assets/js/reader.js"></script>
 </body>
 </html>

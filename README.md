@@ -158,7 +158,9 @@ vill, det är bara ett förslag på en första struktur.
   i en fristående vy (`?do=reader`) med valbar fullskärm. Vyn har utskrift,
   PDF/Word/HTML/Markdown/text-export, statistik, sökning, uppläsning och
   MP3-export samt inställningar för textstorlek, sidbredd, innehållsförteckning
-  och Mermaid. Läsrättigheterna gäller även här. Export- och talbibliotek
+  och Mermaid. På mobil samlas verktygen i en hamburgermeny och dokumentet
+  använder skärmens bredd; på desktop visas verktygen direkt i överkanten.
+  Läsrättigheterna gäller även här. Export- och talbibliotek
   laddas från externa tjänster; tillgängliga röster beror på webbläsaren.
   Under Läs upp kan du välja röst bland dem som webbläsaren hittar;
   röstnamn och språk visas och valet sparas lokalt. Automatiskt val

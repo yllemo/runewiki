@@ -364,7 +364,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         // ── Provider 4: Markdown-snippets ───────────────────────────────
 
         var MD = [
-            { label: 'iframe inbäddad sida', ins: '{{iframe:${1:https://example.com}|${2:Sidans titel}|${3:600}}\n${0}', detail: 'Inbäddad sida med höjd i pixlar och länk till ny flik' },
+            { label: 'iframe inbäddad sida', ins: '{{iframe:${1:https://example.com}|${2:Sidans titel}|${3:600}}}\n${0}', detail: 'Inbäddad sida med höjd i pixlar och länk till ny flik' },
             // Rubriker
             { label: '# H1',               ins: '# ${1:Rubrik}',                                                     detail: 'Rubrik nivå 1' },
             { label: '## H2',              ins: '## ${1:Rubrik}',                                                    detail: 'Rubrik nivå 2' },

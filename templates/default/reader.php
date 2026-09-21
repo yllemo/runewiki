@@ -856,6 +856,7 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
   });
 })();
 </script>
+<script src="/templates/default/assets/js/tables.js"></script>
 <script type="module" src="/templates/default/assets/js/reader.js"></script>
 </body>
 </html>

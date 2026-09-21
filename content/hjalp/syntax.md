@@ -94,6 +94,11 @@ fram alla sidor med samma tagg (`tag:nyckelord`).
 
 ## Standard-Markdown
 
+Tabeller får automatiskt en förstakolumn som är lika bred som dess
+bredaste cell, inklusive rubriken. Om den behöver mer än 40 % av tabellens
+bredd radbryts texten. Övriga kolumner delar resten lika. Ingen extra
+Markdown-syntax behövs.
+
 I editorn fortsätter **Enter** automatiskt punktlistor (`-`, `*`, `+`) och
 checkboxar (`- [ ]`) på nästa rad, med samma indrag. En bockad checkbox
 (`- [x]`) ger en ny tom checkbox. Tryck **Enter** på en tom listpunkt för

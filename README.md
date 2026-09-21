@@ -64,6 +64,12 @@ vill, det är bara ett förslag på en första struktur.
   tas sidan bort istället för att spara en tom `.md`-fil
 
 ### Innehåll och syntax
+- **Tabellbredder** — första kolumnen anpassas efter sin bredaste cell
+  (inklusive rubriken), upp till 40 % av tabellbredden. Längre innehåll
+  radbryts utan att döljas. Övriga kolumner delar återstående bredd lika.
+  Layouten uppdateras vid storleks- och innehållsändringar, även i chatt
+  och Läs- och exportläge. Egna kolumndefinitioner och sammanslagna celler
+  behåller sin layout.
 - **Iframe** — `{{iframe:https://example.com|Titel|600}}` på egen rad
   bäddar in en sida med valfri titel och höjd. Ctrl+Space → `iframe`
   infogar mallen. En länk under ramen öppnar alltid sidan i ny flik.

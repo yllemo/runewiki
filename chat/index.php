@@ -692,6 +692,7 @@ body.footer-collapsed > footer, body.footer-collapsed > .gbg-index-band {
 <div class="toast" id="toast"></div>
 
 <script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"<?= Helpers::linkSettingsAttributes($config) ?>></script>
+<script src="<?= Helpers::e($assetUrl('js/tables.js')) ?>"></script>
 <script>
 /* ---------- IndexedDB ---------- */
 const DB_NAME='skillchat-db', STORE='kv';

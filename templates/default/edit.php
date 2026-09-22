@@ -375,6 +375,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             { label: '*kursiv*',           ins: '*${1:text}*',                                                       detail: 'Kursiv text' },
             { label: '`inlinekod`',        ins: '`${1:kod}`',                                                        detail: 'Inlinekod' },
             // Block
+            { label: 'ifAuth — bara för inloggade', ins: '<ifAuth>\n${1:Innehåll för inloggade}\n</ifAuth>\n${0}', detail: 'Visar Markdown-innehållet bara för inloggade användare' },
             { label: '```kodblock',        ins: '```${1:language}\n${2:kod}\n```',                                  detail: 'Kodblock med språkval' },
             { label: '> citat',            ins: '> ${1:text}',                                                       detail: 'Blockcitat' },
             { label: '---',                ins: '\n---\n',                                                            detail: 'Horisontell linje' },

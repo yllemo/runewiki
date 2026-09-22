@@ -9,6 +9,31 @@ tags: [hjälp, dokumentation]
 En snabb genomgång av allt du kan skriva i en wikisida. Fullständig
 dokumentation finns i `README.md` i projektroten.
 
+## Innehåll för inloggade
+
+Använd `<ifAuth>` och `</ifAuth>` på egna rader för att visa en del av sidan
+bara för inloggade användare:
+
+```markdown
+Den här texten visas för alla.
+
+<ifAuth>
+## För inloggade
+
+Här kan du skriva vanlig **Markdown** och lägga Byråkrazy-formulär.
+</ifAuth>
+
+Den här texten visas återigen för alla.
+```
+
+Kontrollen gäller bara om besökaren är inloggad, inte användargrupper.
+Block kan nästlas. Om slutmarkören saknas döljs resten av sidan för
+utloggade. Markörer i kodblock visas som kodexempel.
+Byråkrazy-formulär döljs automatiskt för utloggade även utan ett sådant block.
+
+Detta styr sidans visning, inte läsrätten till Markdown-källan, nedladdningar
+eller sökindex. Använd namespace-behörigheter för konfidentiellt innehåll.
+
 ## Wikilänkar
 
 `[[namespace:sida]]` länkar internt. Sidor som inte finns än visas som en

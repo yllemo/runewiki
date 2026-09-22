@@ -69,7 +69,8 @@ class Wiki
         $this->references = new References($this->pages, $interwikiConfig);
         $this->media      = new Media($mediaDir, $mediaConfig);
         $this->parser     = new Parser($interwikiConfig, $this->pages, $this->plugins,
-            fn (PageId $id) => $this->canReadNamespace($id->namespace()));
+            fn (PageId $id) => $this->canReadNamespace($id->namespace()),
+            fn () => $this->auth->currentUser() !== null);
         $this->templates  = new TemplateEngine($templatesDir, $config['theme'] ?? 'default');
         $this->cache      = new Cache($dataDir . '/cache', (bool) ($config['cache_enabled'] ?? true));
         $this->search     = new Search($contentDir);
@@ -272,7 +273,9 @@ class Wiki
         }
 
         $filePath = $id->toFilePath($this->root . '/content');
-        $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath) . '-parser-' . Parser::VERSION;
+        $authenticated = $this->auth->currentUser() !== null;
+        $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath) . '-parser-' . Parser::VERSION
+            . '-auth-' . (int) $authenticated;
         // Länktitlar kan bero på besökarens läsrättigheter.
         $cacheTitles = !$this->aclConfigured && empty($this->config['auth_enabled']);
         $dynamicPage = $this->plugins->hasHook('page_markdown');
@@ -280,7 +283,9 @@ class Wiki
 
         $page = $this->pages->load($id);
         if ($bodyHtml === null) {
-            $markdown = $this->plugins->trigger('page_markdown', ['id' => $id->id(), 'markdown' => $page['body']])['markdown'] ?? $page['body'];
+            $markdown = $this->plugins->trigger('page_markdown', [
+                'id' => $id->id(), 'markdown' => $page['body'], 'authenticated' => $authenticated,
+            ])['markdown'] ?? $page['body'];
             $bodyHtml = $this->parser->toHtml($markdown);
             if ($cacheTitles && !$dynamicPage) $this->cache->set($cacheKey, $bodyHtml);
         }
@@ -403,6 +408,9 @@ class Wiki
 
     private function handleForm(string $rawId): string
     {
+        if ($this->auth->currentUser() === null) {
+            return $this->requireLogin((new PageId($rawId))->url());
+        }
         $source = new PageId($rawId);
         if (!$this->canReadNamespace($source->namespace()) || !$this->pages->exists($source)) {
             http_response_code(404);

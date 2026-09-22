@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '6';
+    public const VERSION = '7';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
@@ -37,7 +37,7 @@ class Parser
     private ?PluginManager $plugins;
     private array $codeBlocks = [];
 
-    public function __construct(array $interwiki = [], ?PageLoader $pageLoader = null, ?PluginManager $plugins = null, private ?Closure $canReadPage = null)
+    public function __construct(array $interwiki = [], ?PageLoader $pageLoader = null, ?PluginManager $plugins = null, private ?Closure $canReadPage = null, private ?Closure $isAuthenticated = null)
     {
         $this->interwiki  = $interwiki;
         $this->pageLoader = $pageLoader;
@@ -51,6 +51,7 @@ class Parser
         $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
         $markdown = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $markdown);
         $markdown = $this->extractFencedCode($markdown);
+        $markdown = $this->filterAuthBlocks($markdown);
 
         $result = $this->renderBlocks($markdown);
         $result = $this->restoreCodeBlocks($result);
@@ -64,6 +65,27 @@ class Parser
     }
 
     // ── Block-nivå ────────────────────────────────────────────────────────────
+
+    /** Auth markers occupy their own lines; fenced examples remain literal. */
+    private function filterAuthBlocks(string $markdown): string
+    {
+        $authenticated = $this->isAuthenticated !== null && ($this->isAuthenticated)();
+        $depth = 0;
+        $visible = [];
+        foreach (explode("\n", $markdown) as $line) {
+            if (preg_match('/^[ \t]*<ifAuth>[ \t]*$/i', $line)) {
+                $depth++;
+                $visible[] = '';
+            } elseif (preg_match('/^[ \t]*<\/ifAuth>[ \t]*$/i', $line)) {
+                $depth = max(0, $depth - 1);
+                $visible[] = '';
+            } elseif ($authenticated || $depth === 0) {
+                $visible[] = $line;
+            }
+        }
+        // An unclosed block stays hidden through EOF for anonymous visitors.
+        return implode("\n", $visible);
+    }
 
     private function extractFencedCode(string $md): string
     {

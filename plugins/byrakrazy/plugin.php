@@ -51,6 +51,10 @@ class ByrakrazyPlugin implements PluginInterface
             $body = str_replace($block[0], '', $body);
         }
         foreach ($this->blocks($body, 'form') as $index => $block) {
+            if (empty($ctx['authenticated'])) {
+                $body = str_replace($block[0], '', $body);
+                continue;
+            }
             $token = 'BYRAKRAZYFORM' . $index . 'END';
             $this->rendered[$id][$token] = $this->formHtml($id, $index, $this->definition($block[2]));
             $body = str_replace($block[0], "\n\n" . $token . "\n\n", $body);

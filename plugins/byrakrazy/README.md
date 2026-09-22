@@ -1,6 +1,8 @@
 # Byråkrazy
 
-Byråkrazy är aktiverat i `config/plugins.php`. Lägg formuläret på en vanlig Markdown-sida. Inlämning kräver samma redigeringsrätt till målsidans namespace som den vanliga editorn. Formulären skyddas med CSRF-token.
+Byråkrazy är aktiverat i `config/plugins.php`. Lägg formuläret på en vanlig Markdown-sida. Formulär visas bara för inloggade användare, och inlämning kräver inloggning även om `auth_enabled` är avstängt. Inlämning kräver dessutom samma redigeringsrätt till målsidans namespace som den vanliga editorn. Formulären skyddas med CSRF-token.
+
+Text och rubriker runt formuläret kan också döljas för utloggade genom att omsluta dem med `<ifAuth>` och `</ifAuth>` på egna rader. Se syntax-guiden.
 
 ## Lägg till på en befintlig sida
 

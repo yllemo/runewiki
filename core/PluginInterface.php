@@ -16,8 +16,8 @@
  *                             'page_meta' => array, 'file_path' => string,
  *                             'page' => array]
  *   page_markdown — kan ändra Markdown före parsning; gör sidan dynamisk.
- *                   Context: ['id' => string, 'markdown' => string]
- *   form_submit   — hanterar POST ?do=form efter CSRF-kontroll.
+ *                   Context: ['id' => string, 'markdown' => string, 'authenticated' => bool]
+ *   form_submit   — hanterar POST ?do=form efter inloggnings- och CSRF-kontroll.
  *                   Context: ['source_id', 'post', 'page', 'pages', 'can_read'];
  *                   returnera 'form_result' med target/raw/create eller error.
  *

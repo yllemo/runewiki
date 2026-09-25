@@ -16,6 +16,8 @@
 .mmd-viewer { margin:auto; }
 .mmd-viewer .mmd-toolbar strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:45%; }
 img.gbg-lightbox-img[role="button"] { cursor:zoom-in; }
+.mmd-diagram[role="button"] { cursor:zoom-in; }
+.mmd-diagram[role="button"]:focus-visible { outline:2px solid var(--accent, #0077bc); outline-offset:3px; }
 img.gbg-lightbox-img:focus-visible { outline:2px solid var(--accent, #0077bc); outline-offset:3px; }
 .wiki-embed { margin:1.25rem 0; width:100%; }
 .wiki-embed iframe { display:block; width:100%; max-width:100%; border:1px solid var(--border-color, #ccc); border-radius:8px; background:white; }

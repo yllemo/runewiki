@@ -490,6 +490,7 @@ $footerHtml = $templates->render('footer', [
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>
 <link rel="stylesheet" href="<?= Helpers::e($assetUrl('css/style.css')) ?>">
+<link rel="stylesheet" href="<?= Helpers::e($assetUrl('css/viewer.css')) ?>">
 <style>
 /**
  * Rent strukturell CSS för själva chatt-appen (ingen färg/typsnitt här —
@@ -596,12 +597,13 @@ body.footer-collapsed > footer, body.footer-collapsed > .gbg-index-band {
         <h2>Chatta med din skill</h2>
         <p>Ladda en SKILL.md, ett .zip-arkiv eller en hel skill-mapp. Alla frågor besvaras enbart utifrån det laddade innehållet.</p>
         <p><code>/files</code> (<code>/f</code>) listar wikins sidor (<code>-a</code> alfabetiskt, <code>-d</code> senast ändrade, <code>/files text</code> filtrerar på filnamn), <code>/search</code> (<code>/s</code>, eller <code>/sok</code>) söker bland dem, <code>/tag</code> (<code>/t</code>) listar taggar, <code>/namespace</code> (<code>/ns</code>, eller <code>/folder</code>) listar namespaces och kan lägga till alla sidor i ett namespace, <code>/context</code> (<code>/c</code>, eller <code>/kontext</code>) listar och tar bort Markdown-filer i kontexten — lägg till valda sidor i kontexten direkt i chatten. Långa listor visas 50 åt gången.</p>
+        <p><code>/mm</code> skapar ett Mermaid-diagram från aktuell kontext med ArchiMate 4-färger och domäner. Ange önskad vy, t.ex. <code>/mm integrationskarta</code> eller <code>/mm förmågekarta</code>.</p>
         <div class="hint">⚙ Ställ in LLM-anslutning först (OpenAI, LM Studio eller Ollama)</div>
       </div>
     </div>
     <div class="composer">
       <div class="row">
-        <textarea id="input" rows="1" placeholder="Fråga, eller /files · /search <sökterm> · /namespace · /context…"></textarea>
+        <textarea id="input" rows="1" placeholder="Fråga, eller /files · /search <sökterm> · /namespace · /context · /mm…"></textarea>
         <button class="send-btn" id="sendBtn" title="Skicka" aria-label="Skicka">➤</button>
       </div>
       <div class="meta">
@@ -691,6 +693,7 @@ body.footer-collapsed > footer, body.footer-collapsed > .gbg-index-band {
 
 <div class="toast" id="toast"></div>
 
+<script src="<?= Helpers::e($assetUrl('js/viewer.js')) ?>"></script>
 <script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"<?= Helpers::linkSettingsAttributes($config) ?>></script>
 <script src="<?= Helpers::e($assetUrl('js/tables.js')) ?>"></script>
 <script>
@@ -1101,17 +1104,39 @@ function renderMd(text){return DOMPurify.sanitize(marked.parse(text||''));}
 
 /* ---------- Code blocks & Mermaid rendering ---------- */
 let mmdCounter=0;
+let mmdViewer;
+function openMermaidDiagram(el){
+  const svg=el.querySelector('svg');
+  if(!svg) return;
+  if(!mmdViewer) mmdViewer=window.createWikiViewer();
+  mmdViewer.open(svg, el);
+}
 function makeCopyBtn(getText){
   const b=document.createElement('button'); b.className='cb-copy'; b.type='button'; b.textContent='Kopiera';
   b.onclick=async ()=>{ try{ await navigator.clipboard.writeText(getText()); b.textContent='Kopierat ✓'; b.classList.add('copied'); setTimeout(()=>{b.textContent='Kopiera'; b.classList.remove('copied');},1500);}catch(e){ b.textContent='Fel'; } };
   return b;
 }
 async function renderMermaid(el, source){
+  el.removeAttribute('tabindex');
+  el.removeAttribute('role');
+  el.removeAttribute('aria-label');
+  el.onclick=null;
+  el.onkeydown=null;
   if(!window.mermaid){ el.innerHTML='<div class="mmd-err">Mermaid kunde inte laddas (kontrollera nätverk/CDN).</div>'; return; }
   const id='mmd-'+(mmdCounter++);
   try{
     const {svg}=await window.mermaid.render(id, source);
     el.innerHTML=svg;
+    el.tabIndex=0;
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', 'Öppna diagram i popup');
+    el.onclick=()=>openMermaidDiagram(el);
+    el.onkeydown=e=>{
+      if(e.target===el && (e.key==='Enter' || e.key===' ')){
+        e.preventDefault();
+        openMermaidDiagram(el);
+      }
+    };
   }catch(err){
     const orphan=document.getElementById(id); if(orphan)orphan.remove();
     el.innerHTML='<div class="mmd-err">⚠️ Diagramfel: '+escapeHtml((err&&err.message)||String(err))+'</div>';
@@ -1483,7 +1508,19 @@ async function cmdListContext(){
   renderPagedList(header, mdFiles, f=>`<li><button type="button" class="content-remove-btn" data-path="${escapeHtml(f.path)}">✕ Ta bort</button> <span class="fname">${escapeHtml(f.path)}</span><span class="content-excerpt">${f.include?'med i nästa fråga':'avbockad'} · ${fmtSize(f.size)}</span></li>`, bindContentRemoveButtons);
 }
 
+let loadingMermaidSkill=false;
+async function getMermaidInstructions(){
+  const res=await fetch('?action=get-skill&skill=archimate-4-mermaid');
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const data=await res.json();
+  if(data.error) throw new Error(data.error);
+  const skill=(data.files||[]).find(f=>f.path==='SKILL.md');
+  if(!skill || !skill.content.trim()) throw new Error('SKILL.md saknas eller är tom.');
+  return '\n\n=== DIAGRAMUPPDRAG /mm ===\nFölj denna fördefinierade skill för det aktuella svaret. Använd kontexten och konversationen som faktaunderlag.\n'+skill.content;
+}
+
 async function send(){
+  if(loadingMermaidSkill)return;
   if(streaming){ if(abortCtrl)abortCtrl.abort(); return; }
   const input=$('input'); const text=input.value.trim();
   if(!text)return;
@@ -1523,16 +1560,36 @@ async function send(){
   }
 
   if(!config.model){openSettings(); return;}
-  if(files.filter(f=>f.isText&&f.include).length===0){
+  const mm=text.match(/^\/mm(?:\s+([\s\S]*))?$/i);
+  let diagramInstructions='';
+  if(mm){
+    if(!files.some(f=>f.isText&&f.include) && !history.length){
+      addMsg('system', '<p>Lägg först till underlag via <code>/files</code>, ladda upp en fil eller beskriv det som ska visualiseras i chatten. Kör sedan <code>/mm</code>, gärna med önskad vy.</p>');
+      return;
+    }
+    loadingMermaidSkill=true;
+    try{
+      diagramInstructions=await getMermaidInstructions();
+    }catch(err){
+      addMsg('system', '<p>⚠️ Kunde inte läsa Mermaid-skillen: '+escapeHtml(err.message)+'</p>');
+      return;
+    }finally{
+      loadingMermaidSkill=false;
+    }
+  }
+  if(!mm && files.filter(f=>f.isText&&f.include).length===0){
     if(!confirm('Ingen kontext är vald (varken skill eller sidor). Vill du fråga ändå?'))return;
   }
 
   addMsg('user', text);
-  history.push({role:'user', content:text});
+  const request=mm
+    ? 'Skapa ett färdigt Mermaid-diagram utifrån aktuell kontext och konversation enligt ArchiMate 4-skillen. '+(mm[1]?.trim() || 'Visa en domänindelad arkitekturöversikt med flowchart TB.')
+    : text;
+  history.push({role:'user', content:request});
   input.value=''; autoGrow();
 
   const ctx=buildContext();
-  const sys=config.sysPrompt.replace('{context}', ctx);
+  const sys=config.sysPrompt.replace('{context}', ctx)+diagramInstructions;
   const messages=[{role:'system', content:sys}, ...history];
 
   const bubble=addMsg('assistant','');

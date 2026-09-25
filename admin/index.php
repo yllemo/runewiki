@@ -58,7 +58,7 @@ $currentUser = $auth->currentUser();
  * en GET räcker (som Wiki::handleDownload för enskilda sidor) — sidan
  * kräver ändå inloggning via auth-gaten ovan.
  */
-function exportContentZip(string $contentDir): void
+function exportContentZip(string $contentDir, string $siteName): void
 {
     if (!class_exists('ZipArchive')) {
         http_response_code(500);
@@ -91,16 +91,18 @@ function exportContentZip(string $contentDir): void
     }
     $zip->close();
 
-    $filename = 'runedown_content-' . date('Y-m-d') . '.zip';
+    $exportName = trim(preg_replace('/[\x00-\x1F\x7F<>:"\/\\\\|?*]+/u', '-', $siteName) ?? '', " .\t\n\r\0\x0B");
+    $filename = ($exportName !== '' ? $exportName : 'RuneWiki') . '-' . date('Y-m-d') . '.zip';
+    $asciiFilename = preg_replace('/[^\x20-\x7E]/', '_', $filename);
     header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Disposition: attachment; filename="' . $asciiFilename . '"; filename*=UTF-8\'\'' . rawurlencode($filename));
     header('Content-Length: ' . filesize($tmpFile));
     readfile($tmpFile);
     unlink($tmpFile);
 }
 
 if (($_GET['do'] ?? '') === 'export_content') {
-    exportContentZip($root . '/content');
+    exportContentZip($root . '/content', $siteName);
     exit;
 }
 

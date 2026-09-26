@@ -672,6 +672,7 @@ mark.search-hit.active { background: #ff9f1c; outline: 2px solid #d87500; }
 .md-callout-danger, .md-callout-caution { --callout-accent: #c32f41; background: #fff2f4; }
 .md-callout-help { --callout-accent: #8045b6; background: #f8f2fc; }
 .md-callout-download, .md-callout-success { --callout-accent: #348025; background: #f2fbed; }
+.md-callout-tldr { --callout-accent: #087f68; background: #edf9f5; }
 .md-callout-todo { --callout-accent: #087f68; background: #edf9f5; }
 .md-callout-simple { border-left: 0; background: var(--bg-subtle); }
 .md-callout > .md-callout-title { margin: 0 0 .5rem; font-weight: 700; font-size: 1rem; line-height: 1.5; color: var(--callout-accent); }

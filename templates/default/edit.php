@@ -375,6 +375,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             { label: '*kursiv*',           ins: '*${1:text}*',                                                       detail: 'Kursiv text' },
             { label: '`inlinekod`',        ins: '`${1:kod}`',                                                        detail: 'Inlinekod' },
             // Block
+            { label: 'HTML-kommentar', ins: '<!--\n${1:Stödanteckning}\n-->\n${0}', detail: 'Kommentar som bara syns i Markdown-källan' },
             { label: 'ifAuth — bara för inloggade', ins: '<ifAuth>\n${1:Innehåll för inloggade}\n</ifAuth>\n${0}', detail: 'Visar Markdown-innehållet bara för inloggade användare' },
             { label: '```kodblock',        ins: '```${1:language}\n${2:kod}\n```',                                  detail: 'Kodblock med språkval' },
             { label: '> citat',            ins: '> ${1:text}',                                                       detail: 'Blockcitat' },
@@ -412,7 +413,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             ['simple', 'Enkel box'], ['info', 'Information'], ['note', 'Notering'],
             ['tip', 'Tips'], ['important', 'Viktigt'], ['warning', 'Varning'],
             ['danger', 'Fara'], ['help', 'Hjälp'], ['download', 'Nedladdning'],
-            ['todo', 'Att göra'], ['success', 'Klart'],
+            ['todo', 'Att göra'], ['success', 'Klart'], ['tldr', 'TLDR – summering'],
         ].forEach(function (box) {
             MD.push({ label: 'box ' + box[0] + ' — ' + box[1],
                 ins: '::: ' + box[0] + ' ${1:' + box[1] + '}\n${2:Innehåll med **Markdown**}\n:::\n${0}',

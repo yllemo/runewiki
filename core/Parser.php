@@ -25,12 +25,13 @@
 
 class Parser
 {
-    public const VERSION = '7';
+    public const VERSION = '9';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
         'danger' => 'Varning', 'caution' => 'Varning', 'help' => 'Hjälp',
         'download' => 'Nedladdning', 'todo' => 'Att göra', 'success' => 'Klart',
+        'tldr' => 'TLDR – summering',
     ];
     private array $interwiki;
     private ?PageLoader $pageLoader;
@@ -51,6 +52,9 @@ class Parser
         $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
         $markdown = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $markdown);
         $markdown = $this->extractFencedCode($markdown);
+        // Author notes are invisible in rendered Markdown; code examples stay literal.
+        $markdown = preg_replace_callback('/`[^`\n]+`|<!--.*?(?:-->|\z)/s',
+            fn ($m) => str_starts_with($m[0], '<!--') ? '' : $m[0], $markdown);
         $markdown = $this->filterAuthBlocks($markdown);
 
         $result = $this->renderBlocks($markdown);

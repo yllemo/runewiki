@@ -1,5 +1,19 @@
 // Gemensam zoom- och panoreringsvisare för Mermaid och SVG-bilder.
 (function () {
+  let renderQueue = Promise.resolve(), renderSequence = 0;
+  // Serialize configuration + rendering: Mermaid shares configuration globally.
+  window.renderWikiMermaid = function (source, id, availableWidth = 960, securityLevel = 'strict', container) {
+    const task = renderQueue.then(async () => {
+      window.mermaid.initialize({
+        startOnLoad: false, securityLevel,
+        theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'base',
+        flowchart: { htmlLabels: true, useMaxWidth: true, wrappingWidth: Math.round(Math.max(240, Math.min(640, availableWidth / 3))) },
+      });
+      return window.mermaid.render(id, source, container);
+    });
+    renderQueue = task.catch(() => {});
+    return task;
+  };
   function createWikiViewer() {
     const dialog = document.createElement('dialog');
     dialog.className = 'mmd-viewer';
@@ -9,6 +23,7 @@
       '<output aria-live="polite">100%</output>' +
       '<button type="button" data-action="in" aria-label="Zooma in">+</button>' +
       '<button type="button" data-action="fit">Anpassa</button>' +
+      '<button type="button" data-action="refresh" hidden>Uppdatera diagram</button>' +
       '<button type="button" data-action="close" aria-label="Stäng diagram">Stäng ×</button></div>' +
       '<div class="mmd-viewport" tabindex="0" aria-label="Diagram. Dra för att panorera. Använd plus och minus för zoom, piltangenter för panorering och 0 för att anpassa."><div class="mmd-canvas"></div></div>' +
       '<p class="mmd-help">Dra för att panorera · Scrolla eller använd + / − för zoom · 0 anpassar · Esc stänger</p>';
@@ -16,8 +31,48 @@
     const viewport = dialog.querySelector('.mmd-viewport');
     const canvas = dialog.querySelector('.mmd-canvas');
     const output = dialog.querySelector('output');
+    const refreshButton = dialog.querySelector('[data-action="refresh"]');
+    const help = dialog.querySelector('.mmd-help');
+    const defaultHelp = help.textContent;
+    let diagramOptions, revision = 0, resizeTimer;
     let scale = 1, x = 0, y = 0, width = 1, height = 1, opener, oldOverflow;
     let drag = null;
+    function showSvg(svg) {
+      const box = svg.viewBox?.baseVal || {};
+      width = svg.naturalWidth || box.width || svg.getBoundingClientRect().width || 800;
+      height = svg.naturalHeight || box.height || svg.getBoundingClientRect().height || 600;
+      svg.style.width = width + 'px'; svg.style.height = height + 'px'; svg.style.maxWidth = 'none';
+      canvas.replaceChildren(svg);
+    }
+    async function redraw() {
+      clearTimeout(resizeTimer);
+      if (!dialog.open || !diagramOptions?.source) return;
+      const current = ++revision;
+      const options = diagramOptions;
+      const host = document.createElement('div');
+      host.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:0;top:0;';
+      host.style.width = Math.max(1, viewport.clientWidth - 48) + 'px';
+      dialog.appendChild(host);
+      refreshButton.disabled = true;
+      viewport.setAttribute('aria-busy', 'true');
+      try {
+        const result = await window.renderWikiMermaid(options.source, 'viewer-mmd-' + (++renderSequence), viewport.clientWidth - 48, options.securityLevel, host);
+        if (!dialog.open || current !== revision) return;
+        host.innerHTML = result.svg;
+        const svg = host.querySelector('svg');
+        if (!svg) throw new Error('Diagrammet saknar SVG.');
+        showSvg(svg); fit();
+        help.textContent = defaultHelp;
+      } catch (error) {
+        if (dialog.open && current === revision) help.textContent = 'Kunde inte rita om diagrammet. Föregående vy visas. Försök med Uppdatera diagram.';
+      } finally {
+        host.remove();
+        if (current === revision) {
+          refreshButton.disabled = false;
+          viewport.removeAttribute('aria-busy');
+        }
+      }
+    }
     function paint() {
       canvas.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + scale + ')';
       output.textContent = Math.round(scale * 100) + '%';
@@ -39,10 +94,15 @@
       const action = e.target.closest('button')?.dataset.action;
       if (action === 'close' || e.target === dialog) dialog.close();
       if (action === 'fit') fit();
+      if (action === 'refresh') redraw();
       if (action === 'in') zoom(1.25);
       if (action === 'out') zoom(0.8);
     });
     dialog.addEventListener('close', () => {
+      ++revision; clearTimeout(resizeTimer);
+      diagramOptions = null;
+      refreshButton.disabled = false;
+      viewport.removeAttribute('aria-busy');
       document.body.style.overflow = oldOverflow;
       canvas.replaceChildren(); drag = null;
       if (opener?.isConnected) opener.focus();
@@ -78,8 +138,21 @@
       else return;
       e.preventDefault();
     });
-    new ResizeObserver(() => { if (dialog.open) fit(); }).observe(viewport);
-    return { open(svg, trigger) {
+    new ResizeObserver(() => {
+      if (!dialog.open) return;
+      fit();
+      if (diagramOptions?.source) {
+        ++revision;
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(redraw, 200);
+      }
+    }).observe(viewport);
+    return { open(svg, trigger, options) {
+      ++revision;
+      diagramOptions = options;
+      refreshButton.hidden = !options?.source;
+      refreshButton.disabled = false;
+      help.textContent = defaultHelp;
       opener = trigger;
       const isImage = svg.tagName.toLowerCase() === 'img';
       dialog.querySelector('strong').textContent = isImage ? (svg.alt || 'SVG-bild') : 'Diagram';
@@ -109,14 +182,11 @@
         }
         if (el.tagName.toLowerCase() === 'style') ids.forEach((next, old) => { el.textContent = el.textContent.split('#' + old).join('#' + next); });
       });
-      const box = svg.viewBox?.baseVal || {};
-      width = svg.naturalWidth || box.width || svg.getBoundingClientRect().width || 800;
-      height = svg.naturalHeight || box.height || svg.getBoundingClientRect().height || 600;
-      clone.style.width = width + 'px'; clone.style.height = height + 'px'; clone.style.maxWidth = 'none';
-      canvas.replaceChildren(clone);
+      showSvg(clone);
       oldOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       dialog.showModal(); fit(); viewport.focus();
+      redraw();
     } };
   }
 

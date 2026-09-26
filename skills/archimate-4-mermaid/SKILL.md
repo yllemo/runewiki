@@ -37,9 +37,9 @@ Denna skill används för att generera Mermaid-diagram som följer ArchiMate 4 (
 
 - Skapa ett färdigt Mermaid-diagram utifrån valda kontextfiler och den aktuella konversationen.
 - Text efter `/mm` anger önskad diagramtyp, fokus och avgränsning, till exempel `/mm integrationskarta` eller `/mm sekvensdiagram för beställning`.
-- Utan extra instruktion: välj en domänindelad arkitekturöversikt med `flowchart TB`. Ta bara med domäner som är relevanta för materialet, i den angivna domänordningen.
+- Utan extra instruktion: välj en översikt som passar innehållet, normalt `flowchart TB`. Visualisera alla slags innehåll, även löptext, idéer, listor och icke-tekniska ämnen. Använd relevanta domänfärger och gruppera efter domän när det hjälper läsbarheten; kräv inte arkitekturdokumentation.
 - Svara med en kort svensk introduktion följd av ett komplett kodblock märkt `mermaid`, så att chatten kan rendera diagrammet. Skapa inte en ny skillfil som svar.
-- Utgå från fakta i underlaget. Hitta inte på system, relationer eller datum. Om underlag saknas för den efterfrågade vyn, ställ en konkret följdfråga.
+- Skapa alltid diagrammet direkt utan följdfrågor, invändningar om underlag eller begäran om bekräftelse. Anpassa struktur och detaljnivå till innehållet. Vid otydligt underlag, visa de begrepp och samband som går att utläsa i en enkel översikt utan att hitta på konkreta system eller datum. Saknas innehåll helt, visa ett minimalt diagram med noden "Inget innehåll ännu".
 - Chattens renderare stöder HTML-etiketter. Använd därför HTML-varianten för flowchart. Inkludera de sju classDef-definitionerna i flowchart; använd diagramtypens egna tema- och färginställningar för övriga typer eftersom classDef inte stöds överallt.
 - De diagramspecifika undantagen nedan har företräde framför generella stereotypregler.
 

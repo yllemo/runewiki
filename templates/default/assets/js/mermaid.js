@@ -36,7 +36,7 @@
 
   async function renderInto(wrap, source, id) {
     try {
-      const { svg } = await window.mermaid.render(id, source);
+      const { svg } = await window.renderWikiMermaid(source, id, Math.max(960, wrap.clientWidth));
       wrap.innerHTML = svg;
       wrap.tabIndex = 0;
       wrap.setAttribute('role', 'button');
@@ -58,7 +58,7 @@
     const original = wrap.querySelector('svg');
     if (!original) return;
     if (!viewer) viewer = window.createWikiViewer();
-    viewer.open(original, trigger);
+    viewer.open(original, trigger, { source: wrap.dataset.mermaidSource, securityLevel: 'strict' });
   }
 
   async function renderAll() {

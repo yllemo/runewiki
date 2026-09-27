@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../core/Helpers.php';
 require_once __DIR__ . '/../core/PageId.php';
 require_once __DIR__ . '/../core/Parser.php';
+require_once __DIR__ . '/../core/MarkdownVisibility.php';
 require_once __DIR__ . '/../core/PluginInterface.php';
 require_once __DIR__ . '/../plugins/byrakrazy/plugin.php';
 

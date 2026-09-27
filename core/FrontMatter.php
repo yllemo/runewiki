@@ -1,124 +1,46 @@
 <?php
-/**
- * core/FrontMatter.php
- *
- * Parsar YAML-frontmatter i toppen av en .md-fil:
- *
- *   ---
- *   title: Min sida
- *   date: 2024-06-01
- *   author: Erik Andersson
- *   status: publicerad
- *   draft: false
- *   priority: 3
- *   tags: [wiki, exempel]
- *   description: En kortare beskrivning
- *   ---
- *   Brödtext...
- *
- * Stödjer: strängar (med eller utan citationstecken), listor [a, b],
- * booleans (true/false/yes/no), heltal, decimaltal, null/~.
- * Medvetet begränsat till platta nycklar — inget stöd för nästade objekt.
- */
+require_once __DIR__ . '/vendor/autoload.php';
 
+use Symfony\Component\Yaml\Yaml;
+
+/** YAML frontmatter, including OKF's nested mappings and lists. */
 class FrontMatter
 {
-    /** @return array{0: array<string,mixed>, 1: string} [meta, body] */
-    public static function parse(string $rawContent): array
+    /** @return array{0: array, 1: string} */
+    public static function parse(string $rawContent, bool $strict = false): array
     {
+        if (str_starts_with($rawContent, "\xEF\xBB\xBF")) $rawContent = substr($rawContent, 3);
         $rawContent = ltrim($rawContent);
-        if (!str_starts_with($rawContent, '---')) {
+        if (!preg_match('/\A---[ \t]*\r?\n(.*?)^---[ \t]*(?:\r?\n|$)(.*)\z/ms', $rawContent, $m)) {
             return [[], $rawContent];
         }
-
-        // Stöd för Windows (\r\n) och Unix (\n) radslut
-        if (!preg_match('/^---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|$)(.*)/s', $rawContent, $m)) {
-            return [[], $rawContent];
+        try {
+            $meta = Yaml::parse($m[1], Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE | Yaml::PARSE_DATE_AS_STRING, 32, 20) ?? [];
+            if (!is_array($meta) || ($meta !== [] && array_is_list($meta))) throw new InvalidArgumentException('Frontmatter måste vara en YAML-mappning med fältnamn.');
+            if (isset($meta['tags']) && is_array($meta['tags'])) {
+                if (!array_is_list($meta['tags']) || array_filter($meta['tags'], static fn ($tag) => !is_scalar($tag))) {
+                    throw new InvalidArgumentException('tags ska vara en lista med enkla taggnamn.');
+                }
+                $meta['tags'] = array_values(array_map(static fn ($tag) => is_bool($tag) ? ($tag ? 'true' : 'false') : (string) $tag, $meta['tags']));
+            }
+            if (isset($meta['draft']) && is_string($meta['draft'])) {
+                $meta['draft'] = match (strtolower($meta['draft'])) { 'yes', 'on' => true, 'no', 'off' => false, default => $meta['draft'] };
+            }
+            return [$meta, $m[2]];
+        } catch (Throwable $e) {
+            if ($strict) throw new InvalidArgumentException('Ogiltig YAML: ' . $e->getMessage(), 0, $e);
+            return [[], $m[2]];
         }
-
-        $meta = [];
-        foreach (preg_split('/\r?\n/', $m[1]) as $line) {
-            $line = rtrim($line);
-            if ($line === '' || str_starts_with(ltrim($line), '#')) {
-                continue; // tom rad eller YAML-kommentar
-            }
-            if (!str_contains($line, ':')) {
-                continue;
-            }
-            [$key, $rest] = array_map('trim', explode(':', $line, 2));
-            if ($key === '') {
-                continue;
-            }
-            $value = self::parseValue($rest);
-            if ($value !== null) {
-                $meta[$key] = $value;
-            }
-        }
-
-        return [$meta, $m[2]];
     }
 
-    private static function parseValue(string $raw): mixed
+    public static function yaml(array $meta): string
     {
-        $raw = trim($raw);
-
-        // Citerad sträng: "..." eller '...'
-        if (preg_match('/^"(.*)"$/s', $raw, $m) || preg_match("/^'(.*)'$/s", $raw, $m)) {
-            return $m[1];
-        }
-
-        // Lista: [a, b, c] eller [a, "b", c]
-        if (preg_match('/^\[(.*)\]$/s', $raw, $m)) {
-            $items = [];
-            foreach (explode(',', $m[1]) as $item) {
-                $item = trim($item, " \t\"'");
-                if ($item !== '') {
-                    $items[] = $item;
-                }
-            }
-            return $items;
-        }
-
-        // Boolean
-        if (in_array(strtolower($raw), ['true', 'yes', 'on'], true))  return true;
-        if (in_array(strtolower($raw), ['false', 'no', 'off'], true)) return false;
-
-        // Null / tom
-        if ($raw === '' || in_array(strtolower($raw), ['null', '~'], true)) return null;
-
-        // Heltal
-        if (preg_match('/^-?\d+$/', $raw)) return (int) $raw;
-
-        // Decimaltal
-        if (preg_match('/^-?\d+\.\d+$/', $raw)) return (float) $raw;
-
-        return $raw;
+        return Yaml::dump($meta, 20, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK | Yaml::DUMP_EXCEPTION_ON_INVALID_TYPE);
     }
 
     public static function build(array $meta, string $body): string
     {
-        if (empty($meta)) {
-            return ltrim($body);
-        }
-        $lines = ['---'];
-        foreach ($meta as $key => $value) {
-            if ($value === null) {
-                continue;
-            }
-            if (is_array($value)) {
-                $lines[] = $key . ': [' . implode(', ', $value) . ']';
-            } elseif (is_bool($value)) {
-                $lines[] = $key . ': ' . ($value ? 'true' : 'false');
-            } else {
-                // Ta bort nyrader (förhindrar injektion av extra YAML-nycklar)
-                // och citera strängar som innehåller kolon
-                $str = str_replace(["\n", "\r"], ' ', (string) $value);
-                $lines[] = str_contains($str, ':')
-                    ? $key . ': "' . addcslashes($str, '"\\') . '"'
-                    : $key . ': ' . $str;
-            }
-        }
-        $lines[] = '---';
-        return implode("\n", $lines) . "\n\n" . ltrim($body);
+        if (!$meta) return ltrim($body);
+        return "---\n" . self::yaml($meta) . "---\n\n" . ltrim($body);
     }
 }

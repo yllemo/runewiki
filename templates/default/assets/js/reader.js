@@ -833,7 +833,9 @@ function renderFrontmatter(meta) {
   let rows = '';
   for (const [key, val] of meta) {
     let cell;
-    if (Array.isArray(val)) {
+    if (val && typeof val === 'object' && (!Array.isArray(val) || val.some(v => v && typeof v === 'object'))) {
+      cell = '<pre style="white-space:pre-wrap;margin:0">' + esc(JSON.stringify(val, null, 2)) + '</pre>';
+    } else if (Array.isArray(val)) {
       cell = val.map(v => '<span class="fm-tag">' + esc(v) + '</span>').join('');
     } else {
       cell = esc(val);
@@ -891,7 +893,7 @@ function buildToc() {
 /* ---------- Rendering ---------- */
 async function render(mdText) {
   const { meta, body } = extractFrontmatter(mdText);
-  renderFrontmatter(meta);
+  renderFrontmatter(mdText === initialArticle.raw && initialArticle.metadata ? Object.entries(initialArticle.metadata) : meta);
 
   // Wikins parser har redan renderat och säkrat den aktuella artikeln.
   content.innerHTML = mdText === initialArticle.raw ? initialArticle.html : DOMPurify.sanitize(marked.parse(body), {

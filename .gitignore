@@ -19,7 +19,10 @@ images/*
 
 # Local development files
 vendor/
+!core/vendor/
+!core/vendor/**
 .env
 .env.*
 !.env.example
 *.log
+/mcp/log.txt

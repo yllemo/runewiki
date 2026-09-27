@@ -15,6 +15,7 @@ $allMediaJson  = json_encode($allMedia ?? [], JSON_UNESCAPED_UNICODE);
 $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
 ?>
 <article class="wiki-page gbg-edit">
+    <?php if (!empty($error)): ?><p class="gbg-login-error" role="alert"><?= Helpers::e($error) ?> Dina ändringar finns kvar i editorn.</p><?php endif; ?>
     <h1><?= $isNew ? 'Skapa sida' : 'Redigera sida' ?>: <code><?= Helpers::e($pageId->id()) ?></code></h1>
     <form method="post" action="<?= Helpers::e($pageId->url()) ?>?do=save" id="edit-form">
         <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
@@ -165,8 +166,8 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         function existingFmKeys(model) {
             var keys = [];
             for (var i = 2; i <= model.getLineCount(); i++) {
-                var line = model.getLineContent(i).trim();
-                if (line === '---') break;
+                var line = model.getLineContent(i);
+                if (line.trim() === '---') break;
                 var m = line.match(/^(\w+)\s*:/);
                 if (m) keys.push(m[1]);
             }
@@ -204,20 +205,11 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
 
         // ── Provider 1: YAML-frontmatter ────────────────────────────────
 
-        var FM_KEYS = [
-            { key: 'title',       text: 'title: ',                                   detail: 'Sidans titel' },
-            { key: 'date',        text: 'date: ${1:ÅÅÅÅ-MM-DD}',                     detail: 'Datum (ÅÅÅÅ-MM-DD)',      snip: true },
-            { key: 'updated',     text: 'updated: ${1:ÅÅÅÅ-MM-DD}',                  detail: 'Senast uppdaterad',       snip: true },
-            { key: 'author',      text: 'author: ',                                   detail: 'Författare' },
-            { key: 'description', text: 'description: ',                              detail: 'Kort beskrivning' },
-            { key: 'tags',        text: 'tags: [${1}]',                               detail: 'Taggar  [a, b, c]',       snip: true },
-            { key: 'status',      text: 'status: ${1|Publicerad,Utkast,Arkiverad|}',  detail: 'Publiceringsstatus',      snip: true },
-            { key: 'draft',       text: 'draft: ${1|false,true|}',                    detail: 'Markera som utkast',      snip: true },
-            { key: 'template',    text: 'template: ',                                  detail: 'Mall/tema (default)' },
-        ];
+        var FM_KEYS = <?= json_encode(Metadata::snippets($metadataSettings ?? Metadata::settings(dirname(__DIR__, 2))), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;
 
         var FM_VALUES = {
-            status: ['Publicerad', 'Utkast', 'Arkiverad'],
+            status: ['draft', 'stable', 'deprecated', 'Publicerad', 'Utkast', 'Arkiverad'],
+            type: ['Reference', 'Playbook', 'API Endpoint', 'Metric', 'Attested Computation'],
             draft:  ['false', 'true'],
         };
 
@@ -227,9 +219,12 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
 
                 var before = lineBefore(model, pos);
 
+                // Root-field snippets must not create misplaced keys inside OKF mappings.
+                if (/^\s/.test(before)) return { suggestions: [] };
+
                 // Värdeförslag: "nyckel: del"
                 var vCtx = before.match(/^(\w+)\s*:\s*(\S*)$/);
-                if (vCtx && FM_VALUES[vCtx[1]]) {
+                if (vCtx && FM_VALUES[vCtx[1]] && FM_KEYS.some(function (field) { return field.key === vCtx[1]; })) {
                     var partial = vCtx[2];
                     var range = {
                         startLineNumber: pos.lineNumber, endLineNumber: pos.lineNumber,
@@ -403,7 +398,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             // Tabell
             { label: 'tabell',             ins: '| ${1:Kolumn 1} | ${2:Kolumn 2} |\n|---|---|\n| ${3:cell} | ${4:cell} |', detail: 'Markdown-tabell (2×2)' },
             // Frontmatter-startblock
-            { label: 'yaml frontmatter',   ins: '---\ntitle: ${1:Titel}\ntags: [${2}]\n---\n\n${0}', detail: 'YAML-frontmatter med titel och tom tagglista', frontmatter: true },
+            { label: 'yaml frontmatter OKF', ins: <?= json_encode(Metadata::frontmatterSnippet($metadataSettings ?? Metadata::settings(dirname(__DIR__, 2))), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>, detail: 'OKF-frontmatter enligt valda metadatafält i admin', frontmatter: true },
             { label: 'mermaid flödesschema', ins: '```mermaid\nflowchart LR\n    A[${1:Start}] --> B[${2:Slut}]\n```\n${0}', detail: 'Mermaid: flödesschema' },
             { label: 'mermaid sekvensdiagram', ins: '```mermaid\nsequenceDiagram\n    participant A as ${1:Användare}\n    participant B as ${2:System}\n    A->>B: ${3:Förfrågan}\n    B-->>A: ${4:Svar}\n```\n${0}', detail: 'Mermaid: sekvensdiagram' },
             { label: 'mermaid klassdiagram', ins: '```mermaid\nclassDiagram\n    class ${1:Exempel} {\n        +String ${2:namn}\n        +${3:metod}()\n    }\n```\n${0}', detail: 'Mermaid: klassdiagram' },

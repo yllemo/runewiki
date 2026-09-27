@@ -13,32 +13,8 @@ $strings = $strings ?? Helpers::defaultStrings();
 
 $hasOwnH1 = (bool) preg_match('/<h1[\s>]/i', $bodyHtml ?? '');
 
-// Fält som hanteras på annat sätt och inte ska visas i meta-raden
-$skipFields = ['title', 'template'];
-
-$tags     = (array) ($page['tags'] ?? []);
-$metaRest = array_diff_key($page ?? [], array_flip(array_merge($skipFields, ['tags'])));
-$hasMeta  = !empty($metaRest);
-
-/**
- * Formaterar ett värde för visning i meta-raden.
- */
-function fmFormat(string $key, mixed $value): string
-{
-    static $dateKeys = ['date', 'datum', 'created', 'updated', 'modified', 'published'];
-    if (is_array($value)) {
-        return implode(', ', array_map('htmlspecialchars', $value));
-    }
-    if (is_bool($value)) {
-        return $value ? 'Ja' : 'Nej';
-    }
-    $str = (string) $value;
-    if (in_array(strtolower($key), $dateKeys, true) && ($ts = strtotime($str))) {
-        return '<time datetime="' . htmlspecialchars($str) . '">'
-            . date('j M Y', $ts) . '</time>';
-    }
-    return htmlspecialchars($str);
-}
+$tags = (array) ($page['tags'] ?? []);
+$metadataSettings = $metadataSettings ?? Metadata::settings(dirname(__DIR__, 2));
 ?>
 <article class="wiki-page">
 
@@ -64,6 +40,10 @@ function fmFormat(string $key, mixed $value): string
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>
                     Läs- och exportläge
                 </a>
+                <a class="gbg-dropdown-item" href="<?= Helpers::e($pageId->url() . '?do=focus') ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><circle cx="12" cy="12" r="3"/></svg>
+                    Fokusläsning
+                </a>
                 <a class="gbg-dropdown-item" href="<?= Helpers::e($pageId->url() . '?do=move') ?>">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z" opacity="0"/><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/><path d="M15 21h4a2 2 0 0 0 2-2v-4"/></svg>
                     Byt namn / flytta
@@ -80,6 +60,10 @@ function fmFormat(string $key, mixed $value): string
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <?= Helpers::e($strings['page_search_similar']) ?>
                 </a>
+                <a class="gbg-dropdown-item" href="<?= Helpers::e($pageId->url() . '?do=metadata') ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h2m3 0h3M8 16h2m3 0h3"/></svg>
+                    Visa Metadata
+                </a>
             </div>
         </div>
     </div>
@@ -88,18 +72,10 @@ function fmFormat(string $key, mixed $value): string
         <h1><?= Helpers::e($page['title'] ?? '') ?></h1>
     <?php endif; ?>
 
-    <?php if ($hasMeta): ?>
-    <ul class="gbg-meta">
-        <?php foreach ($metaRest as $key => $val): ?>
-            <?php if ($val === null || $val === false || $val === '') continue; ?>
-            <li>
-                <span class="gbg-fm-key"><?= Helpers::e(ucfirst($key)) ?></span>
-                <span class="gbg-fm-val"><?= fmFormat($key, $val) ?></span>
-            </li>
-        <?php endforeach; ?>
-    </ul>
-    <?php endif; ?>
-
+    <section id="article-metadata" class="gbg-metadata-panel" aria-label="Metadata" <?= $metadataSettings['show_on_page'] ? '' : 'hidden' ?>>
+        <h2>Metadata</h2>
+        <?php include __DIR__ . '/metadata-fields.php'; ?>
+    </section>
     <div class="wiki-body">
         <?= $bodyHtml ?? '' ?>
     </div>

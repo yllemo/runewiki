@@ -51,6 +51,14 @@ if (!$auth->currentUser()) {
     exit;
 }
 $currentUser = $auth->currentUser();
+if (!$auth->userExists($currentUser)) {
+    $auth->logout();
+    header('Location: /?do=login');
+    exit;
+}
+header('Cache-Control: no-store');
+$mcpKeys = new McpKeys($root . '/data/users/mcp', $auth);
+$newMcpKey = null;
 
 /**
  * ?do=export_content — packar hela /content (alla .md-sidor, oavsett
@@ -204,7 +212,7 @@ function removeExistingLogo(string $imgDir, string $type, ?string $keepExtension
 $errors  = [];
 $success = null;
 
-$validTabs = ['konto', 'anvandare', 'texter', 'webbplats'];
+$validTabs = ['konto', 'mcp', 'metadata', 'anvandare', 'texter', 'webbplats'];
 $activeTab = in_array($_POST['active_tab'] ?? '', $validTabs, true) ? $_POST['active_tab'] : 'konto';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -212,6 +220,53 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
         $errors[] = $strings['login_error_csrf'];
+    } elseif ($action === 'save_mcp_logging') {
+        $mcpPath = $root . '/config/mcp.php';
+        $mcpOptions = Helpers::loadConfig($mcpPath);
+        $mcpOptions['log_requests'] = isset($_POST['mcp_log_requests']);
+        $temporary = $mcpPath . '.' . bin2hex(random_bytes(8)) . '.tmp';
+        $php = "<?php\nreturn " . var_export($mcpOptions, true) . ";\n";
+        if (file_put_contents($temporary, $php, LOCK_EX) !== strlen($php) || !rename($temporary, $mcpPath)) {
+            if (is_file($temporary)) unlink($temporary);
+            $errors[] = 'Kunde inte spara MCP-inställningarna.';
+        } else {
+            if (function_exists('opcache_invalidate')) opcache_invalidate($mcpPath, true);
+            $success = 'MCP-loggningens inställning sparades.';
+        }
+    } elseif ($action === 'save_metadata') {
+        $knownFields = array_keys(Metadata::fields());
+        $selection = static fn (string $name) => array_values(array_intersect($knownFields, array_filter((array) ($_POST[$name] ?? []), 'is_string')));
+        $metadataConfig = ['auto_timestamp' => isset($_POST['auto_timestamp']), 'show_on_page' => isset($_POST['show_on_page']),
+            'show_custom_fields' => isset($_POST['show_custom_fields']), 'visible_fields' => $selection('visible_fields'), 'editor_fields' => $selection('editor_fields')];
+        $metadataPath = $root . '/config/metadata.php';
+        $metadataTemporary = $metadataPath . '.' . bin2hex(random_bytes(8)) . '.tmp';
+        $metadataPhp = "<?php\n// Display/editor preferences, not access control.\nreturn " . var_export($metadataConfig, true) . ";\n";
+        if (file_put_contents($metadataTemporary, $metadataPhp, LOCK_EX) !== strlen($metadataPhp) || !rename($metadataTemporary, $metadataPath)) {
+            if (is_file($metadataTemporary)) unlink($metadataTemporary);
+            $errors[] = 'Kunde inte spara metadata-inställningarna i config/metadata.php.';
+        } else {
+            if (function_exists('opcache_invalidate')) opcache_invalidate($metadataPath, true);
+            $success = 'Metadata-inställningarna är sparade. Befintliga fält och taggar finns kvar i artiklarna.';
+        }
+    } elseif ($action === 'create_mcp_key' || $action === 'revoke_mcp_key') {
+        // Owner comes only from the authenticated session, never a posted username.
+        if (!$auth->verifyPassword($currentUser, (string) ($_POST['mcp_password'] ?? ''))) {
+            $errors[] = 'Ange ditt nuvarande lösenord för att ändra din MCP-nyckel.';
+        } else {
+            try {
+                if ($action === 'revoke_mcp_key') {
+                    $mcpKeys->revoke($currentUser);
+                    $success = 'Din MCP-nyckel är återkallad.';
+                } else {
+                    $days = (int) ($_POST['mcp_days'] ?? 90);
+                    if (!in_array($days, [30, 90, 365], true)) throw new InvalidArgumentException('Ogiltig giltighetstid.');
+                    $newMcpKey = $mcpKeys->issue($currentUser, ($_POST['mcp_ifauth'] ?? '') === '1', $days);
+                    $success = 'Ny MCP-nyckel skapad. Den tidigare nyckeln fungerar inte längre. Kopiera den nya nu – den visas bara i detta svar.';
+                }
+            } catch (Throwable $e) {
+                $errors[] = 'Kunde inte ändra MCP-nyckeln. Kontrollera giltighetstid och skrivrättigheter till data/users/mcp/.';
+            }
+        }
     } elseif ($action === 'change_password') {
         $current = (string) ($_POST['current_password'] ?? '');
         $new1    = (string) ($_POST['new_password'] ?? '');
@@ -427,7 +482,7 @@ ob_start();
 <?php endif; ?>
 
 <?php
-$tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter' => 'Texter', 'webbplats' => 'Webbplats'];
+$tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata' => 'Metadata', 'anvandare' => 'Användare', 'texter' => 'Texter', 'webbplats' => 'Webbplats'];
 ?>
 <div class="gbg-admin-tabs" role="tablist">
     <?php foreach ($tabLabels as $tabKey => $tabLabel): ?>
@@ -436,6 +491,7 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
 </div>
 
 <div class="gbg-admin-panel" data-panel="konto" <?= $activeTab === 'konto' ? '' : 'hidden' ?>>
+    <h2>Mitt lösenord</h2>
     <?php if ($auth->hasPlaintextPassword($currentUser)): ?>
         <p class="gbg-login-error">⚠️ <?= Helpers::e($strings['account_plaintext_warning']) ?></p>
     <?php endif; ?>
@@ -456,6 +512,72 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'anvandare' => 'Användare', 'texter'
             <input type="password" name="new_password_confirm" autocomplete="new-password" required>
         </label>
         <button type="submit" class="gbg-btn gbg-btn-primary"><?= Helpers::e($strings['account_submit']) ?></button>
+    </form>
+</div>
+
+<div class="gbg-admin-panel" data-panel="metadata" <?= $activeTab === 'metadata' ? '' : 'hidden' ?>>
+    <?php $metadataOptions = Metadata::settings($root); ?>
+    <h2>Metadata och OKF</h2>
+    <p>Välj vilka fält som visas i artikelns metadatavy och föreslås med Ctrl+Space. Befintliga värden raderas inte. Tagglänkar och sidnamn fungerar som tidigare.</p>
+    <form class="gbg-form" method="post" action="/admin/">
+        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <input type="hidden" name="active_tab" value="metadata">
+        <input type="hidden" name="action" value="save_metadata">
+        <fieldset class="gbg-admin-fieldset">
+        <legend>Automatik och visning</legend>
+        <label><input type="checkbox" name="auto_timestamp" value="1" <?= $metadataOptions['auto_timestamp'] ? 'checked' : '' ?>> Sätt automatiskt OKF generated.by och generated.at vid ändringar</label>
+        <p>Sparning sätter inte verified. Äldre datumfält behålls. Artiklar utan type får Reference. Menyfiler, index.md och log.md undantas.</p>
+        <label><input type="checkbox" name="show_on_page" value="1" <?= $metadataOptions['show_on_page'] ? 'checked' : '' ?>> Visa metadata på artikeln från början</label>
+        <label><input type="checkbox" name="show_custom_fields" value="1" <?= $metadataOptions['show_custom_fields'] ? 'checked' : '' ?>> Visa även egna metadatafält</label>
+        </fieldset>
+        <h3>Metadatafält</h3>
+        <div class="md-table-scroll gbg-admin-metadata-table"><table>
+            <thead><tr><th>Fält</th><th>Visa i metadatavy</th><th>Föreslå i Ctrl+Space</th></tr></thead>
+            <tbody><?php foreach (Metadata::fields() as $field => $definition): ?><tr>
+                <td><code><?= Helpers::e($field) ?></code><br><?= Helpers::e($definition['label']) ?></td>
+                <td><input type="checkbox" name="visible_fields[]" value="<?= Helpers::e($field) ?>" aria-label="Visa <?= Helpers::e($field) ?>" <?= in_array($field, $metadataOptions['visible_fields'], true) ? 'checked' : '' ?>></td>
+                <td><input type="checkbox" name="editor_fields[]" value="<?= Helpers::e($field) ?>" aria-label="Föreslå <?= Helpers::e($field) ?>" <?= in_array($field, $metadataOptions['editor_fields'], true) ? 'checked' : '' ?>></td>
+            </tr><?php endforeach; ?></tbody>
+        </table></div>
+        <p>Inställningarna sparas i <code>config/metadata.php</code>. Döljning är en visningsinställning, inte ett åtkomstskydd.</p>
+        <button type="submit" class="gbg-btn gbg-btn-primary">Spara metadata-inställningar</button>
+    </form>
+</div>
+
+<div class="gbg-admin-panel" data-panel="mcp" <?= $activeTab === 'mcp' ? '' : 'hidden' ?>>
+    <h2>MCP-inställningar</h2>
+    <form method="post" class="gbg-admin-form">
+        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <input type="hidden" name="active_tab" value="mcp">
+        <input type="hidden" name="action" value="save_mcp_logging">
+        <label><input type="checkbox" name="mcp_log_requests" value="1" <?= !empty(Helpers::loadConfig($root . '/config/mcp.php')['log_requests']) ? 'checked' : '' ?>> Logga MCP-anrop (felsökning)</label>
+        <p>Av som standard. Skriver tid, metod, verktyg, HTTP-status och om en autentiseringsheader kom fram i <code>/mcp/log.txt</code>. Nycklar, argument och sidinnehåll loggas inte. Läs filen på servern; direkt webbläsaråtkomst är blockerad.</p>
+        <button type="submit" class="gbg-btn gbg-btn-primary">Spara MCP-inställningar</button>
+    </form>
+    <h2>Min MCP-nyckel</h2>
+    <p>Anslut en MCP-klient till <code>/mcp/</code> på wikins HTTPS-adress med <code>Authorization: Bearer DIN_NYCKEL</code>.</p>
+    <p>Nyckeln ger läsåtkomst enligt dina aktuella namespace-behörigheter. Du hanterar bara din egen nyckel här. Lösenordsbyte gör nyckeln ogiltig.</p>
+    <?php $mcpStatus = $mcpKeys->status($currentUser); ?>
+    <?php if ($mcpStatus): ?>
+        <p><strong><?= $mcpStatus['active'] ? 'Aktiv nyckel' : 'Utgången eller ogiltig nyckel' ?></strong>.
+            Giltig till <?= Helpers::e(date('Y-m-d H:i', $mcpStatus['expires'])) ?>.
+            <code>ifAuth</code>: <?= $mcpStatus['ifAuth'] ? 'tillåtet' : 'dolt' ?>.</p>
+    <?php else: ?>
+        <p>Du har ingen MCP-nyckel.</p>
+    <?php endif; ?>
+    <?php if ($newMcpKey !== null): ?>
+        <label class="gbg-form"><span>Din nya nyckel – kopiera och spara den säkert</span>
+            <input type="text" readonly autocomplete="off" spellcheck="false" value="<?= Helpers::e($newMcpKey) ?>" onclick="this.select()">
+        </label>
+    <?php endif; ?>
+    <form class="gbg-form" method="post" action="/admin/">
+        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <input type="hidden" name="active_tab" value="mcp">
+        <label><span>Nuvarande lösenord</span><input type="password" name="mcp_password" autocomplete="current-password" required></label>
+        <label><span>Giltighetstid för ny nyckel</span><select name="mcp_days"><option value="30">30 dagar</option><option value="90" selected>90 dagar</option><option value="365">365 dagar</option></select></label>
+        <label><input type="checkbox" name="mcp_ifauth" value="1"> Tillåt att nyckeln läser innehåll inuti <code>&lt;ifAuth&gt;</code> på sidor jag har läsrätt till.</label>
+        <button type="submit" name="action" value="create_mcp_key" class="gbg-btn gbg-btn-primary">Skapa / ersätt min nyckel</button>
+        <?php if ($mcpStatus): ?><button type="submit" name="action" value="revoke_mcp_key" class="gbg-btn">Återkalla min nyckel</button><?php endif; ?>
     </form>
 </div>
 

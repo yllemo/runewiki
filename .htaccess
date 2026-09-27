@@ -7,6 +7,10 @@
 
 RewriteEngine On
 
+# Pass Bearer credentials to PHP, including CGI/FastCGI deployments.
+RewriteCond %{HTTP:Authorization} .
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # Neka direktåtkomst till interna mappar
 RewriteRule ^(bin|config|content|core|data|plugins|skills)(/|$) - [F,L]
 
@@ -19,7 +23,9 @@ RewriteRule ^ - [L]
 # admin/index.php) och ska INTE routas genom wiki-routern i roten — låt
 # Apache hantera dessa mappar normalt (DirectoryIndex kör respektive
 # index.php). /admin/index.php gate:ar sig själv på inloggning.
-RewriteRule ^(chat|admin)(/|$) - [L]
+RewriteRule ^mcp/?$ mcp/index.php [L]
+RewriteRule ^mcp/log\.txt$ - [F,L,NC]
+RewriteRule ^(chat|admin|mcp)(/|$) - [L]
 
 # Allt annat → index.php. OBS: ingen "!-d"-kontroll här — /images och
 # /images/<namespace> är riktiga mappar på disk (kataloger med uppladdade

@@ -88,7 +88,9 @@ class Wiki
 
         echo match ($intent['action']) {
             'view'         => $this->handleView($intent['id']),
+            'metadata'     => $this->handleMetadata($intent['id']),
             'reader'       => $this->handleReader($intent['id']),
+            'focus'        => $this->handleFocus($intent['id']),
             'edit'         => $this->handleEdit($intent['id']),
             'save'         => $this->handleSave($intent['id']),
             'form'         => $this->handleForm($intent['id']),
@@ -308,6 +310,8 @@ class Wiki
         ));
 
         $renderedPage = $this->templates->render('page', [
+            'metadata' => $page['meta'],
+            'metadataSettings' => Metadata::settings($this->root),
             'backlinks' => $backlinks,
             'page'     => array_merge($page['meta'], ['title' => $page['title']]),
             'pageId'   => $id,
@@ -328,6 +332,37 @@ class Wiki
      * exakt som den ligger på disk). Samma läsrätt som handleView() —
      * öppet för alla om inte ACL säger annat (config/namespaces.php).
      */
+    private function handleMetadata(string $rawId): string
+    {
+        $id = new PageId($rawId);
+        if (!$this->canReadNamespace($id->namespace())) return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
+        $page = $this->pages->load($id);
+        if ($page === null) { http_response_code(404); return 'Sidan hittades inte.'; }
+        $html = $this->templates->render('metadata', ['pageId' => $id, 'title' => $page['title'],
+            'metadata' => $page['meta'], 'metadataSettings' => Metadata::settings($this->root)]);
+        return $this->templates->render('layout', $this->baseData($id, ['view' => 'metadata', 'pageId' => $id,
+            'page' => ['title' => 'Metadata – ' . $page['title']], 'bodyHtml' => $html]));
+    }
+
+    private function handleFocus(string $rawId): string
+    {
+        $id = new PageId($rawId);
+        if (!$this->canReadNamespace($id->namespace())) {
+            return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
+        }
+        $page = $this->pages->load($id);
+        if ($page === null) {
+            http_response_code(404);
+            return 'Sidan hittades inte.';
+        }
+        header('Cache-Control: private, no-store');
+        return $this->templates->render('focus', [
+            'articleUrl' => $id->url(),
+            'focusData' => ['title' => $page['title'],
+                'body' => MarkdownVisibility::filter($page['body'], $this->auth->currentUser() !== null)],
+        ]);
+    }
+
     private function handleReader(string $rawId): string
     {
         $id = new PageId($rawId);
@@ -343,6 +378,7 @@ class Wiki
         return $this->templates->render('reader', [
             'articleUrl' => $id->url(),
             'readerData' => [
+                'metadata' => Metadata::visible($page['meta'], Metadata::settings($this->root)),
                 'raw' => $page['raw'],
                 'html' => $this->parser->toHtml($page['body']),
                 'title' => $page['title'],
@@ -371,7 +407,7 @@ class Wiki
         return $page['raw'];
     }
 
-    private function handleEdit(string $rawId): string
+    private function handleEdit(string $rawId, ?string $submittedRaw = null, ?string $error = null): string
     {
         $id = new PageId($rawId);
         if (!$this->canEditNamespace($id->namespace())) {
@@ -384,8 +420,10 @@ class Wiki
             ? ''
             : FrontMatter::build(['title' => $id->title(), 'tags' => []], '# ' . $id->title() . "\n\n");
         $editForm = $this->templates->render('edit', [
+            'metadataSettings' => Metadata::settings($this->root),
+            'error' => $error,
             'pageId'    => $id,
-            'body'      => $existing['raw'] ?? $newBody,
+            'body'      => $submittedRaw ?? $existing['raw'] ?? $newBody,
             'isNew'     => $existing === null,
             'allPages'  => array_map(function (string $rawId): array {
                 $pageId = new PageId($rawId);
@@ -436,6 +474,7 @@ class Wiki
             if (!$this->canEditNamespace($target->namespace())) {
                 return $this->accessDenied($target->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
             }
+            $result['raw'] = $this->stampRaw($target, $result['raw']);
             if (!empty($result['create'])) {
                 $this->pages->createRaw($target, $result['raw']);
             } else {
@@ -456,6 +495,15 @@ class Wiki
                 'bodyHtml' => '<p>' . Helpers::e($e->getMessage()) . '</p><p><a href="' . Helpers::e($source->url()) . '">Tillbaka</a></p>',
             ]));
         }
+    }
+
+    private function stampRaw(PageId $id, string $raw): string
+    {
+        $filename = basename($id->toFilePath($this->root . '/content'));
+        if (str_starts_with($filename, '_') || in_array($filename, ['index.md', 'log.md'], true)
+            || !Metadata::settings($this->root)['auto_timestamp']) return $raw;
+        [$meta, $body] = FrontMatter::parse($raw, true);
+        return FrontMatter::build(Metadata::stamp($meta, $body, $this->pages->load($id), $this->auth->currentUser()), $body);
     }
 
     private function handleSave(string $rawId): string
@@ -506,7 +554,11 @@ class Wiki
         }
 
         // Editorn skickar hela råfilen — separera frontmatter från brödtext
-        [$postedMeta, $postedBody] = FrontMatter::parse($rawContent);
+        try { [$postedMeta, $postedBody] = FrontMatter::parse($rawContent, true); }
+        catch (InvalidArgumentException $e) {
+            http_response_code(422);
+            return $this->handleEdit($rawId, $rawContent, $e->getMessage());
+        }
 
         // Filer vars filnamn börjar med "_" (_sidebar.md, _topbar.md) är
         // styrfiler, inte vanliga innehållssidor (se PageLoader::listAll()
@@ -543,6 +595,10 @@ class Wiki
         $meta = $isSystemFile ? $postedMeta : array_merge($postedMeta, ['title' => $title]);
         if (!$isSystemFile && !array_key_exists('tags', $meta)) {
             $meta['tags'] = [];
+        }
+        if (!$isSystemFile && !in_array(basename($id->toFilePath($this->root . '/content')), ['index.md', 'log.md'], true)
+            && Metadata::settings($this->root)['auto_timestamp']) {
+            $meta = Metadata::stamp($meta, $postedBody, $existing, $this->auth->currentUser());
         }
         $this->pages->save($id, $meta, $postedBody);
 
@@ -625,10 +681,10 @@ class Wiki
                 try {
                     $current = $this->pages->load($id);
                     if ($current) $this->history->snapshot($id, $current['raw'], true);
-                    $this->pages->saveRaw($id, $raw);
+                    $this->pages->saveRaw($id, $this->stampRaw($id, $raw));
                     $this->cache->clear();
                     $success = 'Versionen har återställts. Den tidigare sidan finns kvar i historiken.';
-                } catch (RuntimeException $e) {
+                } catch (RuntimeException|InvalidArgumentException $e) {
                     $error = $e->getMessage();
                 }
             }

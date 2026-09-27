@@ -74,21 +74,7 @@ class Parser
     private function filterAuthBlocks(string $markdown): string
     {
         $authenticated = $this->isAuthenticated !== null && ($this->isAuthenticated)();
-        $depth = 0;
-        $visible = [];
-        foreach (explode("\n", $markdown) as $line) {
-            if (preg_match('/^[ \t]*<ifAuth>[ \t]*$/i', $line)) {
-                $depth++;
-                $visible[] = '';
-            } elseif (preg_match('/^[ \t]*<\/ifAuth>[ \t]*$/i', $line)) {
-                $depth = max(0, $depth - 1);
-                $visible[] = '';
-            } elseif ($authenticated || $depth === 0) {
-                $visible[] = $line;
-            }
-        }
-        // An unclosed block stays hidden through EOF for anonymous visitors.
-        return implode("\n", $visible);
+        return MarkdownVisibility::filter($markdown, $authenticated);
     }
 
     private function extractFencedCode(string $md): string

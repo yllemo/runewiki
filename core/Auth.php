@@ -41,11 +41,11 @@ class Auth
      *   standard 30). Glidande fönster: cookien förnyas vid varje request
      *   från en inloggad användare, se refreshSessionCookie().
      */
-    public function __construct(private string $usersFile, private bool $enabled, int $sessionLifetimeDays = 30)
+    public function __construct(private string $usersFile, private bool $enabled, int $sessionLifetimeDays = 30, bool $startSession = true)
     {
         $this->sessionLifetime = max(1, $sessionLifetimeDays) * 86400;
 
-        if (session_status() === PHP_SESSION_NONE && PHP_SAPI !== 'cli') {
+        if ($startSession && session_status() === PHP_SESSION_NONE && PHP_SAPI !== 'cli') {
             // Servern måste hålla sessionsfilen vid liv minst lika länge
             // som cookien påstår sig gälla, annars loggas man ut i förtid
             // trots att webbläsarens cookie fortfarande finns kvar (PHPs
@@ -250,6 +250,8 @@ class Auth
         if (!isset($users[$user])) {
             return false;
         }
+        // Prevent old API keys from reviving if a username is later reused.
+        (new McpKeys(dirname($this->usersFile) . '/mcp', $this))->revoke($user);
         unset($users[$user]);
         return $this->saveUsers($users);
     }
@@ -266,6 +268,20 @@ class Auth
         return isset($this->loadUsers()[$user]);
     }
 
+    /** Reauthentication without creating a browser session. */
+    public function verifyPassword(string $user, string $password): bool
+    {
+        $users = $this->loadUsers();
+        return isset($users[$user]) && self::verify($password, self::normalizeRecord($users[$user])['password']);
+    }
+
+    /** Bind API credentials to the current account/password generation. */
+    public function credentialFingerprint(string $user): ?string
+    {
+        $users = $this->loadUsers();
+        return isset($users[$user]) ? hash('sha256', $user . "\0" . self::normalizeRecord($users[$user])['password']) : null;
+    }
+
     /** True om $user:s lösenord fortfarande ligger som klartext (inte hashat än). */
     public function hasPlaintextPassword(string $user): bool
     {
@@ -275,6 +291,8 @@ class Auth
 
     private function loadUsers(): array
     {
+        // API requests must see password, membership and deletion changes immediately.
+        if (function_exists('opcache_invalidate')) opcache_invalidate($this->usersFile, true);
         return Helpers::loadConfig($this->usersFile, []);
     }
 

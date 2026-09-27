@@ -6,6 +6,9 @@ wikilänkar, tagg-sökning, interwiki, mediagalleri, plugin-system, valfri
 inloggning med en egen adminpanel, en klientdriven AI-chatt och en
 responsiv mobilvy. Fri och öppen källkod (MIT).
 
+MCP-klienter kan lista, söka och läsa sidor via `/mcp/` med personliga nycklar
+och behörighetskontroll. Se [MCP-konfiguration och säkerhet](readme-mcp.md).
+
 ## Krav
 
 - PHP 8.1 eller senare med **ext-mbstring**
@@ -586,6 +589,30 @@ installationer där `history_enabled` tidigare var `false`. Nya installationer
 har historik på som standard. Versioner skapas från nästa ändring; tidigare
 innehåll kan inte återskapas retroaktivt. Det äldre experimentella
 historikformatet importeras inte automatiskt.
+
+## YAML-frontmatter och OKF-metadata
+
+Längst ner i artikelns **…**-meny finns **Visa Metadata**, som öppnar metadata på egen sida.
+Varje fält visas på en egen rad; nästlade värden visas som indragen YAML.
+Under **Admin → Metadata** väljer du vilka fält som visas, vilka som föreslås
+i editorns **Ctrl+Space**, och om metadata ska visas direkt på artikeln.
+Inställningarna sparas i `config/metadata.php`. Att dölja ett fält raderar inte
+dess innehåll. `name`, `title`, taggar och egna fält behålls vid sparning.
+
+Automatiska tidsstämplar följer [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md):
+`generated.at` innehåller UTC-tid i ISO 8601 och `generated.by` anger
+`human:användarnamn` (eller `process:runewiki` utan inloggad användare).
+De uppdateras vid innehållsändringar via editorn, formulär och återställning
+av historik, men inte vid oförändrad omsparning eller enbart verifiering.
+Saknas `type` sätts `Reference`. `verified` fylls aldrig i automatiskt;
+äldre `date`/`updated` skrivs inte över. Detta kan stängas av under Metadata.
+Styrfiler med inledande `_` och OKF-filerna `index.md`/`log.md` undantas.
+Befintliga filer massändras inte, och direkt filredigering tidsstämplas inte.
+
+Ctrl+Space erbjuder både ett komplett YAML-block på första raden och valda
+enskilda fält inne i frontmatter. Nästlade OKF-fält stöds av en medföljande
+Symfony YAML-parser; ingen Composer-installation behövs. Ogiltig YAML vid
+editorsparning visar ett fel och behåller den inskrivna texten.
 
 ## Kända begränsningar
 

@@ -36,6 +36,11 @@ if (PHP_SAPI === 'cli-server' && preg_match('#^/(images/|templates/[^/]+/assets/
     return false; // låt PHPs inbyggda server servera filen som den är
 }
 
+if (in_array($requestPath, ['/mcp', '/mcp/', '/mcp/index.php'], true)) {
+    require $root . '/mcp/index.php';
+    return;
+}
+
 foreach (['/chat' => 'chat/index.php', '/admin' => 'admin/index.php'] as $prefix => $controller) {
     if ($requestPath === $prefix || str_starts_with($requestPath, $prefix . '/')) {
         require $root . '/' . $controller;

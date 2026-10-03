@@ -35,7 +35,22 @@ class FrontMatter
 
     public static function yaml(array $meta): string
     {
-        return Yaml::dump($meta, 20, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK | Yaml::DUMP_EXCEPTION_ON_INVALID_TYPE);
+        $yaml = Yaml::dump($meta, 20, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK | Yaml::DUMP_EXCEPTION_ON_INVALID_TYPE);
+        // PHP represents both an empty YAML mapping and sequence as []. Tags are
+        // explicitly a sequence, so never emit the dumper's default {} for them.
+        if (array_key_exists('tags', $meta) && $meta['tags'] === []) {
+            $yaml = preg_replace('/^tags: \{[ \t]*\}$/m', 'tags: []', $yaml);
+        }
+        // Keep ordinary names readable, but retain quotes for ambiguous scalars
+        // (numbers, booleans, dates, punctuation, whitespace, etc.).
+        foreach (['name', 'title'] as $field) {
+            $value = $meta[$field] ?? null;
+            if (is_string($value) && preg_match('/^\p{L}[\p{L}\p{N} ._-]*$/uD', $value)
+                && trim($value) === $value && Yaml::parse($value) === $value) {
+                $yaml = preg_replace_callback('/^' . $field . ': .*$/m', static fn () => $field . ': ' . $value, $yaml);
+            }
+        }
+        return $yaml;
     }
 
     public static function build(array $meta, string $body): string

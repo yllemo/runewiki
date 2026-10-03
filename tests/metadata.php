@@ -59,3 +59,10 @@ foreach (["title: [broken", "sources: !php/object 'O:8:evil'", "tags:\n  - {bad:
     check($failed, 'Invalid or unsafe YAML rejected without rewriting');
 }
 echo "PASS: YAML roundtrip, nested OKF, timestamps, names, tags, visibility and snippets\n";
+check(str_contains(FrontMatter::build(['name' => 'Mitt svenska namn', 'tags' => []], 'Text'), "name: Mitt svenska namn\ntags: []\n"), 'First save uses plain name and empty tag list');
+check(str_contains(FrontMatter::build(['tags' => ['wiki', 'arkitektur']], 'Text'), "tags:\n  - wiki\n  - arkitektur\n"), 'Nonempty tags remain a YAML sequence');
+foreach (['true', 'null', '2026', '2026-10-03', 'Namn: exempel', ' leading', 'Svenskt namn'] as $name) {
+    [$roundtrip] = FrontMatter::parse(FrontMatter::build(['name' => $name, 'tags' => []], 'Text'), true);
+    check($roundtrip['name'] === $name && $roundtrip['tags'] === [], 'Names keep their string type and exact value');
+}
+echo "PASS: readable names and tag list formatting\n";

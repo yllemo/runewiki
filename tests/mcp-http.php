@@ -41,7 +41,7 @@ try {
 $_SERVER['HTTPS'] = 'on'; // Simulate trusted TLS termination in the fixture only.
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 if ($path === '/fixture-login') { session_start(); $_SESSION['runewiki_user'] = 'alice'; echo 'ok'; return; }
-require __DIR__ . '/index.php';
+return require __DIR__ . '/index.php';
 PHP);
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
     check($socket !== false, 'Allocate test port');
@@ -69,6 +69,33 @@ PHP);
     check($page['status'] === 200 && str_contains($page['body'], 'Min MCP-nyckel'), 'Admin renders MCP tab');
     check((bool) preg_match('/name="csrf_token" value="([^"]+)"/', $page['body'], $m), 'Admin CSRF token');
     $csrf = $m[1];
+    // Real multipart uploads exercise PHP's is_uploaded_file/move_uploaded_file,
+    // not a mocked filesystem write. Follow the namespace supplied to the editor.
+    $imageBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=');
+    foreach (['start' => '', 'projekt:api' => 'projekt', 'projekt:api:start' => 'projekt', 'annat:ny' => 'annat'] as $articleId => $expectedNamespace) {
+        $pageId = new PageId($articleId);
+        $editorPage = request($base . $pageId->url() . '?do=edit', 'GET', ['Cookie: ' . $cookie]);
+        check($editorPage['status'] === 200 && str_contains($editorPage['body'], 'window.WIKI_MEDIA_NS  = ' . json_encode($expectedNamespace) . ';'), 'Editor supplies correct upload namespace for ' . $articleId);
+        $filename = 'bild-' . str_replace(':', '-', $articleId) . '.png';
+        $boundary = 'runewiki-test-' . bin2hex(random_bytes(12));
+        $multipart = '--' . $boundary . "\r\nContent-Disposition: form-data; name=\"csrf_token\"\r\n\r\n" . $csrf
+            . "\r\n--" . $boundary . "\r\nContent-Disposition: form-data; name=\"upload\"; filename=\"" . $filename
+            . "\"\r\nContent-Type: image/png\r\n\r\n" . $imageBytes . "\r\n--" . $boundary . "--\r\n";
+        $uploadPath = '/images/' . ($expectedNamespace === '' ? '' : $expectedNamespace . '/');
+        $uploadHeaders = ['Cookie: ' . $cookie, 'Accept: application/json', 'Content-Type: multipart/form-data; boundary=' . $boundary];
+        $uploaded = request($base . $uploadPath . '?do=upload', 'POST', $uploadHeaders, $multipart);
+        $result = json_decode($uploaded['body'], true);
+        check($uploaded['status'] === 200 && ($result['ok'] ?? false), 'Multipart upload succeeds for ' . $articleId);
+        check($result['url'] === $uploadPath . $filename, 'Returned URL matches namespace');
+        check(file_get_contents($fixture . $result['url']) === $imageBytes, 'Image bytes saved in correct folder');
+        check(request($base . $result['url'], 'GET', ['Cookie: ' . $cookie])['body'] === $imageBytes, 'Returned image URL serves uploaded bytes');
+        if ($expectedNamespace !== '') check(!is_file($fixture . '/images/' . $filename), 'Namespaced image never lands in root');
+        $rejectedName = 'rejected-' . $filename;
+        $badUpload = str_replace([$csrf, $filename], ['invalid-csrf', $rejectedName], $multipart);
+        check(request($base . $uploadPath . '?do=upload', 'POST', $uploadHeaders, $badUpload)['status'] === 403, 'Upload requires valid CSRF');
+        check(!is_file($fixture . $uploadPath . $rejectedName), 'Rejected upload writes no file');
+    }
+    echo "PASS: editor namespace, real multipart uploads, exact folders, image URLs and CSRF\n";
     $post = ['action' => 'create_mcp_key', 'active_tab' => 'mcp', 'mcp_days' => '30', 'mcp_password' => 'test-password', 'username' => 'bob'];
     $formHeaders = ['Cookie: ' . $cookie, 'Content-Type: application/x-www-form-urlencoded'];
     request($base . '/admin/', 'POST', $formHeaders, http_build_query($post));

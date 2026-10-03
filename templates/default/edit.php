@@ -23,6 +23,8 @@ $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
             <label for="monaco-container">Innehåll (Markdown)</label>
             <div class="gbg-editor-toolbar-actions">
                 <span id="media-upload-status" class="gbg-upload-inline-status" aria-live="polite"></span>
+                <button type="button" id="media-upload-btn" class="gbg-btn gbg-btn-outline">Ladda upp bild</button>
+                <input type="file" id="media-upload-file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg" multiple hidden>
                 <button type="button" id="media-picker-btn" class="gbg-btn gbg-btn-outline">🖼 Bläddra i media</button>
                 <button type="submit" class="gbg-btn gbg-btn-primary">Spara</button>
             </div>
@@ -649,6 +651,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             '<div class="gbg-media-picker-dialog" role="dialog" aria-modal="true" aria-label="Välj en bild">' +
               '<div class="gbg-media-picker-header">' +
                 '<input type="search" class="gbg-media-picker-search" placeholder="Sök bland bilder…">' +
+                '<button type="button" class="gbg-btn gbg-btn-outline" data-picker-upload>Ladda upp bild</button>' +
                 '<button type="button" class="gbg-media-picker-close" aria-label="Stäng">' +
                   '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>' +
                 '</button>' +
@@ -669,7 +672,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             var shown  = lower ? images.filter(function (id) { return id.toLowerCase().indexOf(lower) !== -1; }) : images;
 
             if (!images.length) {
-                pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder uppladdade ännu. Ladda upp via <a href="/images" target="_blank" rel="noopener">Mediahanterare</a>.</p>';
+                pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder uppladdade ännu. Välj Ladda upp bild för att ladda upp och infoga en bild.</p>';
             } else if (!shown.length) {
                 pickerGrid.innerHTML = '<p class="gbg-media-picker-empty">Inga bilder matchar sökningen.</p>';
             } else {
@@ -728,6 +731,28 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
 
         var mediaPickerBtn = document.getElementById('media-picker-btn');
         if (mediaPickerBtn) mediaPickerBtn.addEventListener('click', openPickerModal);
+
+        var uploadFileInput = document.getElementById('media-upload-file');
+        function chooseImageFiles() {
+            if (!pickerModal.hidden && pickerRangeIds) {
+                var model = editor.getModel();
+                var range = model.getDecorationRange(pickerRangeIds[0]);
+                if (range) editor.setSelection(range);
+                model.deltaDecorations(pickerRangeIds, []);
+                pickerRangeIds = null;
+                pickerModal.hidden = true;
+            }
+            uploadFileInput.value = '';
+            uploadFileInput.click();
+        }
+        document.getElementById('media-upload-btn').addEventListener('click', chooseImageFiles);
+        pickerModal.querySelector('[data-picker-upload]').addEventListener('click', chooseImageFiles);
+        uploadFileInput.addEventListener('change', async function () {
+            var files = Array.from(uploadFileInput.files || []);
+            editor.focus();
+            for (var file of files) await uploadImageFile(file);
+            uploadFileInput.value = '';
+        });
 
         pickerSearch.addEventListener('input', function () { renderPickerGrid(pickerSearch.value); });
         pickerModal.addEventListener('click', function (e) {

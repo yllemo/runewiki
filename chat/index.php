@@ -382,6 +382,7 @@ function chatGetContent(string $contentDir, string $rawId, Auth $auth, Namespace
     return [
         'id'      => $pageId->id(),
         'path'    => $pageId->toFilePath('content'),
+        'url'     => $pageId->url(),
         'content' => $loaded['raw'],
     ];
 }
@@ -685,6 +686,7 @@ body.footer-collapsed > footer, body.footer-collapsed > .gbg-index-band {
         <button id="fvRaw">Källkod</button>
       </div>
       <div class="spacer"></div>
+      <a class="btn btn-secondary" id="fvWiki" target="_blank" rel="noopener" style="display:none; font-size:.8rem; padding:.35rem .8rem" title="Öppna artikeln i en ny flik">Öppna i wiki ↗</a>
       <button class="btn btn-secondary" id="fvCopy" style="font-size:.8rem; padding:.35rem .8rem">Kopiera</button>
     </div>
     <div class="fv-body" id="fvBody"></div>
@@ -756,10 +758,10 @@ function parseFrontmatter(md){
   return out;
 }
 
-function addFile(path, content, isText){
+function addFile(path, content, isText, wikiUrl=null){
   // strip leading folder names down to relative-ish path
   const clean = path.replace(/^\.?\//,'');
-  files.push({path:clean, content:content||'', isText, size:isText?new Blob([content]).size:(content?content.length:0), include:isText});
+  files.push({path:clean, content:content||'', isText, size:isText?new Blob([content]).size:(content?content.length:0), include:isText, wikiUrl});
 }
 
 function afterLoad(){
@@ -920,7 +922,7 @@ async function loadDocFromQuery(id){
     const data=await res.json();
     if(data.error) throw new Error(data.error);
     resetFiles();
-    addFile(data.path, data.content, true);
+    addFile(data.path, data.content, true, data.url);
     afterLoad();
     addMsg('system', '<p>💬 Redo att chatta om <code>'+escapeHtml(data.id)+'</code> — frågor besvaras utifrån den här sidans innehåll.</p>');
     toast('Chattar om: '+data.path);
@@ -1116,6 +1118,31 @@ function makeCopyBtn(getText){
   b.onclick=async ()=>{ try{ await navigator.clipboard.writeText(getText()); b.textContent='Kopierat ✓'; b.classList.add('copied'); setTimeout(()=>{b.textContent='Kopiera'; b.classList.remove('copied');},1500);}catch(e){ b.textContent='Fel'; } };
   return b;
 }
+function addAnswerCopyButton(bubble){
+  const button=document.createElement('button');
+  button.type='button';
+  button.className='answer-copy';
+  button.title='Kopiera svaret som Markdown';
+  button.setAttribute('aria-label', 'Kopiera svaret som Markdown');
+  const copyIcon='<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>';
+  button.innerHTML=copyIcon;
+  function feedback(message, path){
+    button.title=message;
+    button.setAttribute('aria-label', message);
+    button.innerHTML=path ? '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="'+path+'"/></svg>' : copyIcon;
+  }
+  let resetTimer;
+  button.onclick=async ()=>{
+    try {
+      await navigator.clipboard.writeText(bubble.markdownSource || '');
+      feedback('Kopierat', 'M5 12l4 4L19 6');
+    } catch(e) { feedback('Kunde inte kopiera – försök igen', 'M6 6l12 12M18 6L6 18'); }
+    clearTimeout(resetTimer);
+    resetTimer=setTimeout(()=>feedback('Kopiera svaret som Markdown'),2000);
+  };
+  bubble.parentElement.querySelector('.name').appendChild(button);
+  return button;
+}
 async function renderMermaid(el, source){
   el.dataset.mermaidSource=source;
   el.removeAttribute('tabindex');
@@ -1238,7 +1265,12 @@ function addMsg(role, text){
   const bubble=wrap.querySelector('.bubble');
   if(role==='user'){bubble.textContent=text;}
   else if(role==='system'){bubble.innerHTML=text;}
-  else{bubble.innerHTML=renderMd(text);}
+  else{
+    bubble.innerHTML=renderMd(text);
+    bubble.markdownSource=text;
+    bubble.copyButton=addAnswerCopyButton(bubble);
+    bubble.copyButton.disabled=!text;
+  }
   $('chatScroll').appendChild(wrap);
   chatResizeObserver.observe(wrap);
   scrollBottom(true);
@@ -1258,7 +1290,7 @@ async function addContentItemById(id, btn){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json();
     if(data.error) throw new Error(data.error);
-    addFile(data.path, data.content, true);
+    addFile(data.path, data.content, true, data.url);
     afterLoad();
     if(btn) btn.textContent='✓ Tillagd';
     toast('Tillagd i kontext: '+data.path);
@@ -1623,6 +1655,8 @@ async function send(){
   }finally{
     if(rafId!==null){ cancelAnimationFrame(rafId); rafId=null; } // undvik en extra, redundant render nästa frame
     bubble.classList.remove('cursor-blink');
+    bubble.markdownSource=acc;
+    bubble.copyButton.disabled=!acc;
     bubble.innerHTML=renderMd(acc);
     enhanceCodeBlocks(bubble, {renderDiagrams:true});
     streaming=false; abortCtrl=null; setSendState(false);
@@ -1674,6 +1708,11 @@ function escapeHtml(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>'
 function openFilePreview(i){
   const f=files[i]; if(!f)return;
   fvState.file=f;
+  const wikiLink=$('fvWiki');
+  const wikiUrl=typeof f.wikiUrl==='string' && /^\/(?!\/)[a-z0-9_\/-]+$/i.test(f.wikiUrl) ? f.wikiUrl : null;
+  wikiLink.style.display=wikiUrl?'inline-flex':'none';
+  if(wikiUrl) wikiLink.setAttribute('href', wikiUrl);
+  else wikiLink.removeAttribute('href');
   $('fvPath').textContent=f.path;
   $('fvPath').title=f.path;
   $('fvSize').textContent=fmtSize(f.size);

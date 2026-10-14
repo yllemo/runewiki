@@ -65,6 +65,13 @@ PHP);
     $cookie = '';
     foreach ($login['headers'] as $header) if (preg_match('/^Set-Cookie: ([^;]+)/i', $header, $m)) $cookie = $m[1];
     check($cookie !== '', 'Fixture session cookie');
+    foreach ([[], ['Cookie: ' . $cookie]] as $downloadHeaders) {
+        $download = request($base . '/start?do=download', 'GET', $downloadHeaders);
+        check($download['status'] === 200 && str_contains($download['body'], '# Visible'), 'Download retains public Markdown');
+        check(str_contains($download['body'], 'HTTP_HIDDEN_SECRET') === ($downloadHeaders !== []), 'Downloads include login-only content only for authenticated users');
+        check(!str_contains($download['body'], '<ifAuth>') && !str_contains($download['body'], '</ifAuth>'), 'Downloads omit auth control tags');
+        check(in_array('Content-Length: ' . strlen($download['body']), $download['headers'], true), 'Download length matches filtered content');
+    }
     $page = request($base . '/admin/', 'GET', ['Cookie: ' . $cookie]);
     check($page['status'] === 200 && str_contains($page['body'], 'Min MCP-nyckel'), 'Admin renders MCP tab');
     check((bool) preg_match('/name="csrf_token" value="([^"]+)"/', $page['body'], $m), 'Admin CSRF token');

@@ -401,10 +401,13 @@ class Wiki
         }
 
         $filename = str_replace(':', '_', $id->id()) . '.md';
+        // Apply the same login visibility as the article, without control tags.
+        $download = MarkdownVisibility::filter($page['raw'], $this->auth->currentUser() !== null);
+        header('Cache-Control: private, no-store');
         header('Content-Type: text/markdown; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Content-Length: ' . strlen($page['raw']));
-        return $page['raw'];
+        header('Content-Length: ' . strlen($download));
+        return $download;
     }
 
     private function handleEdit(string $rawId, ?string $submittedRaw = null, ?string $error = null): string
@@ -418,7 +421,7 @@ class Wiki
 
         $newBody = str_starts_with(basename($id->toFilePath($this->root . '/content')), '_')
             ? ''
-            : FrontMatter::build(['title' => $id->title(), 'tags' => []], '# ' . $id->title() . "\n\n");
+            : FrontMatter::build(['title' => $id->title(), 'tags' => ['example']], '# ' . $id->title() . "\n\n");
         $editForm = $this->templates->render('edit', [
             'metadataSettings' => Metadata::settings($this->root),
             'error' => $error,

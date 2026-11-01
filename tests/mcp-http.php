@@ -174,6 +174,29 @@ PHP);
     $metadataPage = request($base . '/start?do=metadata', 'GET', ['Cookie: ' . $cookie]);
     check(str_contains($metadataPage['body'], 'Original') && !str_contains($metadataPage['body'], 'Nested title'), 'Display selection applied without deleting stored metadata');
     echo "PASS: metadata HTTP save, nested YAML, timestamps, display controls, invalid YAML and admin settings\n";
+    $externalPost = ['action' => 'save_external_auth', 'active_tab' => 'auth', 'auth_password' => 'test-password',
+        'oidc_enabled' => '1', 'oidc_label' => 'Organisationens konto', 'oidc_issuer' => 'https://id.example',
+        'oidc_client_id' => 'wiki', 'oidc_client_secret' => 'fixture-secret-not-for-html',
+        'oidc_redirect_uri' => 'https://wiki.example/?do=login&provider=oidc&callback=1',
+        'oidc_token_auth' => 'client_secret_basic', 'oidc_users' => '{"subject-123":"alice"}',
+        'ad_label' => 'AD', 'ad_users' => '{}'];
+    request($base . '/admin/', 'POST', $formHeaders, http_build_query($externalPost));
+    check(!is_file($fixture . '/config/auth.php'), 'External auth settings require CSRF');
+    $externalPost['csrf_token'] = $csrf;
+    $wrong = $externalPost; $wrong['auth_password'] = 'wrong';
+    request($base . '/admin/', 'POST', $formHeaders, http_build_query($wrong));
+    check(!is_file($fixture . '/config/auth.php'), 'External auth settings require local reauthentication');
+    $savedAuth = request($base . '/admin/', 'POST', $formHeaders, http_build_query($externalPost));
+    check($savedAuth['status'] === 200 && is_file($fixture . '/config/auth.php'), 'Save external auth settings');
+    check(!str_contains($savedAuth['body'], 'fixture-secret-not-for-html'), 'Client secret never rendered');
+    $externalPost['oidc_client_secret'] = '';
+    request($base . '/admin/', 'POST', $formHeaders, http_build_query($externalPost));
+    check(ExternalAuth::settings($fixture)['oidc']['client_secret'] === 'fixture-secret-not-for-html', 'Blank secret retains stored value');
+    $loginPage = request($base . '/?do=login');
+    check(str_contains($loginPage['body'], 'Organisationens konto') && str_contains($loginPage['body'], 'Lokalt wikikonto'), 'Login shows enabled provider and local fallback');
+    $callback = request($base . '/?do=login&provider=oidc&callback=1&state=invalid&code=invalid');
+    check(str_contains($callback['body'], 'kunde inte verifieras'), 'Reject unsolicited callback');
+    echo "PASS: external auth admin CSRF, reauthentication, secret preservation and login controls\n";
     echo "PASS: real HTTP endpoint, admin CSRF, reauthentication, owner isolation, rotation, revocation and ifAuth\n";
 } finally {
     if (is_resource($process)) { proc_terminate($process); proc_close($process); }

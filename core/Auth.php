@@ -58,7 +58,7 @@ class Auth
                 'lifetime' => $this->sessionLifetime,
                 'httponly' => true,
                 'samesite' => 'Lax',
-                // 'secure' => true, // aktivera om HTTPS används
+                'secure' => ($_SERVER['HTTPS'] ?? '') === 'on' || ($_SERVER['SERVER_PORT'] ?? '') === '443',
             ]);
             session_start();
 
@@ -147,14 +147,24 @@ class Auth
         if (!self::verify($password, $record['password'])) {
             return false;
         }
-        $_SESSION['runewiki_user'] = $user;
-        $this->refreshSessionCookie();
+        $this->establishSession($user);
         return true;
+    }
+
+    /** Only call after a trusted external provider has verified its mapped account. */
+    public function establishSession(string $user): void
+    {
+        if (!$this->userExists($user)) throw new RuntimeException('Wikikontot finns inte.');
+        if (session_status() === PHP_SESSION_ACTIVE) session_regenerate_id(true);
+        $_SESSION['runewiki_user'] = $user;
+        unset($_SESSION['runewiki_oidc']);
+        $this->refreshSessionCookie();
     }
 
     public function logout(): void
     {
         unset($_SESSION['runewiki_user']);
+        unset($_SESSION['runewiki_oidc']);
     }
 
     public function currentUser(): ?string

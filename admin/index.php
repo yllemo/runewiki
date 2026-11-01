@@ -212,7 +212,7 @@ function removeExistingLogo(string $imgDir, string $type, ?string $keepExtension
 $errors  = [];
 $success = null;
 
-$validTabs = ['konto', 'mcp', 'metadata', 'anvandare', 'texter', 'webbplats'];
+$validTabs = ['konto', 'mcp', 'metadata', 'anvandare', 'auth', 'texter', 'webbplats'];
 $activeTab = in_array($_POST['active_tab'] ?? '', $validTabs, true) ? $_POST['active_tab'] : 'konto';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -220,6 +220,45 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
         $errors[] = $strings['login_error_csrf'];
+    } elseif ($action === 'save_external_auth') {
+        try {
+            if (!$auth->verifyPassword($currentUser, (string) ($_POST['auth_password'] ?? ''))) throw new RuntimeException('Ange ditt lokala wikilösenord för att ändra inloggningsinställningar.');
+            $settings = ExternalAuth::settings($root);
+            foreach (['oidc', 'ad'] as $provider) {
+                $settings[$provider]['enabled'] = isset($_POST[$provider . '_enabled']);
+                $fields = $provider === 'oidc' ? ['label', 'issuer', 'client_id', 'redirect_uri', 'token_auth'] : ['label', 'url', 'domain', 'base_dn', 'ca_file'];
+                foreach ($fields as $field) $settings[$provider][$field] = trim((string) ($_POST[$provider . '_' . $field] ?? ''));
+                $mapping = json_decode((string) ($_POST[$provider . '_users'] ?? '{}'), false, 16, JSON_THROW_ON_ERROR);
+                if (!$mapping instanceof stdClass) throw new RuntimeException('Kontokopplingar ska vara ett JSON-objekt.');
+                $settings[$provider]['users'] = (array) $mapping;
+            }
+            if (isset($_POST['oidc_clear_secret'])) $settings['oidc']['client_secret'] = '';
+            elseif (($_POST['oidc_client_secret'] ?? '') !== '') $settings['oidc']['client_secret'] = (string) $_POST['oidc_client_secret'];
+            ExternalAuth::validate($settings, $auth);
+            $path = $root . '/config/auth.php';
+            $temporary = $path . '.' . bin2hex(random_bytes(8)) . '.tmp';
+            $php = "<?php\n// External login settings. Protect this file and backups.\nreturn " . var_export($settings, true) . ";\n";
+            if (file_put_contents($temporary, $php, LOCK_EX) !== strlen($php) || !rename($temporary, $path)) {
+                if (is_file($temporary)) unlink($temporary);
+                throw new RuntimeException('Kunde inte spara config/auth.php.');
+            }
+            if (function_exists('opcache_invalidate')) opcache_invalidate($path, true);
+            $success = 'Inloggningsinställningarna är sparade. Lokal inloggning finns kvar som reserv.';
+        } catch (Throwable $e) { $errors[] = $e instanceof JsonException ? 'Kontokopplingarna innehåller ogiltig JSON.' : $e->getMessage(); }
+    } elseif ($action === 'import_content') {
+        try {
+            $upload = $_FILES['content_zip'] ?? [];
+            if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($upload['tmp_name'] ?? '')) {
+                throw new RuntimeException('Välj en ZIP-fil. Om uppladdningen misslyckas, kontrollera serverns upload_max_filesize och post_max_size.');
+            }
+            if (($upload['size'] ?? 0) > 64 * 1024 * 1024) throw new RuntimeException('ZIP-filen får vara högst 64 MB.');
+            $result = ContentImport::run($upload['tmp_name'], $root . '/content');
+            $success = 'Import klar: ' . $result['imported'] . ' filer importerades, ' . $result['skipped'] . ' befintliga filer hoppades över.';
+        } catch (Throwable $e) {
+            $errors[] = $e->getMessage();
+        } finally {
+            (new Cache($root . '/data/cache'))->clear();
+        }
     } elseif ($action === 'save_mcp_logging') {
         $mcpPath = $root . '/config/mcp.php';
         $mcpOptions = Helpers::loadConfig($mcpPath);
@@ -482,7 +521,7 @@ ob_start();
 <?php endif; ?>
 
 <?php
-$tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata' => 'Metadata', 'anvandare' => 'Användare', 'texter' => 'Texter', 'webbplats' => 'Webbplats'];
+$tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata' => 'Metadata', 'anvandare' => 'Användare', 'auth' => 'Inloggning', 'texter' => 'Texter', 'webbplats' => 'Webbplats'];
 ?>
 <div class="gbg-admin-tabs" role="tablist">
     <?php foreach ($tabLabels as $tabKey => $tabLabel): ?>
@@ -512,6 +551,41 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata'
             <input type="password" name="new_password_confirm" autocomplete="new-password" required>
         </label>
         <button type="submit" class="gbg-btn gbg-btn-primary"><?= Helpers::e($strings['account_submit']) ?></button>
+    </form>
+</div>
+
+<div class="gbg-admin-panel" data-panel="auth" <?= $activeTab === 'auth' ? '' : 'hidden' ?>>
+    <?php $authOptions = ExternalAuth::settings($root); ?>
+    <h2>Alternativa inloggningsmetoder</h2>
+    <p>Inställningarna sparas i <code>config/auth.php</code> och kan också ändras direkt i filen. Lokal inloggning finns alltid kvar. Aktivera webbplatsens inloggningskrav under Webbplats om wikin ska kräva autentisering för redigering.</p>
+    <form class="gbg-form" method="post" action="/admin/">
+        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <input type="hidden" name="active_tab" value="auth">
+        <input type="hidden" name="action" value="save_external_auth">
+        <?php foreach (['oidc' => 'OAuth 2.0 / OpenID Connect', 'ad' => 'Lokalt Active Directory'] as $provider => $label): ?>
+        <fieldset class="gbg-admin-fieldset">
+            <legend><?= Helpers::e($label) ?></legend>
+            <label><input type="checkbox" name="<?= $provider ?>_enabled" <?= $authOptions[$provider]['enabled'] ? 'checked' : '' ?>> Aktivera <?= Helpers::e($label) ?></label>
+            <?php $fields = $provider === 'oidc'
+                ? ['label' => 'Knapptext', 'issuer' => 'Issuer (HTTPS, exakt värde från leverantören)', 'client_id' => 'Klient-ID', 'redirect_uri' => 'Callback-URL (https://din-wiki/?do=login&provider=oidc&callback=1)']
+                : ['label' => 'Rubrik', 'url' => 'Server (ldaps://dc.example.local:636 eller ldap://dc.example.local:389)', 'domain' => 'UPN-domän (example.local)', 'base_dn' => 'Base DN (DC=example,DC=local)', 'ca_file' => 'CA-certifikat på servern (valfritt, absolut PEM-sökväg)']; ?>
+            <?php foreach ($fields as $field => $fieldLabel): ?>
+            <label><span><?= Helpers::e($fieldLabel) ?></span><input type="text" name="<?= $provider ?>_<?= $field ?>" value="<?= Helpers::e($authOptions[$provider][$field]) ?>" autocomplete="off"></label>
+            <?php endforeach; ?>
+            <?php if ($provider === 'oidc'): ?>
+            <label><span>Klienthemlighet (tomt behåller befintlig)</span><input type="password" name="oidc_client_secret" autocomplete="new-password"></label>
+            <label><input type="checkbox" name="oidc_clear_secret"> Radera sparad klienthemlighet</label>
+            <label><span>Autentisering vid tokenutbyte</span><select name="oidc_token_auth"><?php foreach (['client_secret_basic', 'client_secret_post', 'none'] as $mode): ?><option value="<?= $mode ?>" <?= $authOptions['oidc']['token_auth'] === $mode ? 'selected' : '' ?>><?= $mode ?></option><?php endforeach; ?></select></label>
+            <p>Kräver PHP curl och openssl. Authorization Code med PKCE och RS256. Registrera exakt callback-URL hos leverantören. Klienthemligheter visas aldrig i formuläret.</p>
+            <?php else: ?>
+            <p>Kräver PHP ldap. LDAP använder obligatorisk StartTLS; LDAPS använder TLS direkt. Servercertifikatet verifieras. Användaren anger samAccountName utan domän.</p>
+            <?php endif; ?>
+            <label><span>Kontokopplingar: <?= $provider === 'oidc' ? 'OIDC sub' : 'samAccountName (gemener)' ?> → wikikonto (JSON)</span><textarea name="<?= $provider ?>_users" rows="5" spellcheck="false" style="width:100%;font-family:monospace"><?= Helpers::e(json_encode((object) $authOptions[$provider]['users'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></textarea></label>
+            <p>Exempel: <code>{"extern-identitet": "anna"}</code>. Skapa wikikontot under Användare först och tilldela grupper där. Ingen automatisk kontoskapning eller koppling via e-post sker.</p>
+        </fieldset>
+        <?php endforeach; ?>
+        <label><span>Ditt lokala wikilösenord för att spara</span><input type="password" name="auth_password" autocomplete="current-password" required></label>
+        <button type="submit" class="gbg-btn gbg-btn-primary">Spara inloggningsinställningar</button>
     </form>
 </div>
 
@@ -775,13 +849,23 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata'
     </fieldset>
 
     <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">
-        <legend>Exportera innehåll</legend>
+        <legend>Exportera och importera innehåll</legend>
         <p class="gbg-admin-lead">
             Ladda ner hela <code>/content</code> (alla sidors .md-filer, i
             alla namespace) som en zip-fil — t.ex. för backup eller för att
             flytta innehållet till en annan installation.
         </p>
         <a class="gbg-btn gbg-btn-primary" href="/admin/?do=export_content">Ladda ner .zip</a>
+        <h3>Importera en wikiexport</h3>
+        <p>Välj en tidigare exporterad ZIP. Filerna återställs under <code>content/</code> med samma mappar och filnamn. Befintliga filer hoppas över. Exporten omfattar inte bilder, användare eller inställningar.</p>
+        <form class="gbg-form" method="post" action="/admin/" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+            <input type="hidden" name="active_tab" value="webbplats">
+            <input type="hidden" name="action" value="import_content">
+            <label><span>Exporterad ZIP-fil</span><input type="file" name="content_zip" accept=".zip,application/zip" required></label>
+            <p>Max 64 MB uppackat och 16 MB per fil. Serverns uppladdningsgräns kan vara lägre.</p>
+            <button type="submit" class="gbg-btn gbg-btn-primary">Importera .zip</button>
+        </form>
     </fieldset>
 
     <fieldset class="gbg-admin-fieldset" style="margin-top:1.5rem">

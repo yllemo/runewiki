@@ -1,5 +1,13 @@
 # RuneWiki MCP
 
+[README](README.md) · [Extern inloggning](readme-auth.md) · [Export och import](readme-import.md)
+
+Webbinloggning via OIDC eller AD ersätter inte MCP:s personliga nyckel.
+Kontot använder samma lokala wikigrupper efter extern inloggning. För att skapa
+eller återkalla en MCP-nyckel i admin behövs fortfarande kontots lokala wikilösenord.
+En innehållsexport innehåller inga MCP-nycklar eller MCP-inställningar; vid flytt
+måste dessa hanteras separat och betrodda origins anpassas till den nya adressen.
+
 RuneWiki har en skrivskyddad MCP-server på **`https://din-wiki.example/mcp/`**.
 Även `/mcp` och `/mcp/index.php` fungerar med projektets Apache-konfiguration.
 Servern ger en AI-klient verktyg för att lista, söka och läsa wikisidor med

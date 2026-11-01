@@ -2,28 +2,33 @@
 
 Databasfri wiki-motor i PHP 8.1+. All kod nedan är implementerad och körbar.
 
+Driftinstruktioner: [extern inloggning](readme-auth.md),
+[export och import](readme-import.md), [MCP](readme-mcp.md).
+
 ```
 runewiki/
 ├── index.php                    ← Front controller + autoloader (klassnamn = filnamn i core/).
 │                                  Delegerar /chat och /admin till sina egna front controllers
 ├── .htaccess                    ← Rewrite-regler + direktåtkomstskydd (Apache)
-├── composer.json                ← Inga externa beroenden; kräver bara ext-mbstring
+├── composer.json                ← Grundkrav; YAML-komponenter medföljer under core/vendor/
 ├── LICENSE                      ← MIT
 │
 ├── config/
 │   ├── config.php               ← Aktiv konfiguration (site_name, theme, header_logo/
 │   │                              footer_logo, cache, auth…)
 │   ├── config.example.php       ← Mall — kopiera till config.php vid ny installation
+│   ├── auth.php                 ← OIDC/OAuth och AD, explicit extern identitet → wikikonto
+│   ├── mcp.php                  ← MCP-origins, diagnostiklogg och lokal utveckling
+│   ├── metadata.php             ← OKF-tidsstämplar, visning och editorfält
 │   ├── menu.php                 ← Huvudnavigering (label + target page-id)
 │   ├── interwiki.php            ← Genvägar: [[wp>Artikel]], [[github>…]] m.fl.
 │   ├── media.php                ← Tillåtna filtyper och maxstorlek för uppladdning
 │   ├── plugins.php              ← Aktiverade plugins och deras options
 │   ├── namespaces.php           ← Namespace-regler — 'menu'-override per namespace tillämpas
-│   │                              (se Wiki::menuFor()); 'theme'/'acl' läses in men tillämpas
-│   │                              ej ännu
+│   │                              (se Wiki::menuFor()); 'acl' styr public/login/private
 │   ├── strings.php              ← Skriv över valfria UI-texter (tagline, sidfot, knappar…);
 │   │                              övriga faller tillbaka på Helpers::defaultStrings()
-│   └── acl.php                  ← Grupper/rättigheter (grund finns, tillämpas ej ännu)
+│   └── acl.php                  ← Grupper/rättigheter för läsning och redigering per namespace
 │
 ├── content/                     ← All wiki-text som Markdown-filer
 │   ├── start.md                 ← Rotsidan
@@ -33,16 +38,21 @@ runewiki/
 │       ├── _sidebar.md          ← Sidopanel för namespacet
 │       └── <sida>.md
 │
-├── media/                       ← Uppladdade filer; speglar content/-namespacen
+├── images/                      ← Uppladdade filer; speglar content/-namespacen
 │
 ├── core/                        ← Motorns kärnklasser (en klass per fil)
 │   ├── Wiki.php                 ← Bygger alla komponenter, dispatchar requesten, kör hooks
+│   ├── ExternalAuth.php         ← Konfiguration, kontokoppling, LDAPS/StartTLS-inloggning
+│   ├── OidcAuth.php             ← Discovery, Authorization Code + PKCE, RS256-verifiering
+│   ├── ContentImport.php        ← Validerar ZIP-export, importerar utan att skriva över filer
+│   ├── Metadata.php             ← OKF-policy och editorförslag
+│   ├── MarkdownVisibility.php   ← Gemensam filtrering av ifAuth-block
 │   ├── Router.php               ← URL + ?do= → view/edit/save/delete/download/search/
 │   │                              media-*/login/logout
 │   ├── PageId.php               ← Värdesobjekt: ID ↔ filsökväg ↔ URL; saniterar mot path traversal
 │   ├── MediaId.php              ← Samma mappningsregel för media-filer
 │   ├── PageLoader.php           ← Läs/skriv/radera/lista .md-filer; skickar raw till FrontMatter
-│   ├── FrontMatter.php          ← YAML-frontmatter: parse(), build(); förhindrar nyrads-injektion
+│   ├── FrontMatter.php          ← YAML-frontmatter: parse(), build(); nästlade fält via Symfony YAML
 │   ├── Parser.php               ← Markdown + wikilänk + interwiki + media; token-baserad XSS-skydd
 │   ├── Media.php                ← Uppladdning (validering), listning, borttagning
 │   ├── Search.php               ← Fulltextsökning + queryByTag() för tag:-sökning
@@ -273,7 +283,7 @@ sidans `mtime`.
 | Open redirect | `redirect_to` i media-upload valideras — måste börja med `/`, inte `//` |
 | YAML-injektion | `FrontMatter::build()` tar bort `\n`/`\r` ur strängvärden |
 | Innehållsstorlek | Max 512 KB per POST-body i `handleSave()` |
-| Filkörning | `.htaccess` blockerar `config/`, `core/`, `content/`, `data/`, `plugins/`; PHP-motor av i `media/` |
+| Filkörning | `.htaccess` blockerar interna mappar; webbservern ska hindra PHP-körning i uppladdningsmappen `images/` |
 
 ---
 
@@ -486,15 +496,16 @@ php bin/cli.php help
 
 ---
 
-## Ej implementerat / planerat till 0.3
+## Funktionsstatus
 
 | Funktion | Status |
 |----------|--------|
-| Auth kopplad till edit-flödet | **Klart** — `auth_enabled: true` kräver inloggning för redigering/spara/radera/media-uppladdning; läsning alltid öppet. Binär modell (inloggad = full redigeringsrätt). |
-| Roll-/gruppbaserad ACL per namespace | `config/acl.php` (grupper) och `config/namespaces.php`:s `acl`-nyckel (public/login/private) läses in; tillämpas ej ännu — `namespaces.php`:s `menu`-nyckel fungerar dock redan |
+| Auth kopplad till edit-flödet | Implementerat; lokal inloggning, OIDC och AD. Externa metoder måste konfigureras och aktiveras. |
+| Roll-/gruppbaserad ACL per namespace | Implementerat via config/acl.php och namespace-regler public/login/private. Adminpanelen har separat, befintlig inloggningskontroll utan gruppkrav. |
+| ZIP-import/export | Admin → Webbplats; innehåll återställs utan att befintliga filer skrivs över. |
 | Sökindex | Filgenomsökning räcker för mindre wikis |
-| Historik-visning i UI | `History::revisions()` finns; ingen vy |
-| Responsiv mobil-layout | Grundläggande flex; ej optimerad |
+| Historik-visning i UI | Versionshistorik och återställning via artikelns …-meny. |
+| Responsiv mobil-layout | Anpassningar för mobil finns i standardtemat. |
 
 ---
 

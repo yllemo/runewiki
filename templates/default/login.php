@@ -16,6 +16,26 @@ $strings = $strings ?? Helpers::defaultStrings();
         <p class="gbg-login-error"><?= Helpers::e($error) ?></p>
     <?php endif; ?>
 
+    <?php if (!empty($externalAuth['oidc']['enabled'])): ?>
+    <form class="gbg-form" method="post" action="/?do=login" style="margin-bottom:1.5rem">
+        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <input type="hidden" name="provider" value="oidc">
+        <input type="hidden" name="redirect_to" value="<?= Helpers::e($redirectTo ?? '/') ?>">
+        <button type="submit" class="gbg-btn gbg-btn-primary"><?= Helpers::e($externalAuth['oidc']['label']) ?></button>
+    </form>
+    <?php endif; ?>
+    <?php if (!empty($externalAuth['ad']['enabled'])): ?>
+    <h2><?= Helpers::e($externalAuth['ad']['label']) ?></h2>
+    <form class="gbg-form" method="post" action="/?do=login" style="margin-bottom:1.5rem">
+        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <input type="hidden" name="provider" value="ad">
+        <input type="hidden" name="redirect_to" value="<?= Helpers::e($redirectTo ?? '/') ?>">
+        <label><span>AD-användarnamn (utan domän)</span><input type="text" name="username" autocomplete="username" required></label>
+        <label><span>Lösenord</span><input type="password" name="password" autocomplete="current-password" required></label>
+        <button type="submit" class="gbg-btn gbg-btn-primary">Logga in med AD</button>
+    </form>
+    <?php endif; ?>
+    <?php if (!empty($externalAuth['oidc']['enabled']) || !empty($externalAuth['ad']['enabled'])): ?><h2>Lokalt wikikonto</h2><?php endif; ?>
     <form class="gbg-form" method="post" action="/?do=login">
         <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
         <input type="hidden" name="redirect_to" value="<?= Helpers::e($redirectTo ?? '/') ?>">

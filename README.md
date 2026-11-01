@@ -9,10 +9,19 @@ responsiv mobilvy. Fri och öppen källkod (MIT).
 MCP-klienter kan lista, söka och läsa sidor via `/mcp/` med personliga nycklar
 och behörighetskontroll. Se [MCP-konfiguration och säkerhet](readme-mcp.md).
 
+## Administrationsguider
+
+- [Extern inloggning: OpenID Connect/OAuth och lokalt AD](readme-auth.md)
+- [Export, ZIP-import och flytt till en annan installation](readme-import.md)
+- [MCP: personliga nycklar, klientanslutning och felsökning](readme-mcp.md)
+- [Projektstruktur och arkitektur](STRUCTURE.md)
+
 ## Krav
 
 - PHP 8.1 eller senare med **ext-mbstring**
-- Ingen databas, inga Composer-beroenden
+- **ext-zip** för ZIP-export/import, **ext-curl + ext-openssl** för OIDC,
+  **ext-ldap** för AD-inloggning (endast för de funktioner som används)
+- Ingen databas eller Composer-installation krävs; YAML-parsern medföljer
 - Apache med `mod_rewrite` (produktion) eller PHPs inbyggda server (lokalt)
 - Internetanslutning vid redigering (Monaco Editor laddas från CDN)
 
@@ -37,6 +46,9 @@ vill, det är bara ett förslag på en första struktur.
 3. Ge webbservern skrivrättigheter till `content/`, `images/` och `data/`.
    Egna logotyper via `/admin/` sparas under `images/logos/`.
 4. Kopiera `config/config.example.php` till `config/config.php` och justera.
+5. För sparning av inställningar via admin behöver PHP även kunna skriva till
+   `config/`. MCP-felsökningsloggning kräver skrivrättighet till `mcp/`.
+   Använd HTTPS för extern inloggning och MCP.
 
 ## Funktioner
 
@@ -61,8 +73,8 @@ vill, det är bara ett förslag på en första struktur.
 - Spara-knapp både ovanför och nedanför editorn
 - "AI Chat"-knapp direkt ovanför sidans innehåll (bredvid Redigera/Sök
   liknande) öppnar `/chat` med just den sidan redan laddad i kontexten
-- "Ladda ner .md"-knapp bredvid Redigera — laddar ner sidans råa
-  Markdown-fil (`?do=download`), ingen inloggning krävs (samma som att läsa sidan)
+- **Ladda ner .md** i artikelns …-meny följer sidans läsbehörighet.
+  `<ifAuth>`-innehåll ingår bara för inloggade; kontrolltaggarna tas bort.
 - Sparar man en helt tom fil (allt innehåll raderat, även frontmatter)
   tas sidan bort istället för att spara en tom `.md`-fil
 
@@ -219,7 +231,7 @@ vill, det är bara ett förslag på en första struktur.
 - YAML-nyrads-injektion förhindras i `FrontMatter::build()`
 - Innehållsgräns: max 512 KB per sparat dokument
 - `.htaccess` blockerar direktåtkomst till `config/`, `content/`, `core/`, `data/`, `plugins/`
-- PHP-körning inaktiverad i `media/`
+- Uppladdade filer lagras i `images/`; konfigurera webbservern så att uppladdningar aldrig körs som PHP.
 
 ## Konfiguration
 
@@ -241,6 +253,9 @@ för nya länkar som tillkommer i chatten.
 | `config/namespaces.php` | Egen meny per namespace (aktivt); `'acl'` (public/login/private) styr läsrätt, se "Inloggning och redigeringsrättigheter" |
 | `config/strings.php` | Skriv över UI-texter (tagline, sidfot, knappar, inloggning m.m.) |
 | `config/acl.php` | Grupper för läs-/redigeringsrätt per namespace (kombineras med `namespaces.php`:s `'acl'`) — tilldelas konton via adminpanelen eller CLI:t |
+| `config/auth.php` | OIDC/OAuth och AD: anslutning, aktivering och koppling till wikikonton |
+| `config/mcp.php` | MCP: betrodda origins, lokal utveckling och diagnostiklogg |
+| `config/metadata.php` | OKF-tidsstämplar, synliga metadatafält och editorförslag |
 
 ## YAML-frontmatter
 
@@ -477,7 +492,7 @@ inaktivitet, eller om man loggar ut/rensar cookies för hand.
 ### Adminpanel (/admin/) — ingen CLI-åtkomst krävs
 
 `admin/index.php` är en egen front controller (precis som `/chat/`), bara
-synlig när man är inloggad. Fyra flikar (klientväxlade, ingen sidladdning):
+synlig när man är inloggad. Flikar (klientväxlade, ingen sidladdning):
 
 - **Mitt lösenord** — byt eget lösenord, sparas alltid som en riktig
   bcrypt-hash. Det här är den CLI-fria vägen ut ur klartextläget, t.ex. på
@@ -486,12 +501,18 @@ synlig när man är inloggad. Fyra flikar (klientväxlade, ingen sidladdning):
 - **Användare** — skapa/ta bort inloggningsanvändare (kan inte ta bort
   sitt eget inloggade konto), samt bocka i vilka **grupper**
   (`config/acl.php`) varje konto tillhör — se "Finmaskig ACL" ovan.
+- **Inloggning** — konfigurera OpenID Connect/OAuth 2.0 och lokalt AD.
+  Ange kontokopplingar och ditt lokala wikilösenord för att spara i
+  `config/auth.php`. Se [steg-för-steg-guiden](readme-auth.md).
+- **Min MCP-nyckel** — skapa/återkalla en personlig MCP-nyckel och slå på
+  diagnostikloggning vid behov. Se [MCP-guiden](readme-mcp.md).
+- **Metadata** — välj automatisk OKF-tidsstämpel, visning och Ctrl+Space-fält.
 - **Texter** — alla UI-texter (`Helpers::defaultStrings()`, grupperade i
   fieldsets: header/sidfot, navigering, sidverktyg, AI Chat, sidindex,
   inloggning, mitt konto) — skriver `config/strings.php`. Ett tomt fält
   återställer den texten till standardvärdet; en egen knapp återställer allt.
 - **Webbplats** — sitenamn, `auth_enabled`, `session_lifetime_days`,
-  export av `/content` som .zip, samt **tre logotyp-uppladdningar**
+  export/import av `/content` som .zip, samt **tre logotyp-uppladdningar**
   (`.svg`/`.png`, max 2 MB var): header (ljust läge), header (mörkt läge)
   och footer — laddas upp till
   `images/logos/custom-<header|header-dark|footer>-logo.<ext>`

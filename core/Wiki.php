@@ -813,12 +813,41 @@ class Wiki
         $id = new PageId('start');
 
         $redirectTo = (string) ($_REQUEST['redirect_to'] ?? '/');
-        if (!str_starts_with($redirectTo, '/') || str_starts_with($redirectTo, '//')) {
+        if (!str_starts_with($redirectTo, '/') || str_starts_with($redirectTo, '//') || preg_match('/[\\\\\x00-\x20]/', $redirectTo)) {
             $redirectTo = '/';
         }
 
         $error = null;
-        if ($method === 'POST') {
+        $externalAuth = ExternalAuth::settings($this->root);
+        $provider = (string) ($_REQUEST['provider'] ?? 'local');
+        if ($provider !== 'local' && ($method === 'POST' || isset($_GET['callback']))) {
+            header('Cache-Control: no-store');
+            header('Referrer-Policy: no-referrer');
+            try {
+                if (($_SERVER['HTTPS'] ?? '') !== 'on' && (string) ($_SERVER['SERVER_PORT'] ?? '') !== '443') throw new RuntimeException('Extern inloggning kräver HTTPS till wikin.');
+                if (!in_array($provider, ['oidc', 'ad'], true) || empty($externalAuth[$provider]['enabled'])) throw new RuntimeException('Inloggningsmetoden är inte aktiverad.');
+                ExternalAuth::validate($externalAuth, $this->auth);
+                if ($method === 'POST' && !Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) throw new RuntimeException('Ogiltig förfrågan. Ladda om inloggningssidan.');
+                if ($provider === 'oidc') {
+                    $oidc = new OidcAuth($externalAuth['oidc']);
+                    if ($method === 'POST' && !isset($_GET['callback'])) {
+                        header('Location: ' . $oidc->begin($redirectTo));
+                        return '';
+                    }
+                    $identity = $oidc->finish($_GET);
+                    $local = ExternalAuth::mappedUser($externalAuth['oidc'], $identity['sub'], $this->auth);
+                    $redirectTo = $identity['redirect'];
+                } else {
+                    if ($method !== 'POST') throw new RuntimeException('AD-inloggning kräver ett formuläranrop.');
+                    $local = ExternalAuth::adLogin($externalAuth['ad'], (string) ($_POST['username'] ?? ''), (string) ($_POST['password'] ?? ''), $this->auth);
+                }
+                $this->auth->establishSession($local);
+                header('Location: ' . $redirectTo, true, 303);
+                return '';
+            } catch (Throwable $e) {
+                $error = $e instanceof RuntimeException ? $e->getMessage() : 'Extern inloggning kunde inte verifieras. Kontrollera inställningarna.';
+            }
+        } elseif ($method === 'POST') {
             if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
                 $error = $this->strings['login_error_csrf'];
             } elseif ($this->auth->login((string) ($_POST['username'] ?? ''), (string) ($_POST['password'] ?? ''))) {
@@ -830,6 +859,7 @@ class Wiki
         }
 
         $loginHtml = $this->templates->render('login', [
+            'externalAuth' => $externalAuth,
             'redirectTo' => $redirectTo,
             'error'      => $error,
             'strings'    => $this->strings,

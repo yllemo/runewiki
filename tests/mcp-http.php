@@ -24,12 +24,14 @@ $fixture = sys_get_temp_dir() . '/runewiki-mcp-http-' . bin2hex(random_bytes(8))
 mkdir($fixture, 0700);
 $process = null;
 try {
-    foreach (['core', 'admin', 'mcp', 'templates'] as $dir) copyTree($repo . '/' . $dir, $fixture . '/' . $dir);
+    foreach (['core', 'admin', 'mcp', 'templates', 'plugins'] as $dir) copyTree($repo . '/' . $dir, $fixture . '/' . $dir);
     copy($repo . '/index.php', $fixture . '/index.php');
     mkdir($fixture . '/config'); mkdir($fixture . '/content'); mkdir($fixture . '/data/users', 0700, true);
     file_put_contents($fixture . '/config/config.php', '<?php return ["auth_enabled" => true];');
     file_put_contents($fixture . '/config/namespaces.php', '<?php return ["" => ["acl" => "public"]];');
     file_put_contents($fixture . '/content/start.md', "# Visible\n<ifAuth>\nHTTP_HIDDEN_SECRET\n</ifAuth>");
+    file_put_contents($fixture . '/config/plugins.php', '<?php return ["redirect" => ["enabled" => true]];');
+    file_put_contents($fixture . '/content/redirect-test.md', "---\nredirect: https://example.com/target\n---\n# Redirect test");
     $auth = new Auth($fixture . '/data/users/users.php', true, 30, false);
     $auth->setPassword('alice', 'test-password');
     $auth->setPassword('bob', 'other-password');
@@ -47,7 +49,7 @@ PHP);
     check($socket !== false, 'Allocate test port');
     $address = stream_socket_get_name($socket, false); fclose($socket);
     $command = [PHP_BINARY, '-d', 'extension_dir="' . str_replace('\\', '/', ini_get('extension_dir')) . '"',
-        '-d', 'extension=mbstring', '-S', $address, $fixture . '/router.php'];
+        '-d', 'extension=mbstring', ... (extension_loaded('zip') ? ['-d', 'extension=zip'] : []), '-S', $address, $fixture . '/router.php'];
     $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', $fixture . '/server.log', 'a'], 2 => ['file', $fixture . '/server.log', 'a']], $pipes, $fixture);
     check(is_resource($process), 'Start PHP test server'); fclose($pipes[0]);
     $ready = false;
@@ -57,6 +59,9 @@ PHP);
     }
     check($ready, 'PHP server ready');
     $base = 'http://' . $address;
+    $redirect = request($base . '/redirect-test');
+    check($redirect['status'] === 302 && in_array('Location: https://example.com/target', $redirect['headers'], true) && $redirect['body'] === '', 'Page redirects immediately without rendered HTML');
+    check(request($base . '/redirect-test?do=download')['status'] === 200, 'Download bypasses redirect');
     $focusPage = request($base . '/start?do=focus');
     check($focusPage['status'] === 200 && str_contains($focusPage['body'], 'const initialArticle =') && !str_contains($focusPage['body'], 'HTTP_HIDDEN_SECRET'), 'Focus opens current article and filters ifAuth');
     check(request($base . '/missing?do=focus')['status'] === 404, 'Missing focus article returns 404');
@@ -76,6 +81,36 @@ PHP);
     check($page['status'] === 200 && str_contains($page['body'], 'Min MCP-nyckel'), 'Admin renders MCP tab');
     check((bool) preg_match('/name="csrf_token" value="([^"]+)"/', $page['body'], $m), 'Admin CSRF token');
     $csrf = $m[1];
+    $editRedirect = request($base . '/redirect-test?do=edit', 'GET', ['Cookie: ' . $cookie]);
+    check($editRedirect['status'] === 200 && str_contains($editRedirect['body'], 'https://example.com/target'), 'Redirect page remains editable');
+    if (extension_loaded('zip')) {
+        $zip = new ZipArchive(); $zip->open($fixture . '/import.zip', ZipArchive::CREATE);
+        $zip->addFromString('content/imported/page.md', '# Imported'); $zip->close();
+        $archive = file_get_contents($fixture . '/import.zip');
+        $importHeaders = ['Cookie: ' . $cookie, 'Content-Type: application/x-www-form-urlencoded'];
+        $begin = ['action' => 'import_begin', 'size' => strlen($archive)];
+        check(request($base . '/admin/?do=import_api', 'POST', $importHeaders, http_build_query($begin))['status'] === 403, 'Chunk upload requires CSRF');
+        $begin['csrf_token'] = $csrf;
+        $job = json_decode(request($base . '/admin/?do=import_api', 'POST', $importHeaders, http_build_query($begin))['body'], true)['job'];
+        while ($job['received'] < strlen($archive)) {
+            $offset = $job['received']; $chunk = substr($archive, $offset, 53); $boundary = 'chunkboundary';
+            $body = '';
+            foreach (['csrf_token' => $csrf, 'action' => 'import_chunk', 'id' => $job['id'], 'offset' => $offset] as $k => $v) $body .= '--' . $boundary . "\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n";
+            $body .= '--' . $boundary . "\r\nContent-Disposition: form-data; name=\"chunk\"; filename=\"part.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n" . $chunk . "\r\n--$boundary--\r\n";
+            $headers = ['Cookie: ' . $cookie, 'Content-Type: multipart/form-data; boundary=' . $boundary];
+            $job = json_decode(request($base . '/admin/?do=import_api', 'POST', $headers, $body)['body'], true)['job'];
+            $retry = json_decode(request($base . '/admin/?do=import_api', 'POST', $headers, $body)['body'], true)['job'];
+            check($job['received'] === $offset + strlen($chunk) && $retry['received'] === $job['received'], 'Chunk retry does not duplicate bytes');
+        }
+        $step = ['csrf_token' => $csrf, 'action' => 'import_step', 'id' => $job['id'], 'offset' => 0];
+        $wrongJob = $step; $wrongJob['id'] = 'unknown';
+        check(request($base . '/admin/?do=import_api', 'POST', $importHeaders, http_build_query($wrongJob))['status'] === 422, 'Unknown import job rejected');
+        $done = json_decode(request($base . '/admin/?do=import_api', 'POST', $importHeaders, http_build_query($step))['body'], true)['job'];
+        check($done['done'] && $done['imported'] === 1 && file_get_contents($fixture . '/content/imported/page.md') === '# Imported', 'Chunked ZIP imported to original folder');
+        $retry = json_decode(request($base . '/admin/?do=import_api', 'POST', $importHeaders, http_build_query($step))['body'], true)['job'];
+        check($retry['done'] && $retry['imported'] === 1 && !glob($fixture . '/data/imports/*.zip'), 'Completed batch retry safe and temporary ZIP removed');
+        echo "PASS: chunked ZIP upload, retry offsets, CSRF, job validation and paged import\n";
+    }
     // Real multipart uploads exercise PHP's is_uploaded_file/move_uploaded_file,
     // not a mocked filesystem write. Follow the namespace supplied to the editor.
     $imageBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=');

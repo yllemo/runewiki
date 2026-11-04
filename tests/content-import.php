@@ -15,6 +15,11 @@ try {
     check($result['imported'] === 3, 'All exported files imported');
     check(file_get_contents($root . '/content/projekt/api.start.md') === "---\ntags: [test]\n---\nText", 'Nested path and exact bytes preserved');
     check(ContentImport::run($root . '/export.zip', $root . '/content')['skipped'] === 3, 'Existing files preserved');
+    $first = ContentImport::run($root . '/export.zip', $root . '/paged', 0, 1);
+    check($first['next'] === 1 && !$first['done'] && $first['total'] === 3, 'Bounded first batch');
+    $second = ContentImport::run($root . '/export.zip', $root . '/paged', $first['next'], 1);
+    $third = ContentImport::run($root . '/export.zip', $root . '/paged', $second['next'], 1);
+    check($third['done'] && $first['imported'] + $second['imported'] + $third['imported'] === 3, 'Paged import completes without losing files');
     foreach (['content/../escape.md', 'content/a/../../escape.md', '/content/start.md', 'config/config.php', 'content/a\\b.md'] as $bad) {
         archiveFile($root . '/bad.zip', ['content/new.md' => 'Never written', $bad => 'Bad']);
         $rejected = false;

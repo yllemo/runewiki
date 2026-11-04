@@ -19,6 +19,7 @@
 return [
 
     'byrakrazy' => ['enabled' => true, 'options' => []],
+    'redirect' => ['enabled' => true, 'options' => []],
 
     'example-plugin' => [
         'enabled' => false,

@@ -15,6 +15,7 @@ och behörighetskontroll. Se [MCP-konfiguration och säkerhet](readme-mcp.md).
 - [Export, ZIP-import och flytt till en annan installation](readme-import.md)
 - [MCP: personliga nycklar, klientanslutning och felsökning](readme-mcp.md)
 - [Projektstruktur och arkitektur](STRUCTURE.md)
+- [Redirect-plugin: omdirigera en sida till en annan URL](plugins/redirect/README.md)
 
 ## Krav
 
@@ -254,6 +255,7 @@ för nya länkar som tillkommer i chatten.
 | `config/strings.php` | Skriv över UI-texter (tagline, sidfot, knappar, inloggning m.m.) |
 | `config/acl.php` | Grupper för läs-/redigeringsrätt per namespace (kombineras med `namespaces.php`:s `'acl'`) — tilldelas konton via adminpanelen eller CLI:t |
 | `config/auth.php` | OIDC/OAuth och AD: anslutning, aktivering och koppling till wikikonton |
+| `config/import.php` | ZIP-importens storleksgränser, antal poster och filer per omgång |
 | `config/mcp.php` | MCP: betrodda origins, lokal utveckling och diagnostiklogg |
 | `config/metadata.php` | OKF-tidsstämplar, synliga metadatafält och editorförslag |
 
@@ -427,7 +429,33 @@ class MittPlugin implements PluginInterface
 'mitt-plugin' => ['enabled' => true, 'options' => ['nyckel' => 'värde']],
 ```
 
-Tillgängliga hooks: `after_parse`, `page_view`, `before_save`, `after_save`.
+Tillgängliga hooks: `after_parse`, `page_redirect`, `page_view`, `page_markdown`,
+`form_submit`, `before_save`, `after_save`. Se `core/PluginInterface.php`.
+
+### Omdirigera en sida
+
+Pluginet `plugins/redirect` omdirigerar en vanlig sidvisning direkt, utan
+mellansida. Det aktiveras eller stängs av med `enabled` i `config/plugins.php`.
+Ange målet i sidans YAML-frontmatter:
+
+```yaml
+---
+title: Gammal sida
+redirect: https://example.com/ny-sida
+---
+```
+
+Lokala mål som `/projekt/ny-sida` fungerar också. Öppna den ursprungliga sidan
+med `?do=edit` för att ändra eller ta bort målet. Läsbehörighet kontrolleras
+före omdirigering. Se [pluginets guide](plugins/redirect/README.md) för detaljer.
+
+### ZIP-import i delar
+
+Under **Admin → Webbplats** laddas ZIP-exporter upp i små delar och importeras
+i omgångar. Förloppet visas och kan pausas/fortsättas medan sidan är öppen.
+Befintliga filer hoppas över. Storleksgränser och antal filer per omgång styrs
+i `config/import.php`; PHP behöver skrivrättighet till `data/imports/`.
+Se [importguiden](readme-import.md) för gränser, återförsök och felsökning.
 
 ## Inloggning och redigeringsrättigheter
 

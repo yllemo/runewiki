@@ -4,6 +4,7 @@ Databasfri wiki-motor i PHP 8.1+. All kod nedan är implementerad och körbar.
 
 Driftinstruktioner: [extern inloggning](readme-auth.md),
 [export och import](readme-import.md), [MCP](readme-mcp.md).
+Sidomdirigering: [redirect-pluginets guide](plugins/redirect/README.md).
 
 ```
 runewiki/
@@ -18,6 +19,7 @@ runewiki/
 │   │                              footer_logo, cache, auth…)
 │   ├── config.example.php       ← Mall — kopiera till config.php vid ny installation
 │   ├── auth.php                 ← OIDC/OAuth och AD, explicit extern identitet → wikikonto
+│   ├── import.php               ← ZIP-gränser och antal filer per importomgång
 │   ├── mcp.php                  ← MCP-origins, diagnostiklogg och lokal utveckling
 │   ├── metadata.php             ← OKF-tidsstämplar, visning och editorfält
 │   ├── menu.php                 ← Huvudnavigering (label + target page-id)
@@ -45,6 +47,7 @@ runewiki/
 │   ├── ExternalAuth.php         ← Konfiguration, kontokoppling, LDAPS/StartTLS-inloggning
 │   ├── OidcAuth.php             ← Discovery, Authorization Code + PKCE, RS256-verifiering
 │   ├── ContentImport.php        ← Validerar ZIP-export, importerar utan att skriva över filer
+│   ├── ImportUpload.php         ← Sessionsbunden uppladdning i delar och import i omgångar
 │   ├── Metadata.php             ← OKF-policy och editorförslag
 │   ├── MarkdownVisibility.php   ← Gemensam filtrering av ifAuth-block
 │   ├── Router.php               ← URL + ?do= → view/edit/save/delete/download/search/
@@ -298,6 +301,7 @@ Aktivering och options anges i `config/plugins.php`.
 |------|---------|------------------------------|
 | `after_parse` | Efter Markdown → HTML (resultatet cachas) | `html`, `markdown` |
 | `page_view` | Vid varje sidvisning, alltid — även cache-träff | `html`, `id`, `page_meta`, `file_path`, `page` |
+| `page_redirect` | Vanlig GET/HEAD-sidvisning efter läsbehörighetskontroll, före rendering/cache | `id`, `url`, `page`; returnera `redirect_url` för HTTP 302 |
 | `before_save` | Innan sidan sparas — kan modifiera innehåll | `title`, `body`, `meta` |
 | `after_save` | Direkt efter sparning | `id`, `title`, `body` |
 
@@ -502,7 +506,8 @@ php bin/cli.php help
 |----------|--------|
 | Auth kopplad till edit-flödet | Implementerat; lokal inloggning, OIDC och AD. Externa metoder måste konfigureras och aktiveras. |
 | Roll-/gruppbaserad ACL per namespace | Implementerat via config/acl.php och namespace-regler public/login/private. Adminpanelen har separat, befintlig inloggningskontroll utan gruppkrav. |
-| ZIP-import/export | Admin → Webbplats; innehåll återställs utan att befintliga filer skrivs över. |
+| ZIP-import/export | Admin → Webbplats; delad uppladdning och import i omgångar med paus/fortsätt. Befintliga filer bevaras. |
+| Redirect-plugin | Aktiveras i config/plugins.php; YAML-fältet redirect anger målet. Redigeringsläget påverkas inte. |
 | Sökindex | Filgenomsökning räcker för mindre wikis |
 | Historik-visning i UI | Versionshistorik och återställning via artikelns …-meny. |
 | Responsiv mobil-layout | Anpassningar för mobil finns i standardtemat. |

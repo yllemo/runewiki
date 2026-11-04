@@ -1,0 +1,7 @@
+{
+    "name": "redirect",
+    "version": "1.0.0",
+    "description": "Omdirigerar sidvisningar direkt till URL:en i sidans YAML-fält redirect.",
+    "hooks": ["page_redirect"],
+    "options": {}
+}

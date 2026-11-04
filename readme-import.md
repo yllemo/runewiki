@@ -29,13 +29,27 @@ nedladdning. Förvara den med samma åtkomstskydd som originalinnehållet.
 1. Installera RuneWiki och skapa ett lokalt konto som kan öppna adminpanelen.
 2. Kontrollera att PHP kan skriva till `content/` och `data/cache/`.
 3. Öppna **Admin → Webbplats → Importera en wikiexport**.
-4. Välj ZIP-filen och klicka **Importera .zip**.
+4. Välj ZIP-filen och klicka **Importera .zip**. Behåll sidan öppen.
 5. Kontrollera resultatet: antal importerade och överhoppade filer.
 6. Öppna startsidan och några sidor i olika namespaces och kontrollera menyerna.
 
 Filerna hamnar under samma relativa sökväg i `content/`. Innehållet ändras inte:
 namn, taggar, tidsstämplar och övriga metadata följer med exakt som i exporten.
 HTML-cachen rensas efter importförsöket.
+
+Med JavaScript laddas ZIP-filen upp i delar om högst 256 KiB (automatiskt mindre
+om PHP:s gränser kräver det). Därefter importeras normalt högst 25 filer per
+anrop. Förloppsindikatorn visar uppladdning och import. **Pausa** stoppar efter
+aktuellt anrop; **Fortsätt import** återupptar arbetet på samma sida. Vid ett
+nätfel kan du också försöka fortsätta. Upprepade anrop med samma position
+duplicerar inte delar eller redan genomförda omgångar.
+
+Temporära ZIP-filer sparas i `data/imports/`, som PHP måste kunna skriva till.
+De raderas när importen är klar. Övergivna filer äldre än ett dygn städas när
+en ny import startar. Om du laddar om sidan eller sessionen går ut väljer du
+filen på nytt; befintliga innehållsfiler hoppas över som vanligt.
+Utan JavaScript används den äldre engångsuppladdningen, där hela filen måste
+rymmas inom PHP:s uppladdningsgränser.
 
 **Befintliga filer skrivs aldrig över.** En medföljande `start.md` på den nya
 installationen hoppas därför över. Om den ska ersättas: säkerhetskopiera den och
@@ -63,14 +77,35 @@ inställningarna. Enbart ZIP-import återskapar inte den gamla installationens �
 
 ## Gränser och fel
 
-- Max 64 MB uppladdad ZIP, 64 MB uppackat och 16 MB per fil.
-- Max 10 000 arkivposter, inklusive mappar.
-- PHP:s `upload_max_filesize` och `post_max_size` kan sätta lägre gränser.
+- Standard: max 256 MB ZIP, 512 MB uppackat och 32 MB per fil.
+- Max 50 000 arkivposter, inklusive mappar.
+- Ändra gränser och omgångsstorlek direkt i `config/import.php`:
+
+  ```php
+  return [
+      'max_zip_mb' => 256,
+      'max_unpacked_mb' => 512,
+      'max_file_mb' => 32,
+      'max_entries' => 50000,
+      'batch_files' => 25,
+  ];
+  ```
+
+- PHP:s `upload_max_filesize` och `post_max_size` gäller varje uppladdad del.
+  Aktuella värden visas i admin. En liten ZIP kan innehålla mycket större
+  uppackat innehåll; felmeddelandet anger den gräns som behöver kontrolleras.
+- Webbserver/proxy kan ha egna gränser. HTTP 413 betyder normalt att en
+  uppladdning nekats före PHP; kontrollera dess inställningar om det sker även
+  med små delar. Höj inte `max_file_mb` över vad PHP:s minnesgräns klarar:
+  en fil i taget läses till minnet, inte hela arkivets innehåll.
 - ZIP-filen måste ha `content/` överst. Andra rotmappar accepteras inte.
 - Traversering (`..`), symboliska länkar, specialfiler och dubbla sökvägar avvisas.
-- Hela arkivet läses och valideras före skrivning. Vid diskfel under skrivning
+- Arkivets sökvägar och storlekar valideras före skrivning. Filinnehållet läses
+  under respektive importomgång. Vid korrupt fil eller diskfel under skrivning
   kan importen vara delvis genomförd; åtgärda felet och kör igen. Befintliga filer
   bevaras. Tomma mappar utan filer återskapas inte.
 
 Test: `php tests/content-import.php` (kräver ext-zip) kontrollerar sökvägar,
 exakt filinnehåll, befintliga filer och avvisning av otillåtna arkiv.
+Med ext-zip aktiverat testar `php tests/mcp-http.php` dessutom riktig delad
+uppladdning, återförsök, sessions-/CSRF-kontroller och rensning av temporära filer.

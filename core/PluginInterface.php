@@ -11,6 +11,9 @@
  *   after_parse   — körs efter att Markdown parsats till HTML.
  *                   Context: ['html' => string, 'markdown' => string]
  *
+ *   page_redirect — före rendering/cache, efter sidans läsbehörighetskontroll.
+ *                   Context: ['id', 'url', 'page']; returnera redirect_url
+ *                   för HTTP 302. Körs endast vid vanlig sidvisning (GET/HEAD).
  *   page_view     — körs när en sida visas (alltid, även från cache).
  *                   Context: ['id' => string, 'html' => string,
  *                             'page_meta' => array, 'file_path' => string,

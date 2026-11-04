@@ -2,14 +2,23 @@
 /** Import the content/ tree produced by the admin ZIP export. */
 class ContentImport
 {
-    public static function run(string $archive, string $contentDir): array
+    public static function limits(string $root): array
     {
+        $defaults = ['max_zip_mb' => 256, 'max_unpacked_mb' => 512, 'max_file_mb' => 32, 'max_entries' => 50000, 'batch_files' => 25];
+        $config = is_file($root . '/config/import.php') ? require $root . '/config/import.php' : [];
+        foreach ($defaults as $key => $value) $defaults[$key] = max(1, min(1000000, (int) ($config[$key] ?? $value)));
+        return $defaults;
+    }
+
+    public static function run(string $archive, string $contentDir, int $offset = 0, int $batchSize = PHP_INT_MAX, ?array $limits = null): array
+    {
+        $limits ??= self::limits(dirname(__DIR__));
         if (!class_exists('ZipArchive')) throw new RuntimeException('PHP-tillägget zip saknas på servern.');
         $zip = new ZipArchive();
         if ($zip->open($archive) !== true) throw new RuntimeException('Kunde inte läsa ZIP-filen.');
         $files = []; $seen = []; $total = 0;
         try {
-            if ($zip->numFiles > 10000) throw new RuntimeException('Arkivet innehåller för många poster (max 10 000).');
+            if ($zip->numFiles > $limits['max_entries']) throw new RuntimeException('Arkivet innehåller för många poster (max ' . $limits['max_entries'] . ').');
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $stat = $zip->statIndex($i);
                 $name = $stat['name'];
@@ -38,17 +47,23 @@ class ContentImport
                 }
                 if ($directory) continue;
                 $total += $stat['size'];
-                if ($stat['size'] > 16 * 1024 * 1024 || $total > 64 * 1024 * 1024) throw new RuntimeException('Arkivet är för stort (max 16 MB per fil och 64 MB uppackat).');
-                $data = $zip->getFromIndex($i, 16 * 1024 * 1024 + 1);
-                if ($data === false || strlen($data) !== $stat['size']) throw new RuntimeException('En fil i arkivet kunde inte läsas.');
-                $files[$target] = $data;
+                if ($stat['size'] > $limits['max_file_mb'] * 1024 * 1024 || $total > $limits['max_unpacked_mb'] * 1024 * 1024) throw new RuntimeException('Arkivet överskrider gränsen: ' . $limits['max_file_mb'] . ' MB per fil eller ' . $limits['max_unpacked_mb'] . ' MB uppackat. Ändra config/import.php vid behov.');
+                $files[$target] = ['index' => $i, 'size' => $stat['size']];
             }
         } finally { $zip->close(); }
         if (!$files) throw new RuntimeException('Arkivet innehåller inga filer i content/.');
         // Validate the complete archive before writing. Existing files are never overwritten.
-        $result = ['imported' => 0, 'skipped' => 0];
-        foreach ($files as $target => $data) {
+        $result = ['imported' => 0, 'skipped' => 0, 'next' => $offset, 'total' => count($files), 'done' => false];
+        $zip = new ZipArchive();
+        if ($zip->open($archive) !== true) throw new RuntimeException('Kunde inte öppna arkivet för import.');
+        $started = microtime(true);
+        try {
+        foreach (array_slice($files, $offset, $batchSize, true) as $target => $entry) {
+            if ($batchSize !== PHP_INT_MAX && $result['next'] > $offset && microtime(true) - $started > 3) break;
+            $result['next']++;
             if (file_exists($target)) { $result['skipped']++; continue; }
+            $data = $zip->getFromIndex($entry['index'], $limits['max_file_mb'] * 1024 * 1024 + 1);
+            if ($data === false || strlen($data) !== $entry['size']) throw new RuntimeException('En fil kunde inte läsas. Importen kan vara delvis genomförd.');
             $dir = dirname($target);
             if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) throw new RuntimeException('Kunde inte skapa en innehållsmapp. Importen kan vara delvis genomförd.');
             $handle = @fopen($target, 'xb');
@@ -61,6 +76,8 @@ class ContentImport
             }
             $result['imported']++;
         }
+        } finally { $zip->close(); }
+        $result['done'] = $result['next'] >= count($files);
         return $result;
     }
 }

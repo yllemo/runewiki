@@ -60,6 +60,25 @@ header('Cache-Control: no-store');
 $mcpKeys = new McpKeys($root . '/data/users/mcp', $auth);
 $newMcpKey = null;
 
+if (($_GET['do'] ?? '') === 'import_api') {
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { http_response_code(405); throw new RuntimeException('Import kräver POST.'); }
+        if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) {
+            http_response_code(403);
+            throw new RuntimeException(empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
+                ? 'Servern nekade uppladdningsdelen. Kontrollera post_max_size, upload_max_filesize och proxygränsen.'
+                : 'Sessionen har gått ut eller CSRF-token saknas. Ladda om adminpanelen.');
+        }
+        $result = ImportUpload::handle($root, $currentUser, (string) ($_POST['action'] ?? ''), $_POST, $_FILES);
+        echo json_encode(['ok' => true, 'job' => $result]);
+    } catch (Throwable $e) {
+        if (http_response_code() < 400) http_response_code(422);
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+    exit;
+}
+
 /**
  * ?do=export_content — packar hela /content (alla .md-sidor, oavsett
  * namespace) i en .zip och skickar den som nedladdning. Ren läsning, så
@@ -251,8 +270,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($upload['tmp_name'] ?? '')) {
                 throw new RuntimeException('Välj en ZIP-fil. Om uppladdningen misslyckas, kontrollera serverns upload_max_filesize och post_max_size.');
             }
-            if (($upload['size'] ?? 0) > 64 * 1024 * 1024) throw new RuntimeException('ZIP-filen får vara högst 64 MB.');
-            $result = ContentImport::run($upload['tmp_name'], $root . '/content');
+            $limits = ContentImport::limits($root);
+            if (($upload['size'] ?? 0) > $limits['max_zip_mb'] * 1024 * 1024) throw new RuntimeException('ZIP-filen överskrider gränsen i config/import.php.');
+            $result = ContentImport::run($upload['tmp_name'], $root . '/content', 0, PHP_INT_MAX, $limits);
             $success = 'Import klar: ' . $result['imported'] . ' filer importerades, ' . $result['skipped'] . ' befintliga filer hoppades över.';
         } catch (Throwable $e) {
             $errors[] = $e->getMessage();
@@ -858,13 +878,18 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata'
         <a class="gbg-btn gbg-btn-primary" href="/admin/?do=export_content">Ladda ner .zip</a>
         <h3>Importera en wikiexport</h3>
         <p>Välj en tidigare exporterad ZIP. Filerna återställs under <code>content/</code> med samma mappar och filnamn. Befintliga filer hoppas över. Exporten omfattar inte bilder, användare eller inställningar.</p>
-        <form class="gbg-form" method="post" action="/admin/" enctype="multipart/form-data">
+        <form class="gbg-form" method="post" action="/admin/" enctype="multipart/form-data" id="content-import-form">
             <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
             <input type="hidden" name="active_tab" value="webbplats">
             <input type="hidden" name="action" value="import_content">
             <label><span>Exporterad ZIP-fil</span><input type="file" name="content_zip" accept=".zip,application/zip" required></label>
-            <p>Max 64 MB uppackat och 16 MB per fil. Serverns uppladdningsgräns kan vara lägre.</p>
+            <?php $importLimits = ContentImport::limits($root); ?>
+            <p>Filen laddas upp i små delar och importeras i omgångar. Max <?= $importLimits['max_zip_mb'] ?> MB ZIP, <?= $importLimits['max_unpacked_mb'] ?> MB uppackat och <?= $importLimits['max_file_mb'] ?> MB per fil. Gränserna ändras i <code>config/import.php</code>.</p>
+            <p>PHP-gränser per anrop: upload_max_filesize = <?= Helpers::e(ini_get('upload_max_filesize')) ?>, post_max_size = <?= Helpers::e(ini_get('post_max_size')) ?>. Behåll sidan öppen tills importen är klar.</p>
+            <progress id="import-progress" max="100" value="0" hidden style="width:100%" aria-label="Importförlopp"></progress>
+            <p id="import-status" role="status" aria-live="polite"></p>
             <button type="submit" class="gbg-btn gbg-btn-primary">Importera .zip</button>
+            <button type="button" id="import-pause" class="gbg-btn" hidden>Pausa</button>
         </form>
     </fieldset>
 
@@ -883,6 +908,49 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata'
 </div>
 
 <script>
+// Upload in small chunks, then process bounded batches. Offsets make retries idempotent.
+(function () {
+    const form=document.getElementById('content-import-form');
+    if(!form) return;
+    const input=form.querySelector('[name="content_zip"]'), submit=form.querySelector('[type="submit"]');
+    const progress=document.getElementById('import-progress'), status=document.getElementById('import-status'), pause=document.getElementById('import-pause');
+    let job=null, busy=false, paused=false;
+    input.addEventListener('change', ()=>{job=null; submit.textContent='Importera .zip';});
+    pause.onclick=()=>{paused=true; pause.disabled=true; status.textContent='Pausar efter pågående omgång…';};
+    async function call(action, fields={}, chunk=null) {
+        const body=new FormData();
+        body.set('csrf_token', form.querySelector('[name="csrf_token"]').value);
+        body.set('action',action);
+        for(const [key,value] of Object.entries(fields)) body.set(key,String(value));
+        if(chunk) body.set('chunk',chunk,'part.bin');
+        const response=await fetch('/admin/?do=import_api',{method:'POST',body,credentials:'same-origin',headers:{Accept:'application/json'}});
+        let data;
+        try {data=await response.json();} catch(e) {throw new Error('Servern svarade inte med importdata (HTTP '+response.status+'). Kontrollera inloggning och webbserverns uppladdningsgräns.');}
+        if(!response.ok || !data.ok) throw new Error(data.error || 'Importen misslyckades.');
+        return data.job;
+    }
+    form.addEventListener('submit',async event=>{
+        event.preventDefault(); if(busy || !input.files[0]) return;
+        const file=input.files[0]; busy=true; paused=false;
+        submit.disabled=true; input.disabled=true; pause.hidden=false; pause.disabled=false; progress.hidden=false;
+        try {
+            if(!job) job=await call('import_begin',{size:file.size});
+            while(job.received<file.size && !paused) {
+                status.textContent='Laddar upp ZIP: '+Math.floor(job.received/file.size*100)+' %';
+                progress.value=job.received/file.size*50;
+                job=await call('import_chunk',{id:job.id,offset:job.received},file.slice(job.received,job.received+job.chunk_size));
+            }
+            while(job.received===file.size && !job.done && !paused) {
+                status.textContent=job.total ? 'Importerar: '+job.next+' / '+job.total+' filer' : 'Validerar ZIP och förbereder import…';
+                progress.value=50+(job.total?job.next/job.total*50:0);
+                job=await call('import_step',{id:job.id,offset:job.next});
+            }
+            if(job.done) {progress.value=100; status.textContent='Import klar: '+job.imported+' importerade, '+job.skipped+' befintliga filer hoppades över.'; job=null; input.value='';}
+            else status.textContent='Pausad. Klicka Fortsätt import för att fortsätta.';
+        } catch(error) {status.textContent=error.message+' Du kan försöka fortsätta, eller välja filen igen för att börja om. Befintliga filer bevaras.';}
+        finally {busy=false; submit.disabled=false; input.disabled=false; pause.hidden=true; submit.textContent=job?'Fortsätt import':'Importera .zip';}
+    });
+})();
 (function () {
     var tabs = document.querySelectorAll('.gbg-admin-tab');
     var panels = document.querySelectorAll('.gbg-admin-panel');

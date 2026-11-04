@@ -26,3 +26,4 @@ vendor/
 !.env.example
 *.log
 /mcp/log.txt
+/data/imports/

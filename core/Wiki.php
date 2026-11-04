@@ -275,6 +275,15 @@ class Wiki
         }
 
         $filePath = $id->toFilePath($this->root . '/content');
+        $page = $this->pages->load($id);
+        if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
+            $redirect = $this->plugins->trigger('page_redirect', ['id' => $id->id(), 'url' => $id->url(), 'page' => $page]);
+            if (!empty($redirect['redirect_url'])) {
+                header('Cache-Control: private, no-store');
+                header('Location: ' . $redirect['redirect_url'], true, 302);
+                return '';
+            }
+        }
         $authenticated = $this->auth->currentUser() !== null;
         $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath) . '-parser-' . Parser::VERSION
             . '-auth-' . (int) $authenticated;
@@ -283,7 +292,6 @@ class Wiki
         $dynamicPage = $this->plugins->hasHook('page_markdown');
         $bodyHtml = $cacheTitles && !$dynamicPage ? $this->cache->get($cacheKey) : null;
 
-        $page = $this->pages->load($id);
         if ($bodyHtml === null) {
             $markdown = $this->plugins->trigger('page_markdown', [
                 'id' => $id->id(), 'markdown' => $page['body'], 'authenticated' => $authenticated,

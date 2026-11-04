@@ -7,6 +7,7 @@ class Metadata
         return [
             'name' => ['label' => 'Namn', 'snippet' => 'name: ${1:Namn}'],
             'title' => ['label' => 'Titel', 'snippet' => 'title: ${1:Titel}'],
+            'redirect' => ['label' => 'Omdirigering (redirect-plugin)', 'snippet' => 'redirect: ${1:https://example.com}'],
             'tags' => ['label' => 'Taggar', 'snippet' => "tags:\n  - \${1:example}"],
             'type' => ['label' => 'OKF: begreppstyp', 'snippet' => 'type: ${1|Reference,Playbook,API Endpoint,Metric,Attested Computation|}'],
             'description' => ['label' => 'Beskrivning', 'snippet' => 'description: ${1:Kort sammanfattning}'],

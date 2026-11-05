@@ -97,8 +97,10 @@ inställningarna. Enbart ZIP-import återskapar inte den gamla installationens �
   uppackat innehåll; felmeddelandet anger den gräns som behöver kontrolleras.
 - Webbserver/proxy kan ha egna gränser. HTTP 413 betyder normalt att en
   uppladdning nekats före PHP; kontrollera dess inställningar om det sker även
-  med små delar. Höj inte `max_file_mb` över vad PHP:s minnesgräns klarar:
-  en fil i taget läses till minnet, inte hela arkivets innehåll.
+  med små delar. Filinnehåll packas upp direkt till disk i block om 64 KiB,
+  även utan JavaScript. Hela filer laddas inte till minnet. Listan över
+  arkivposter och övriga delar av applikationen behöver fortfarande minne.
+  Storlek och CRC-kontrollsumma verifieras; ofullständiga filer tas bort.
 - ZIP-filen måste ha `content/` överst. Andra rotmappar accepteras inte.
 - Traversering (`..`), symboliska länkar, specialfiler och dubbla sökvägar avvisas.
 - Arkivets sökvägar och storlekar valideras före skrivning. Filinnehållet läses
@@ -108,5 +110,9 @@ inställningarna. Enbart ZIP-import återskapar inte den gamla installationens �
 
 Test: `php tests/content-import.php` (kräver ext-zip) kontrollerar sökvägar,
 exakt filinnehåll, befintliga filer och avvisning av otillåtna arkiv.
+`php tests/import-memory.php` testar både engångsimport och import i omgångar
+med 128 MB minnesgräns, 100 MB simulerat applikationsminne och 160 MB uppackat
+innehåll. På OpenShift måste den uppdaterade `core/ContentImport.php` finnas i
+den körande containern; bygg och rulla ut den nya versionen innan omtest.
 Med ext-zip aktiverat testar `php tests/mcp-http.php` dessutom riktig delad
 uppladdning, återförsök, sessions-/CSRF-kontroller och rensning av temporära filer.

@@ -48,9 +48,10 @@ class ContentImport
                 if ($directory) continue;
                 $total += $stat['size'];
                 if ($stat['size'] > $limits['max_file_mb'] * 1024 * 1024 || $total > $limits['max_unpacked_mb'] * 1024 * 1024) throw new RuntimeException('Arkivet överskrider gränsen: ' . $limits['max_file_mb'] . ' MB per fil eller ' . $limits['max_unpacked_mb'] . ' MB uppackat. Ändra config/import.php vid behov.');
-                $files[$target] = ['index' => $i, 'size' => $stat['size']];
+                $files[$target] = ['index' => $i, 'size' => $stat['size'], 'crc' => sprintf('%08x', $stat['crc'])];
             }
         } finally { $zip->close(); }
+        unset($seen);
         if (!$files) throw new RuntimeException('Arkivet innehåller inga filer i content/.');
         // Validate the complete archive before writing. Existing files are never overwritten.
         $result = ['imported' => 0, 'skipped' => 0, 'next' => $offset, 'total' => count($files), 'done' => false];
@@ -62,17 +63,37 @@ class ContentImport
             if ($batchSize !== PHP_INT_MAX && $result['next'] > $offset && microtime(true) - $started > 3) break;
             $result['next']++;
             if (file_exists($target)) { $result['skipped']++; continue; }
-            $data = $zip->getFromIndex($entry['index'], $limits['max_file_mb'] * 1024 * 1024 + 1);
-            if ($data === false || strlen($data) !== $entry['size']) throw new RuntimeException('En fil kunde inte läsas. Importen kan vara delvis genomförd.');
             $dir = dirname($target);
             if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) throw new RuntimeException('Kunde inte skapa en innehållsmapp. Importen kan vara delvis genomförd.');
             $handle = @fopen($target, 'xb');
             if (!$handle) throw new RuntimeException('Kunde inte skapa en fil. Importen kan vara delvis genomförd.');
-            $written = fwrite($handle, $data);
-            fclose($handle);
-            if ($written !== strlen($data)) {
-                unlink($target);
-                throw new RuntimeException('Kunde inte skriva hela filen. Importen kan vara delvis genomförd.');
+            $stream = false;
+            $complete = false;
+            try {
+                // Stream decompressed bytes: even a large entry needs only a small buffer.
+                $stream = $zip->getStream($zip->getNameIndex($entry['index']));
+                if (!$stream) throw new RuntimeException('En fil kunde inte läsas. Importen kan vara delvis genomförd.');
+                $size = 0;
+                $crc = hash_init('crc32b');
+                while (!feof($stream)) {
+                    $chunk = fread($stream, 65536);
+                    if ($chunk === false || ($chunk === '' && !feof($stream))) throw new RuntimeException('Kunde inte läsa hela filen.');
+                    $length = strlen($chunk);
+                    $size += $length;
+                    if ($size > $entry['size']) throw new RuntimeException('Filens storlek stämmer inte med arkivet.');
+                    hash_update($crc, $chunk);
+                    for ($position = 0; $position < $length; $position += $written) {
+                        $written = fwrite($handle, substr($chunk, $position));
+                        if ($written === false || $written === 0) throw new RuntimeException('Kunde inte skriva hela filen.');
+                    }
+                }
+                if ($size !== $entry['size'] || hash_final($crc) !== $entry['crc']) throw new RuntimeException('Filens storlek eller kontrollsumma stämmer inte med arkivet.');
+                if (!fflush($handle)) throw new RuntimeException('Kunde inte spara hela filen.');
+                $complete = true;
+            } finally {
+                if (is_resource($stream)) fclose($stream);
+                fclose($handle);
+                if (!$complete) unlink($target);
             }
             $result['imported']++;
         }

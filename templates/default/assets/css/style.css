@@ -1714,3 +1714,24 @@ button.tag-pick-btn:hover { background: var(--accent-hover); }
   .gbg-admin-metadata-table :is(th, td) { padding: .65rem .5rem; }
   .gbg-admin .gbg-admin-tabs { margin-bottom: 1.25rem; }
 }
+
+/* Article collaboration uses the standard wiki theme and rendering. */
+.gbg-colab-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin-bottom:1rem; }
+.gbg-colab-columns { display:grid; grid-template-columns:minmax(0, 1.6fr) minmax(280px, 1fr); gap:1.5rem; align-items:start; }
+.gbg-colab-article { min-width:0; }
+.gbg-colab-panel { min-width:0; padding:1rem; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-subtle); }
+.gbg-colab-panel h2 { margin-top:0; }
+.gbg-colab-panel :is(input,textarea,select) { max-width:100%; box-sizing:border-box; background:var(--bg-color); color:var(--text-color); border:1px solid var(--border-color); border-radius:5px; padding:.5rem; }
+.gbg-colab-panel textarea { width:100%; resize:vertical; }
+.gbg-colab-panel form { display:flex; flex-direction:column; gap:.75rem; }
+.gbg-colab-comment { border-top:1px solid var(--border-color); padding:1rem 0; overflow-wrap:anywhere; }
+.gbg-colab-comment > small { display:block; color:var(--text-secondary); }
+.gbg-colab-comment > p { white-space:pre-wrap; }
+.gbg-colab-comment blockquote, #colab-context { font-size:.85rem; color:var(--text-secondary); max-height:8rem; overflow:auto; }
+.gbg-colab-reply { margin-left:1rem; padding-left:.75rem; border-left:2px solid var(--border-color); }
+.gbg-colab-comment.is-resolved > strong { color:var(--text-secondary); }
+.gbg-colab-trigger { float:right; position:relative; z-index:1; border:1px solid var(--border-color); border-radius:5px; background:var(--bg-color); color:var(--text-secondary); cursor:pointer; padding:.2rem .4rem; margin:.25rem 0 .25rem .5rem; }
+.gbg-colab-trigger:focus-visible { outline:2px solid var(--accent); }
+.gbg-colab-block.has-comments { border-right:2px solid var(--accent); padding-right:.5rem; }
+@media(max-width:850px) { .gbg-colab-columns { grid-template-columns:minmax(0,1fr); } }
+.gbg-colab [hidden] { display: none !important; }

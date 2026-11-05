@@ -67,6 +67,7 @@ säkerhetskopiera och överföra följande via serverns filåtkomst:
 | `config/` | Webbplatsinställningar, namespaces, ACL, auth, metadata och MCP-inställningar |
 | `data/users/` | Lokala konton och eventuella personliga MCP-nycklar |
 | `data/history/` | Versionshistorik |
+| `data/comments/` | Artikelkommentarer och svarstrådar |
 | Egna mallar/plugins/skills | Anpassningar som inte ingår i standardinstallationen |
 
 Flytta inte serverhemligheter slentrianmässigt till en ny miljö. Kontrollera

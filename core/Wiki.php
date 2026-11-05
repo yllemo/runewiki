@@ -91,6 +91,7 @@ class Wiki
             'metadata'     => $this->handleMetadata($intent['id']),
             'reader'       => $this->handleReader($intent['id']),
             'focus'        => $this->handleFocus($intent['id']),
+            'colab'        => $this->handleColab($intent['id']),
             'edit'         => $this->handleEdit($intent['id']),
             'save'         => $this->handleSave($intent['id']),
             'form'         => $this->handleForm($intent['id']),
@@ -350,6 +351,49 @@ class Wiki
             'metadata' => $page['meta'], 'metadataSettings' => Metadata::settings($this->root)]);
         return $this->templates->render('layout', $this->baseData($id, ['view' => 'metadata', 'pageId' => $id,
             'page' => ['title' => 'Metadata – ' . $page['title']], 'bodyHtml' => $html]));
+    }
+
+    private function handleColab(string $rawId): string
+    {
+        $id = new PageId($rawId);
+        if (!$this->canReadNamespace($id->namespace())) return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
+        $page = $this->pages->load($id);
+        if (!$page) { http_response_code(404); return 'Sidan hittades inte.'; }
+        header('Cache-Control: private, no-store');
+        $store = new Comments($this->root . '/data/comments');
+        $user = $this->auth->currentUser();
+        $moderate = $user !== null && $this->canEditNamespace($id->namespace());
+        $operation = (string) ($_GET['op'] ?? '');
+        try {
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+                if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) return $this->jsonResponse(['error' => 'Sessionen har gått ut. Ladda om sidan.'], 403);
+                $action = (string) ($_POST['action'] ?? 'add');
+                if ($action !== 'add' && (!$moderate || !in_array($action, ['resolve', 'delete'], true))) return $this->jsonResponse(['error' => 'Du saknar rätt att ändra kommentarer.'], 403);
+                if ($action === 'add') {
+                    if (time() - ($_SESSION['comment_last'] ?? 0) < 5) return $this->jsonResponse(['error' => 'Vänta några sekunder mellan kommentarerna.'], 429);
+                    $visible = Comments::text($this->parser->toHtml($page['body']));
+                    $public = Comments::text($this->parser->toHtml(MarkdownVisibility::filter($page['body'], false)));
+                    $items = $store->change($id->id(), fn ($items) => Comments::add($items, $_POST, $user, $visible, $public));
+                    $_SESSION['comment_last'] = time();
+                } else $items = $store->change($id->id(), fn ($items) => Comments::moderate($items, (string) ($_POST['id'] ?? ''), $action));
+                return $this->jsonResponse(['comments' => Comments::visible($items, $user !== null)]);
+            }
+            $items = Comments::visible($store->read($id->id()), $user !== null);
+            if ($operation === 'list') return $this->jsonResponse(['comments' => $items]);
+            if (in_array($operation, ['export-json', 'export-text'], true)) {
+                $json = $operation === 'export-json';
+                header('Content-Type: ' . ($json ? 'application/json' : 'text/plain') . '; charset=utf-8');
+                header('Content-Disposition: attachment; filename="' . str_replace(':', '_', $id->id()) . '-kommentarer.' . ($json ? 'json' : 'txt') . '"');
+                if ($json) return json_encode(['page' => $id->id(), 'comments' => $items], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                $text = 'Kommentarer: ' . $page['title'] . "\n\n";
+                foreach ($items as $c) $text .= '[' . ($c['resolved'] ? 'Löst' : 'Öppen') . '] ' . $c['author'] . ($c['authenticated'] ? '' : ' (gäst)') . ' — ' . $c['created'] . "\nID: " . $c['id'] . ($c['parent'] ? ' | Svar på: ' . $c['parent'] : '') . "\n" . ($c['quote'] ? '> ' . $c['quote'] . "\n" : '') . $c['text'] . "\n\n";
+                return $text;
+            }
+            $html = $this->templates->render('colab', ['pageId' => $id, 'page' => $page, 'articleHtml' => $this->parser->toHtml($page['body']), 'comments' => $items, 'canModerate' => $moderate, 'currentUser' => $user, 'assetUrl' => fn ($p) => $this->templates->assetUrl($p)]);
+            return $this->templates->render('layout', $this->baseData($id, ['view' => 'colab', 'pageId' => $id, 'page' => ['title' => 'Samarbeta – ' . $page['title']], 'bodyHtml' => $html]));
+        } catch (Throwable $e) {
+            return $this->jsonResponse(['error' => $e instanceof RuntimeException ? $e->getMessage() : 'Kunde inte läsa eller spara kommentarer.'], 422);
+        }
     }
 
     private function handleFocus(string $rawId): string

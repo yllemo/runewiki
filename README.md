@@ -16,6 +16,7 @@ och behörighetskontroll. Se [MCP-konfiguration och säkerhet](readme-mcp.md).
 - [MCP: personliga nycklar, klientanslutning och felsökning](readme-mcp.md)
 - [Projektstruktur och arkitektur](STRUCTURE.md)
 - [Redirect-plugin: omdirigera en sida till en annan URL](plugins/redirect/README.md)
+- [Samarbeta: gästkommentarer, trådar och export](readme-colab.md)
 
 ## Krav
 

@@ -75,6 +75,7 @@ class Router
 
         $action = match (true) {
             $do === 'metadata' => 'metadata',
+            $do === 'colab' => 'colab',
             $do === 'reader' => 'reader',
             $do === 'focus' => 'focus',
             $do === 'move' => 'move',

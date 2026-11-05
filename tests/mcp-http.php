@@ -81,6 +81,31 @@ PHP);
     check($page['status'] === 200 && str_contains($page['body'], 'Min MCP-nyckel'), 'Admin renders MCP tab');
     check((bool) preg_match('/name="csrf_token" value="([^"]+)"/', $page['body'], $m), 'Admin CSRF token');
     $csrf = $m[1];
+    $colab = request($base . '/start?do=colab');
+    check($colab['status'] === 200 && !str_contains($colab['body'], 'HTTP_HIDDEN_SECRET'), 'Guest collaboration respects ifAuth');
+    preg_match('/name="csrf_token" value="([^"]+)"/', $colab['body'], $colabToken);
+    $guestCookie = '';
+    foreach ($colab['headers'] as $header) if (preg_match('/^Set-Cookie: ([^;]+)/i', $header, $match)) $guestCookie = $match[1];
+    $guestHeaders = ['Cookie: ' . $guestCookie, 'Content-Type: application/x-www-form-urlencoded'];
+    $comment = ['csrf_token' => $colabToken[1], 'action' => 'add', 'name' => 'Guest tester', 'text' => 'Guest review', 'quote' => 'Visible'];
+    $posted = request($base . '/start?do=colab', 'POST', $guestHeaders, http_build_query($comment));
+    check($posted['status'] === 200 && count(json_decode($posted['body'], true)['comments']) === 1, 'Guest can save comment without account');
+    $commentId = json_decode($posted['body'], true)['comments'][0]['id'];
+    $denied = ['csrf_token' => $colabToken[1], 'action' => 'delete', 'id' => $commentId];
+    check(request($base . '/start?do=colab', 'POST', $guestHeaders, http_build_query($denied))['status'] === 403, 'Guests cannot delete comments');
+    unset($denied['csrf_token']);
+    check(request($base . '/start?do=colab', 'POST', $guestHeaders, http_build_query($denied))['status'] === 403, 'Comments require CSRF');
+    $privateComment = ['csrf_token' => $csrf, 'action' => 'add', 'text' => 'PRIVATE_REVIEW', 'quote' => 'HTTP_HIDDEN_SECRET'];
+    $memberHeaders = ['Cookie: ' . $cookie, 'Content-Type: application/x-www-form-urlencoded'];
+    check(request($base . '/start?do=colab', 'POST', $memberHeaders, http_build_query($privateComment))['status'] === 200, 'Member can comment on private text');
+    foreach (['list', 'export-json', 'export-text'] as $op) {
+        $guestComments = request($base . '/start?do=colab&op=' . $op);
+        check(str_contains($guestComments['body'], 'Guest review') && !str_contains($guestComments['body'], 'PRIVATE_REVIEW') && !str_contains($guestComments['body'], 'HTTP_HIDDEN_SECRET'), 'Guest list/export excludes private comments');
+    }
+    $resolve = ['csrf_token' => $csrf, 'action' => 'resolve', 'id' => $commentId];
+    $resolved = request($base . '/start?do=colab', 'POST', $memberHeaders, http_build_query($resolve));
+    check(json_decode($resolved['body'], true)['comments'][0]['resolved'] === true, 'Editor can resolve thread');
+    echo "PASS: anonymous collaboration, CSRF, moderation and private comment exports\n";
     $editRedirect = request($base . '/redirect-test?do=edit', 'GET', ['Cookie: ' . $cookie]);
     check($editRedirect['status'] === 200 && str_contains($editRedirect['body'], 'https://example.com/target'), 'Redirect page remains editable');
     if (extension_loaded('zip')) {

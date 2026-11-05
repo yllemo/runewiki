@@ -27,3 +27,4 @@ vendor/
 *.log
 /mcp/log.txt
 /data/imports/
+/data/comments/

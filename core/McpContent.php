@@ -36,6 +36,7 @@ class McpContent
         try { $raw = stream_get_contents($stream, self::MAX_PAGE_BYTES + 1); }
         finally { fclose($stream); }
         if ($raw === false || strlen($raw) > self::MAX_PAGE_BYTES) return null;
+        if (!PageAccess::canReadRaw($raw, ($identity['ifAuth'] ?? false) === true)) return null;
         $raw = MarkdownVisibility::filter($raw, ($identity['ifAuth'] ?? false) === true);
         [$meta, $body] = FrontMatter::parse($raw);
         return ['id' => $id->id(), 'title' => PageLoader::displayTitle($id, $meta, $body), 'markdown' => $raw];

@@ -17,6 +17,8 @@ och behörighetskontroll. Se [MCP-konfiguration och säkerhet](readme-mcp.md).
 - [Projektstruktur och arkitektur](STRUCTURE.md)
 - [Redirect-plugin: omdirigera en sida till en annan URL](plugins/redirect/README.md)
 - [Samarbeta: feedback i popup, åtkomstinställningar och export](readme-colab.md)
+- [Editor: helskärm och import av Markdown, Word, HTML och PDF](readme-editor.md)
+- [Inloggningskrav per sida med YAML-frontmatter](readme-page-access.md)
 
 ## Krav
 
@@ -73,6 +75,9 @@ vill, det är bara ett förslag på en första struktur.
   `[[demo:demo|Demo av detta]]`. Den insatta länktexten är fast; skriv
   `[[demo:demo]]` om texten ska följa sidans framtida rubrikändringar.
 - Spara-knapp både ovanför och nedanför editorn
+- Helskärmsläge och dokumentimport med förhandsgranskning, infoga/ersätt och
+  ångra. Stöd för Markdown, text, HTML, DOCX och textbaserad PDF — se
+  [editorguiden](readme-editor.md).
 - "AI Chat"-knapp direkt ovanför sidans innehåll (bredvid Redigera/Sök
   liknande) öppnar `/chat` med just den sidan redan laddad i kontexten
 - **Ladda ner .md** i artikelns …-meny följer sidans läsbehörighet.
@@ -341,9 +346,9 @@ skrivskyddade JSON-endpoints som chattens JS använder:
 wikin (se "Finmaskig ACL per namespace och grupp") — en sida i ett
 namespace man saknar läsrätt till visas eller hittas inte via `/chat`
 heller, oavsett om man frågar direkt eller via ett `/search`/`/files`-
-kommando. Undantaget är skills `include`-fält i `SKILL.md`
-(`?action=get-skill`): en skill som en admin skapat kan medvetet bunta in
-valfria sidor, ACL-filtreras inte.
+kommando. Samma kontroll gäller wikiinnehåll i skills `include`-fält
+(`?action=get-skill`). Alla dessa ytor respekterar även
+[`require_login: true` i frontmatter](readme-page-access.md).
 
 ### Skapa en skill
 
@@ -470,7 +475,9 @@ här installationen, med ett standardkonto klart att logga in med:
 > `/admin/` så snart du kan — det sparas då som en riktig bcrypt-hash.
 
 Sätt `auth_enabled: false` istället för en helt öppen wiki (alla kan läsa
-och redigera, ingen inloggning behövs, ACL nedan gör då ingenting). Med
+och redigera, ingen inloggning behövs, ACL nedan gör då ingenting).
+`require_login: true` i sidans frontmatter kräver ändå inloggning för just den
+sidan. Med `auth_enabled` satt till
 `true` gäller som grundregel: läsning är öppet för alla, men redigering/
 spara/radera/media-uppladdning kräver inloggning
 (`core/Auth.php::canEdit()`, tillämpas i `core/Wiki.php`). Ett försök att

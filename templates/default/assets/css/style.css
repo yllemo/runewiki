@@ -691,6 +691,7 @@ img { max-width: 100%; border-radius: var(--radius); }
 /* ── Wikilänkar (genereras av Parser.php) ────────────────────────── */
 
 a.wikilink-exists { color: var(--link-color); }
+.wikilink-lock { display:inline-block; width:.85em; height:.85em; vertical-align:-.05em; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 
 a.wikilink-new {
   color: var(--gs-red);
@@ -1082,6 +1083,19 @@ a.media-download {
   border-radius: 4px;
   overflow: hidden;
 }
+
+body.gbg-editor-fullscreen { overflow:hidden; }
+body.gbg-editor-fullscreen .gbg-media-picker-modal { z-index:1200; }
+.gbg-edit .gbg-editor-toolbar-actions { flex-wrap:wrap; }
+#edit-form.is-fullscreen { position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column; padding:.75rem; margin:0; box-sizing:border-box; background:var(--bg-color); }
+#edit-form.is-fullscreen .gbg-editor-toolbar { flex-shrink:0; flex-wrap:wrap; }
+#edit-form.is-fullscreen .gbg-monaco-container { flex:1; height:0; min-height:0; }
+#edit-form.is-fullscreen .gbg-edit-actions { display:none; }
+.gbg-import-dialog { width:min(850px, calc(100vw - 2rem)); max-height:calc(100dvh - 2rem); box-sizing:border-box; overflow:auto; padding:1.5rem; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-color); }
+.gbg-import-dialog::backdrop { background:#0006; }
+.gbg-import-dialog h2 { margin-top:0; }
+#editor-import-preview { display:block; width:100%; box-sizing:border-box; margin:.5rem 0 1rem; padding:.75rem; resize:vertical; font-family:monospace; background:var(--bg-subtle); color:var(--text-color); border:1px solid var(--border-color); }
+.gbg-import-dialog .gbg-editor-toolbar-actions { flex-wrap:wrap; }
 
 /* Dra-och-släpp-överlägg — se "media-dropzone" i templates/default/edit.php.
    pointer-events: none så överlägget aldrig blir själva drop-målet; det

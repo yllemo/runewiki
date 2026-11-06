@@ -1,5 +1,9 @@
 # Alternativ inloggning
 
+Enskilda sidor kan kräva inloggning med `require_login: true` i YAML-frontmatter.
+Det fungerar med både lokala konton, OIDC och AD samt gäller oberoende av
+`auth_enabled`. Se [åtkomstskydd per sida](readme-page-access.md).
+
 [README](README.md) · [Flytta till en annan installation](readme-import.md) · [MCP](readme-mcp.md)
 
 RuneWiki stöder lokala konton, OAuth 2.0-inloggning via **OpenID Connect (OIDC)**

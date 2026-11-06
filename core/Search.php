@@ -9,7 +9,7 @@
 
 class Search
 {
-    public function __construct(private string $contentDir)
+    public function __construct(private string $contentDir, private ?PageLoader $pages = null)
     {
     }
 
@@ -22,7 +22,7 @@ class Search
         }
 
         $results = [];
-        $loader  = new PageLoader($this->contentDir);
+        $loader  = $this->pages ?? new PageLoader($this->contentDir);
 
         // Om söktermen ser ut som ett sid-ID, t.ex. "namespace:sida" eller
         // ":namespace:sida" (ett inledande ":" adresserar explicit från
@@ -84,7 +84,7 @@ class Search
         }
 
         $results = [];
-        $loader  = new PageLoader($this->contentDir);
+        $loader  = $this->pages ?? new PageLoader($this->contentDir);
 
         foreach ($loader->listAll() as $id) {
             $pageId = new PageId($id);
@@ -122,7 +122,7 @@ class Search
         $wantRoot = ($ns === '' || strcasecmp($ns, '_root') === 0);
 
         $results = [];
-        $loader  = new PageLoader($this->contentDir);
+        $loader  = $this->pages ?? new PageLoader($this->contentDir);
 
         foreach ($loader->listAll() as $id) {
             $pageId = new PageId($id);

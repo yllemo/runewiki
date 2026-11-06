@@ -22,6 +22,8 @@ $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
         <div class="gbg-editor-toolbar">
             <label for="monaco-container">Innehåll (Markdown)</label>
             <div class="gbg-editor-toolbar-actions">
+                <button type="button" id="editor-import-btn" class="gbg-btn gbg-btn-outline" disabled>Importera fil</button>
+                <button type="button" id="editor-fullscreen-btn" class="gbg-btn gbg-btn-outline" aria-pressed="false" disabled>Helskärm</button>
                 <span id="media-upload-status" class="gbg-upload-inline-status" aria-live="polite"></span>
                 <button type="button" id="media-upload-btn" class="gbg-btn gbg-btn-outline">Ladda upp bild</button>
                 <input type="file" id="media-upload-file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg" multiple hidden>
@@ -45,6 +47,22 @@ $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
         </div>
     </form>
 </article>
+
+<dialog id="editor-import-dialog" class="gbg-import-dialog" aria-labelledby="editor-import-heading">
+    <button type="button" id="editor-import-close" class="gbg-btn gbg-btn-outline" aria-label="Stäng import" style="float:right">✕</button>
+    <h2 id="editor-import-heading">Importera till Markdown</h2>
+    <p>Välj Markdown, text, HTML, Word (.docx) eller PDF, högst 25 MB. Filen konverteras i din webbläsare. Granska resultatet innan du infogar det.</p>
+    <input type="file" id="editor-import-file" accept=".md,.markdown,.txt,.html,.htm,.docx,.pdf" aria-label="Fil att importera">
+    <p id="editor-import-status" role="status" aria-live="polite"></p>
+    <label for="editor-import-preview">Markdown att infoga</label>
+    <textarea id="editor-import-preview" rows="14" spellcheck="false"></textarea>
+    <div class="gbg-editor-toolbar-actions">
+        <button type="button" id="editor-import-insert" class="gbg-btn gbg-btn-primary" disabled>Infoga vid markören</button>
+        <button type="button" id="editor-import-replace" class="gbg-btn gbg-btn-outline" disabled>Ersätt hela innehållet</button>
+    </div>
+    <p class="gbg-hint">Word-bilder importeras inte. PDF läses som text; tabeller och spalter kan behöva justeras. Skannade PDF:er kräver OCR. Ändringen kan ångras med Ctrl+Z och sparas först när du väljer Spara.</p>
+</dialog>
+<script src="<?= Helpers::e($assetUrl('js/editor-tools.js')) ?>"></script>
 
 <script>
 window.WIKI_PAGES     = <?= $allPagesJson ?>;
@@ -91,6 +109,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         });
 
         var Snippet = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
+        window.WikiEditorTools(editor);
         var Kind    = monaco.languages.CompletionItemKind;
 
         // ── Helpers ─────────────────────────────────────────────────────

@@ -54,7 +54,6 @@ class Wiki
         //   2. config/namespaces.php — ett namespace kan ha en egen 'menu'-
         //      nyckel (se settingsFor()) som används när _topbar.md saknas.
         //   3. config/menu.php — global fallback-meny.
-        $this->topbarMenu  = Helpers::loadTopbarMenu($contentDir);
         $this->defaultMenu = Helpers::loadConfig($this->root . '/config/menu.php');
 
         // Alla texter i temats header/footer (tagline, sidfotstexter, knapp-
@@ -65,26 +64,32 @@ class Wiki
         $this->plugins = new PluginManager();
         $this->plugins->loadEnabled($pluginConfig, $pluginsDir);
 
-        $this->pages      = new PageLoader($contentDir);
+        $this->pages      = new PageLoader($contentDir, fn (PageId $id, ?string $raw = null) => $this->canReadPage($id, $raw));
         $this->references = new References($this->pages, $interwikiConfig);
         $this->media      = new Media($mediaDir, $mediaConfig);
         $this->parser     = new Parser($interwikiConfig, $this->pages, $this->plugins,
-            fn (PageId $id) => $this->canReadNamespace($id->namespace()),
+            fn (PageId $id) => $this->canReadPage($id),
             fn () => $this->auth->currentUser() !== null);
         $this->templates  = new TemplateEngine($templatesDir, $config['theme'] ?? 'default');
         $this->cache      = new Cache($dataDir . '/cache', (bool) ($config['cache_enabled'] ?? true));
-        $this->search     = new Search($contentDir);
+        $this->search     = new Search($contentDir, $this->pages);
         $this->auth       = new Auth($dataDir . '/users/users.php', (bool) ($config['auth_enabled'] ?? false), (int) ($config['session_lifetime_days'] ?? 30));
         $this->acl        = new Acl($aclConfig['groups'] ?? []);
         $this->aclConfigured = !empty($aclConfig['groups']);
         $this->history    = new History($dataDir . '/history', (bool) ($config['history_enabled'] ?? true));
         $this->namespaces = new NamespaceResolver($namespaceConfig);
+        $this->topbarMenu = Helpers::loadTopbarMenu($contentDir, $this->pages);
     }
 
     public function run(): void
     {
+        header('Cache-Control: private, no-store');
         $router  = new Router();
         $intent  = $router->resolve($_SERVER['REQUEST_URI'] ?? '/', $_SERVER['REQUEST_METHOD'] ?? 'GET');
+        if ($intent['id'] !== null && !$this->canReadPage(new PageId($intent['id']))) {
+            echo $this->accessDenied((new PageId($intent['id']))->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
+            return;
+        }
 
         echo match ($intent['action']) {
             'view'         => $this->handleView($intent['id']),
@@ -122,10 +127,18 @@ class Wiki
     }
 
     /**
-     * Läsrätt för $namespace — se config/namespaces.php:s 'acl'-kommentar
-     * (public/login/private). Bara verksamt när auth_enabled är true;
-     * annars (standard) är hela wikin öppen, som innan ACL fanns.
+     * Namespace-ACL plus page frontmatter. The page login requirement is
+     * enforced even when auth_enabled is false. Check the loaded snapshot too.
      */
+    private function canReadPage(PageId $id, ?string $raw = null): bool
+    {
+        return $this->canReadNamespace($id->namespace())
+            && ($raw === null
+                ? PageAccess::canReadFile($id->toFilePath($this->root . '/content'), $this->auth->currentUser() !== null)
+                : PageAccess::canReadRaw($raw, $this->auth->currentUser() !== null));
+    }
+
+    /** Namespace rules retain their existing auth_enabled behavior. */
     private function canReadNamespace(string $namespace): bool
     {
         if (!$this->auth->isEnabled()) {
@@ -289,7 +302,8 @@ class Wiki
         $cacheKey = 'page:' . $id->id() . ':' . filemtime($filePath) . '-parser-' . Parser::VERSION
             . '-auth-' . (int) $authenticated;
         // Länktitlar kan bero på besökarens läsrättigheter.
-        $cacheTitles = !$this->aclConfigured && empty($this->config['auth_enabled']);
+        $cacheTitles = !$this->aclConfigured && empty($this->config['auth_enabled'])
+            && !str_contains($page['body'], '[[') && !str_contains($page['body'], '](');
         $dynamicPage = $this->plugins->hasHook('page_markdown');
         $bodyHtml = $cacheTitles && !$dynamicPage ? $this->cache->get($cacheKey) : null;
 
@@ -315,7 +329,7 @@ class Wiki
         // avslöja att de källsidorna existerar.
         $backlinks = array_values(array_filter(
             $this->references->backlinks($id),
-            fn (array $source) => $this->canReadNamespace((new PageId($source['id']))->namespace())
+            fn (array $source) => $this->canReadPage(new PageId($source['id']))
         ));
 
         $renderedPage = $this->templates->render('page', [
@@ -489,12 +503,13 @@ class Wiki
             'error' => $error,
             'pageId'    => $id,
             'body'      => $submittedRaw ?? $existing['raw'] ?? $newBody,
+            'assetUrl'  => fn ($p) => $this->templates->assetUrl($p),
             'isNew'     => $existing === null,
             'allPages'  => array_map(function (string $rawId): array {
                 $pageId = new PageId($rawId);
                 return ['id' => $rawId, 'title' => $this->pages->load($pageId)['title'] ?? $pageId->title()];
             }, array_values(array_filter($this->pages->listAll(),
-                fn (string $rawId) => $this->canReadNamespace((new PageId($rawId))->namespace())))),
+                fn (string $rawId) => $this->canReadPage(new PageId($rawId))))),
             // Platta ut [namespace => [id, ...]] till en enda lista — matar
             // {{-autokompletteringen och klistra-in-bild-uppladdningen i
             // editorn (se edit.php).
@@ -526,7 +541,7 @@ class Wiki
         $ctx = $this->plugins->trigger('form_submit', [
             'source_id' => $source->id(), 'post' => $_POST,
             'page' => $this->pages->load($source), 'pages' => $this->pages,
-            'can_read' => fn (PageId $id) => $this->canReadNamespace($id->namespace()),
+            'can_read' => fn (PageId $id) => $this->canReadPage($id),
         ]);
         if (!isset($ctx['form_result'])) {
             http_response_code(400);
@@ -732,6 +747,11 @@ class Wiki
         $revision = $_POST['revision'] ?? $_GET['revision'] ?? '';
         $revision = is_string($revision) ? $revision : '';
         $raw = $revision !== '' ? $this->history->read($id, $revision) : null;
+        if ($raw !== null && !PageAccess::canReadRaw($raw, $this->auth->currentUser() !== null)) {
+            return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+        }
+        $revisions = array_values(array_filter($this->history->revisions($id),
+            fn ($rev) => PageAccess::canReadRaw($this->history->read($id, $rev) ?? '', $this->auth->currentUser() !== null)));
         $error = null;
         $success = null;
         if ($revision !== '' && $raw === null) {
@@ -757,7 +777,7 @@ class Wiki
         return $this->templates->render('layout', $this->baseData($id, [
             'view' => 'history', 'page' => ['title' => 'Versionshistorik: ' . $id->title()], 'pageId' => $id,
             'bodyHtml' => $this->templates->render('history', [
-                'pageId' => $id, 'revisions' => array_reverse($this->history->revisions($id)),
+                'pageId' => $id, 'revisions' => array_reverse($revisions),
                 'selectedRevision' => $revision, 'revisionRaw' => $raw,
                 'currentRaw' => $this->pages->load($id)['raw'] ?? null,
                 'historyEnabled' => $this->history->isEnabled(), 'error' => $error, 'success' => $success,
@@ -808,7 +828,7 @@ class Wiki
         // avslöja titel/utdrag i resultatlistan.
         $results = array_values(array_filter(
             $results,
-            fn (array $r) => $this->canReadNamespace((new PageId($r['id']))->namespace())
+            fn (array $r) => $this->canReadPage(new PageId($r['id']))
         ));
 
         if ($suggest) {

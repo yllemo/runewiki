@@ -127,14 +127,16 @@ class Helpers
      * Delad mellan Wiki (roten) och chat/index.php så bägge front
      * controllers alltid visar samma toppmeny.
      */
-    public static function loadTopbarMenu(string $contentDir): ?array
+    public static function loadTopbarMenu(string $contentDir, ?PageLoader $pages = null): ?array
     {
         $path = rtrim($contentDir, '/') . '/_topbar.md';
         if (!is_file($path)) {
             return null;
         }
 
-        $raw = file_get_contents($path) ?: '';
+        $page = ($pages ?? new PageLoader($contentDir))->load(new PageId('_topbar'));
+        if ($page === null) return [];
+        $raw = $page['body'];
         $raw = preg_replace('/<!--.*?-->/s', '', $raw); // ta bort HTML-kommentarer (även flerradiga)
 
         $items = [];

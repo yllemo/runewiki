@@ -37,6 +37,8 @@ formuläret. Servern nekar också direkta försök att skriva feedback med HTTP 
 Om visningen kräver inloggning kan gäster inte använda funktionen alls, oavsett
 feedbackinställning. Namespace-regler gäller fortfarande:
 en sida som kräver inloggning blir inte offentlig genom samarbetsvyn.
+Även sidans YAML-fält `require_login: true` skyddar samarbetsvyn, kommentarer
+och exporter, oavsett colab-inställningarna. Se [sidans åtkomstskydd](readme-page-access.md).
 Kommentarer knutna till text som bara finns i `ifAuth` markeras som endast för
 inloggade; även svar och exporter respekterar detta. Allmänna kommentarer är synliga
 för alla som får läsa artikeln, så skriv inte hemligheter i en allmän tråd.

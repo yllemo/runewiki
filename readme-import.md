@@ -35,6 +35,8 @@ nedladdning. Förvara den med samma åtkomstskydd som originalinnehållet.
 
 Filerna hamnar under samma relativa sökväg i `content/`. Innehållet ändras inte:
 namn, taggar, tidsstämplar och övriga metadata följer med exakt som i exporten.
+Även `require_login: true` följer med och skyddar sidan på den nya installationen,
+förutsatt att den kör en version med [stöd för sidans inloggningskrav](readme-page-access.md).
 HTML-cachen rensas efter importförsöket.
 
 Med JavaScript laddas ZIP-filen upp i delar om högst 256 KiB (automatiskt mindre

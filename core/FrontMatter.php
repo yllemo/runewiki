@@ -17,6 +17,7 @@ class FrontMatter
         try {
             $meta = Yaml::parse($m[1], Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE | Yaml::PARSE_DATE_AS_STRING, 32, 20) ?? [];
             if (!is_array($meta) || ($meta !== [] && array_is_list($meta))) throw new InvalidArgumentException('Frontmatter måste vara en YAML-mappning med fältnamn.');
+            if (array_key_exists('require_login', $meta) && !is_bool($meta['require_login'])) throw new InvalidArgumentException('require_login ska vara true eller false utan citattecken.');
             if (isset($meta['tags']) && is_array($meta['tags'])) {
                 if (!array_is_list($meta['tags']) || array_filter($meta['tags'], static fn ($tag) => !is_scalar($tag))) {
                     throw new InvalidArgumentException('tags ska vara en lista med enkla taggnamn.');

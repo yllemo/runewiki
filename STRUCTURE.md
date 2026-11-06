@@ -50,6 +50,7 @@ runewiki/
 │   ├── ImportUpload.php         ← Sessionsbunden uppladdning i delar och import i omgångar
 │   ├── Metadata.php             ← OKF-policy och editorförslag
 │   ├── MarkdownVisibility.php   ← Gemensam filtrering av ifAuth-block
+│   ├── PageAccess.php           ← Gemensamt require_login-skydd för sida/frontmatter
 │   ├── Router.php               ← URL + ?do= → view/edit/save/delete/download/search/
 │   │                              media-*/login/logout
 │   ├── PageId.php               ← Värdesobjekt: ID ↔ filsökväg ↔ URL; saniterar mot path traversal
@@ -231,6 +232,9 @@ Taggar renderas som klickbara badges → `/?do=search&q=tag:nyckelord`.
 
 `edit.php` laddar Monaco Editor 0.52.0 från CDN. Hela råfilen (inkl. frontmatter)
 skickas till editorn och returneras odelad vid spara — `Wiki::handleSave()` separerar.
+`assets/js/editor-tools.js` ger helskärm och lokal dokumentkonvertering i
+webbläsaren (Markdown/text/HTML/DOCX/PDF) med förhandsgranskning och undo.
+Bibliotek laddas vid behov från CDN. Se [readme-editor.md](readme-editor.md).
 
 Tre IntelliSense-providers registrerade på `markdown`-språket:
 

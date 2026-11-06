@@ -81,6 +81,11 @@ annonserar inte OAuth-discovery eller dynamisk klientregistrering.
 
 ## Behörigheter och ifAuth
 
+Sidans YAML-fält `require_login: true` kräver en personlig nyckel med
+**Tillåt … ifAuth** aktiverat. Utan detta utelämnas hela sidan från läsning,
+listning och sökning, inklusive titel och metadata. Namespace-ACL gäller också.
+Se [inloggningskrav per sida](readme-page-access.md).
+
 - Varje POST autentiseras separat. Ingen nyckel, fel nyckel, utgången nyckel
   eller borttaget konto ger **401**. Webbläsarcookies och användarnamn i
   request-body ger ingen MCP-behörighet. Nycklar i URL/query stöds inte.

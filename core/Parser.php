@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '9';
+    public const VERSION = '10';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
@@ -387,17 +387,24 @@ class Parser
      */
     private function renderPageLink(PageId $pageId, ?string $label): string
     {
-        $exists = $this->pageLoader ? $this->pageLoader->exists($pageId) : true;
-        $class  = $exists ? 'wikilink-exists' : 'wikilink-new';
+        $exists = $this->pageLoader ? $this->pageLoader->linkExists($pageId) : true;
+        $readable = (!$this->pageLoader || $this->pageLoader->exists($pageId))
+            && (!$this->canReadPage || ($this->canReadPage)($pageId));
+        $locked = $exists && !$readable;
+        $class  = $exists ? 'wikilink-exists' . ($locked ? ' wikilink-locked' : '') : 'wikilink-new';
         $href   = $exists ? $pageId->url() : $pageId->editUrl();
         $text   = $label ?? $pageId->title();
-        if ($label === null && $exists && $this->pageLoader && (!$this->canReadPage || ($this->canReadPage)($pageId))) {
+        if ($label === null && $exists && $this->pageLoader && $readable) {
             $text = $this->pageLoader->load($pageId)['title'] ?? $text;
         }
         $title  = $exists ? $pageId->id() : $pageId->id() . ' (skapa sida)';
+        $notice = $this->isAuthenticated && ($this->isAuthenticated)() ? 'Behörighet krävs' : 'Inloggning krävs';
+        if ($locked) $title .= ' (' . $notice . ')';
+        $icon = $locked ? ' <svg class="wikilink-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' : '';
 
-        return '<a class="' . $class . '" href="' . Helpers::e($href) . '" title="' . Helpers::e($title) . '">'
-            . Helpers::e($text) . '</a>';
+        return '<a class="' . $class . '" href="' . Helpers::e($href) . '" title="' . Helpers::e($title) . '"'
+            . ($locked ? ' aria-label="' . Helpers::e($text . ' – ' . $notice) . '"' : '') . '>'
+            . Helpers::e($text) . $icon . '</a>';
     }
 
     /**

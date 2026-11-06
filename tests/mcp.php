@@ -51,6 +51,11 @@ try {
     $list = call($server, $alice, 'list_pages');
     check(!str_contains(json_encode($list), 'PRIVATE') && !str_contains(json_encode($list), 'Hidden'), 'Listing hides protected metadata');
     check(count($list['body']['result']->structuredContent['pages']) === 2, 'Login allowed; private and system pages excluded');
+    file_put_contents($root . '/content/protected.md', "---\nrequire_login: true\n---\n# PROTECTED_PAGE_TITLE\nPROTECTED_PAGE_BODY");
+    check(call($server, $alice, 'read_page', ['id' => 'protected'])['body']['result']->isError === true, 'Unscoped MCP key cannot read login-only page');
+    check(!str_contains(json_encode(call($server, $alice, 'list_pages')), 'protected'), 'MCP listing excludes login-only page');
+    check(call($server, $alice, 'search_pages', ['query' => 'PROTECTED_PAGE'])['body']['result']->structuredContent['pages'] === [], 'MCP search excludes protected page');
+    check(str_contains(json_encode(call($server, $bob, 'read_page', ['id' => 'protected'])), 'PROTECTED_PAGE_BODY'), 'Scoped personal key can read login-only page');
     $public = call($server, $alice, 'read_page', ['id' => 'start']);
     check(!str_contains(json_encode($public), 'HIDDEN_NEEDLE') && !str_contains(json_encode($public), 'NESTED_SECRET'), 'ifAuth excluded for unscoped key');
     check(str_contains(json_encode(call($server, $bob, 'read_page', ['id' => 'start'])), 'HIDDEN_NEEDLE'), 'ifAuth allowed for scoped key');

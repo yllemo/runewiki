@@ -24,7 +24,7 @@ $fixture = sys_get_temp_dir() . '/runewiki-mcp-http-' . bin2hex(random_bytes(8))
 mkdir($fixture, 0700);
 $process = null;
 try {
-    foreach (['core', 'admin', 'mcp', 'templates', 'plugins'] as $dir) copyTree($repo . '/' . $dir, $fixture . '/' . $dir);
+    foreach (['core', 'admin', 'chat', 'mcp', 'templates', 'plugins'] as $dir) copyTree($repo . '/' . $dir, $fixture . '/' . $dir);
     copy($repo . '/index.php', $fixture . '/index.php');
     mkdir($fixture . '/config'); mkdir($fixture . '/content'); mkdir($fixture . '/data/users', 0700, true);
     file_put_contents($fixture . '/config/config.php', '<?php return ["auth_enabled" => true];');
@@ -290,6 +290,49 @@ PHP);
     $callback = request($base . '/?do=login&provider=oidc&callback=1&state=invalid&code=invalid');
     check(str_contains($callback['body'], 'kunde inte verifieras'), 'Reject unsolicited callback');
     echo "PASS: external auth admin CSRF, reauthentication, secret preservation and login controls\n";
+    // Per-page login must work even in an otherwise completely open wiki.
+    file_put_contents($fixture . '/config/config.php', '<?php return ["auth_enabled" => false];');
+    $protectedRaw = "---\nrequire_login: true\ntags: [PAGE_SECRET_TAG]\n---\n# PAGE_SECRET_TITLE\nPAGE_SECRET_BODY\n[[start]]";
+    file_put_contents($fixture . '/content/protected.md', $protectedRaw);
+    foreach (['', 'download', 'metadata', 'reader', 'focus', 'colab', 'edit', 'history', 'move'] as $operation) {
+        $url = $base . '/protected' . ($operation ? '?do=' . $operation : '');
+        $denied = request($url);
+        check($denied['status'] === 302 && !str_contains($denied['body'], 'PAGE_SECRET'), 'Guest blocked from page surface: ' . $operation);
+        check(request($url, 'GET', $memberHeaders)['status'] === 200, 'Member allowed page surface: ' . $operation);
+    }
+    foreach (['save', 'delete', 'form', 'restore', 'move', 'colab'] as $operation) {
+        check(request($base . '/protected?do=' . $operation, 'POST', $guestHeaders, http_build_query(['csrf_token' => $colabToken[1], 'body' => '# Overwritten']))['status'] === 302, 'Guest write bypass blocked: ' . $operation);
+    }
+    check(file_get_contents($fixture . '/content/protected.md') === $protectedRaw, 'Protected file unchanged after bypass attempts');
+    foreach (['PAGE_SECRET', 'protected', 'tag:PAGE_SECRET_TAG', 'ns:_root'] as $query) {
+        $searchBody = request($base . '/?do=search&q=' . rawurlencode($query))['body'];
+        check(!str_contains($searchBody, 'PAGE_SECRET_TITLE') && !str_contains($searchBody, 'PAGE_SECRET_BODY'), 'Guest wiki search hides page in every search mode');
+    }
+    check(!str_contains(request($base . '/start')['body'], 'protected'), 'Guest footer and backlinks hide page');
+    check(str_contains(request($base . '/?do=search&q=PAGE_SECRET', 'GET', $memberHeaders)['body'], 'PAGE_SECRET'), 'Member search includes page');
+    mkdir($fixture . '/skills/test', 0700, true);
+    file_put_contents($fixture . '/skills/test/SKILL.md', "---\nname: Test\ninclude: [protected]\n---\nInstructions");
+    foreach (['list-content', 'search-content&q=PAGE_SECRET', 'search-content&q=tag%3APAGE_SECRET_TAG', 'list-tags', 'list-namespaces', 'get-content&id=protected', 'get-skill&skill=test'] as $query) {
+        $result = request($base . '/chat/?action=' . $query);
+        check($result['status'] === 200 && !str_contains($result['body'], 'PAGE_SECRET'), 'Chat guest surface filtered: ' . $query);
+    }
+    check(str_contains(request($base . '/chat/?action=get-content&id=protected', 'GET', $memberHeaders)['body'], 'PAGE_SECRET_BODY'), 'Member chat read allowed');
+    check(str_contains(request($base . '/chat/?action=get-skill&skill=test', 'GET', $memberHeaders)['body'], 'PAGE_SECRET_BODY'), 'Member skill include allowed');
+    file_put_contents($fixture . '/content/_sidebar.md', "---\nrequire_login: true\n---\nSIDEBAR_SECRET");
+    file_put_contents($fixture . '/content/_topbar.md', "---\nrequire_login: true\n---\n- [TOPBAR_SECRET](/start)");
+    check(!str_contains(request($base . '/start')['body'], 'BAR_SECRET'), 'Protected system pages hidden from guest layout');
+    check(!str_contains(request($base . '/chat/')['body'], 'TOPBAR_SECRET'), 'Protected topbar hidden in chat');
+    check(str_contains(request($base . '/start', 'GET', $memberHeaders)['body'], 'SIDEBAR_SECRET'), 'Member sidebar readable');
+    $history = new History($fixture . '/data/history', true);
+    $history->snapshot(new PageId('public-now'), $protectedRaw);
+    $revision = $history->revisions(new PageId('public-now'))[0];
+    file_put_contents($fixture . '/content/public-now.md', '# Public now');
+    check(request($base . '/public-now?do=history&revision=' . $revision)['status'] === 302, 'Protected historical revision remains gated after page becomes public');
+    file_put_contents($fixture . '/content/links.md', '# Links' . "\n[[protected]]");
+    request($base . '/links', 'GET', $memberHeaders);
+    check(!str_contains(request($base . '/links')['body'], 'PAGE_SECRET_TITLE'), 'Member-rendered title cannot leak via guest cache');
+    check(in_array('Cache-Control: private, no-store', request($base . '/protected', 'GET', $memberHeaders)['headers'], true), 'Private responses cannot enter shared HTTP cache');
+    echo "PASS: page frontmatter protection across views, writes, search, chat, menus, history and cache\n";
     echo "PASS: real HTTP endpoint, admin CSRF, reauthentication, owner isolation, rotation, revocation and ifAuth\n";
 } finally {
     if (is_resource($process)) { proc_terminate($process); proc_close($process); }

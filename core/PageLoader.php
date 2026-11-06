@@ -8,11 +8,17 @@
 
 class PageLoader
 {
-    public function __construct(private string $contentDir)
+    public function __construct(private string $contentDir, private ?Closure $canRead = null)
     {
     }
 
     public function exists(PageId $id): bool
+    {
+        return (!$this->canRead || ($this->canRead)($id)) && is_file($id->toFilePath($this->contentDir));
+    }
+
+    /** For explicit links only: existence is not permission to read or list a page. */
+    public function linkExists(PageId $id): bool
     {
         return is_file($id->toFilePath($this->contentDir));
     }
@@ -20,11 +26,13 @@ class PageLoader
     /** @return array{meta: array, body: string, raw: string, title: string}|null */
     public function load(PageId $id): ?array
     {
+        if ($this->canRead && !($this->canRead)($id)) return null;
         $path = $id->toFilePath($this->contentDir);
         if (!is_file($path)) {
             return null;
         }
         $raw = file_get_contents($path);
+        if ($raw === false || ($this->canRead && !($this->canRead)($id, $raw))) return null;
         [$meta, $body] = FrontMatter::parse($raw);
 
         return ['meta' => $meta, 'body' => $body, 'raw' => $raw, 'title' => self::displayTitle($id, $meta, $body)];
@@ -61,6 +69,7 @@ class PageLoader
 
     public function saveRaw(PageId $id, string $raw): void
     {
+        if ($this->canRead && !($this->canRead)($id)) throw new RuntimeException('Åtkomst nekad.');
         $path = $id->toFilePath($this->contentDir);
         $dir = dirname($path);
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
@@ -79,6 +88,7 @@ class PageLoader
 
     public function delete(PageId $id): bool
     {
+        if ($this->canRead && !($this->canRead)($id)) return false;
         $path = $id->toFilePath($this->contentDir);
         return is_file($path) && unlink($path);
     }
@@ -105,7 +115,9 @@ class PageLoader
             $rootSidebar = rtrim($this->contentDir, '/') . '/_sidebar.md';
             $path = is_file($rootSidebar) ? $rootSidebar : null;
         }
-        return $path ? file_get_contents($path) : null;
+        if (!$path) return null;
+        $page = $this->load(PageId::fromRelativePath($path, $this->contentDir));
+        return $page['body'] ?? null;
     }
 
     /** Listar alla sid-ID:n i wikin (för sökning/namespace-listor). */
@@ -120,7 +132,8 @@ class PageLoader
         );
         foreach ($iterator as $file) {
             if ($file->isFile() && $file->getExtension() === 'md' && ($includeSystem || !str_starts_with($file->getFilename(), '_'))) {
-                $ids[] = PageId::fromRelativePath($file->getPathname(), $this->contentDir)->id();
+                $id = PageId::fromRelativePath($file->getPathname(), $this->contentDir);
+                if (!$this->canRead || ($this->canRead)($id)) $ids[] = $id->id();
             }
         }
         sort($ids);

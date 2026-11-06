@@ -87,6 +87,16 @@ function chatCanReadNamespace(Auth $auth, NamespaceResolver $namespaces, Acl $ac
     return $acl->can($auth->groupsFor($user), $namespace, 'read');
 }
 
+/** One policy for content lists, search, skill includes and direct reads. */
+function chatPageLoader(string $contentDir): PageLoader
+{
+    global $auth, $namespaces, $acl;
+    return new PageLoader($contentDir, fn (PageId $id, ?string $raw = null) =>
+        chatCanReadNamespace($auth, $namespaces, $acl, $id->namespace())
+        && ($raw === null ? PageAccess::canReadFile($id->toFilePath($contentDir), $auth->currentUser() !== null)
+            : PageAccess::canReadRaw($raw, $auth->currentUser() !== null)));
+}
+
 /** Saniterar ett skill-slug (mappnamn): bara a-z 0-9 _ - tillåts. Skyddar mot path traversal. */
 function chatSanitizeSlug(string $slug): string
 {
@@ -194,7 +204,7 @@ function chatGetSkill(string $skillsDir, string $contentDir, string $rawSlug): a
     // include: [sid-id, namespace:*, ...] — bunta in sidor från /content
     $include = (array) ($meta['include'] ?? []);
     if ($include) {
-        $pages = new PageLoader($contentDir);
+        $pages = chatPageLoader($contentDir);
         $seen  = [];
         foreach ($include as $entry) {
             foreach (chatResolveInclude((string) $entry, $pages) as $rawId) {
@@ -239,7 +249,7 @@ function chatGetSkill(string $skillsDir, string $contentDir, string $rawSlug): a
  */
 function chatListContent(string $contentDir, string $sort, string $filter, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
-    $pages  = new PageLoader($contentDir);
+    $pages  = chatPageLoader($contentDir);
     $filter = trim($filter);
     $out    = [];
     foreach ($pages->listAll() as $id) {
@@ -277,7 +287,7 @@ function chatListContent(string $contentDir, string $sort, string $filter, Auth 
  */
 function chatSearchContent(string $contentDir, string $term, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
-    $search = new Search($contentDir);
+    $search = new Search($contentDir, chatPageLoader($contentDir));
     $term   = trim($term);
     if (str_starts_with($term, 'tag:')) {
         $results = $search->queryByTag(substr($term, 4));
@@ -301,7 +311,7 @@ function chatSearchContent(string $contentDir, string $term, Auth $auth, Namespa
  */
 function chatListNamespaces(string $contentDir, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
-    $pages  = new PageLoader($contentDir);
+    $pages  = chatPageLoader($contentDir);
     $counts = [];
     foreach ($pages->listAll() as $id) {
         $ns = (new PageId($id))->namespace();
@@ -334,7 +344,7 @@ function chatListNamespaces(string $contentDir, Auth $auth, NamespaceResolver $n
  */
 function chatListTags(string $contentDir, Auth $auth, NamespaceResolver $namespaces, Acl $acl): array
 {
-    $pages  = new PageLoader($contentDir);
+    $pages  = chatPageLoader($contentDir);
     $counts = [];
     foreach ($pages->listAll() as $id) {
         $pageId = new PageId($id);
@@ -375,7 +385,7 @@ function chatGetContent(string $contentDir, string $rawId, Auth $auth, Namespace
     if (!chatCanReadNamespace($auth, $namespaces, $acl, $pageId->namespace())) {
         return ['error' => 'Sidan hittades inte.'];
     }
-    $loaded = (new PageLoader($contentDir))->load($pageId);
+    $loaded = (chatPageLoader($contentDir))->load($pageId);
     if ($loaded === null) {
         return ['error' => 'Sidan hittades inte.'];
     }
@@ -387,6 +397,7 @@ function chatGetContent(string $contentDir, string $rawId, Auth $auth, Namespace
     ];
 }
 
+header('Cache-Control: private, no-store');
 $action = $_GET['action'] ?? '';
 
 if ($action === 'list-skills') {
@@ -443,11 +454,11 @@ $siteName  = $config['site_name'] ?? 'RuneWiki';
 $lang      = $config['language'] ?? 'sv';
 $templates = new TemplateEngine($root . '/templates', $config['theme'] ?? 'default');
 $assetUrl  = fn (string $p) => $templates->assetUrl($p);
-$pages     = new PageLoader($contentDir);
+$pages     = chatPageLoader($contentDir);
 // Samma menyprioritet som core/Wiki.php (menuFor()): _topbar.md styr ALLTID
 // om den finns, annars en ev. 'menu'-override för rot-namespacet i
 // config/namespaces.php, annars global config/menu.php.
-$menu = Helpers::loadTopbarMenu($contentDir)
+$menu = Helpers::loadTopbarMenu($contentDir, $pages)
     ?? ($namespaces->settingsFor('')['menu'] ?? Helpers::loadConfig($root . '/config/menu.php'));
 // Samma texter (tagline, sidfotstexter m.m.) som resten av wikin —
 // skrivs över i config/strings.php, se Helpers::resolveStrings().

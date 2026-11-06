@@ -44,10 +44,12 @@ $metadataSettings = $metadataSettings ?? Metadata::settings(dirname(__DIR__, 2))
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><circle cx="12" cy="12" r="3"/></svg>
                     Fokusläsning
                 </a>
+                <?php if ($canViewColab ?? false): ?>
                 <a class="gbg-dropdown-item" href="<?= Helpers::e($pageId->url() . '?do=colab') ?>">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     Samarbeta och kommentera
                 </a>
+                <?php endif; ?>
                 <a class="gbg-dropdown-item" href="<?= Helpers::e($pageId->url() . '?do=move') ?>">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z" opacity="0"/><path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/><path d="M15 21h4a2 2 0 0 0 2-2v-4"/></svg>
                     Byt namn / flytta

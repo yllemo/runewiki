@@ -149,7 +149,7 @@ function patchConfigValue(string $configPath, string $key, string $phpLiteral): 
     $pattern = "/'" . preg_quote($key, '/') . "'(\s*)=>(\s*)[^,]+,/";
     if (!preg_match($pattern, $src)) {
         // Existing installations do not yet have the optional favicon setting.
-        if (in_array($key, ['favicon', 'external_links_new_tab', 'distinct_link_colors', 'internal_link_color', 'external_link_color', 'session_lifetime_days'], true) && preg_match('/\breturn\s*\[/', $src, $match, PREG_OFFSET_CAPTURE)) {
+        if (in_array($key, ['colab_feedback_require_login', 'colab_require_login', 'favicon', 'external_links_new_tab', 'distinct_link_colors', 'internal_link_color', 'external_link_color', 'session_lifetime_days'], true) && preg_match('/\breturn\s*\[/', $src, $match, PREG_OFFSET_CAPTURE)) {
             $start = $match[0][1] + strlen($match[0][0]);
             $patched = substr($src, 0, $start) . "\n    '" . $key . "' => " . $phpLiteral . ',' . substr($src, $start);
             return file_put_contents($configPath, $patched, LOCK_EX) !== false;
@@ -418,12 +418,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     } elseif ($action === 'save_settings') {
         $newSiteName    = trim((string) ($_POST['site_name'] ?? $siteName));
         $newAuthEnabled = isset($_POST['auth_enabled']);
+        $newColabRequireLogin = isset($_POST['colab_require_login']);
+        $newColabFeedbackRequireLogin = isset($_POST['colab_feedback_require_login']);
         $newHistoryEnabled = isset($_POST['history_enabled']);
         $newSessionDays = (int) ($_POST['session_lifetime_days'] ?? ($config['session_lifetime_days'] ?? 30));
         $newSessionDays = max(1, min(365, $newSessionDays));
         $configPath     = $root . '/config/config.php';
 
         $ok = true;
+        if ($newColabFeedbackRequireLogin !== (bool) ($config['colab_feedback_require_login'] ?? false)) {
+            $ok = $ok && patchConfigValue($configPath, 'colab_feedback_require_login', $newColabFeedbackRequireLogin ? 'true' : 'false');
+        }
+        if ($newColabRequireLogin !== (bool) ($config['colab_require_login'] ?? false)) {
+            $ok = $ok && patchConfigValue($configPath, 'colab_require_login', $newColabRequireLogin ? 'true' : 'false');
+        }
         if ($newSiteName !== '' && $newSiteName !== $siteName) {
             $ok = $ok && patchConfigValue($configPath, 'site_name', var_export($newSiteName, true));
         }
@@ -440,6 +448,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         if ($ok) {
             $config['site_name']    = $newSiteName;
             $config['auth_enabled'] = $newAuthEnabled;
+            $config['colab_require_login'] = $newColabRequireLogin;
+            $config['colab_feedback_require_login'] = $newColabFeedbackRequireLogin;
             $config['history_enabled'] = $newHistoryEnabled;
             $config['session_lifetime_days'] = $newSessionDays;
             $siteName               = $newSiteName;
@@ -804,6 +814,9 @@ $tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata'
             <span>Kräv inloggning för att redigera (läsning är öppet, om inte ett namespace har striktare ACL — se fliken "Användare" och config/namespaces.php)</span>
         </label>
         <label><input type="checkbox" name="history_enabled" <?= ($config['history_enabled'] ?? true) ? 'checked' : '' ?>> Spara versionshistorik separat i data/history/</label>
+        <label><input type="checkbox" name="colab_require_login" <?= !empty($config['colab_require_login']) ? 'checked' : '' ?>> Kräv inloggning för att se Samarbeta och kommentera (inklusive export)</label>
+        <label><input type="checkbox" name="colab_feedback_require_login" <?= !empty($config['colab_feedback_require_login']) ? 'checked' : '' ?>> Kräv inloggning för att ge feedback (nya kommentarer och svar)</label>
+        <p class="gbg-admin-lead">Avmarkerat betyder öppet för alla som får läsa artikeln. Du kan låta alla se kommentarer men kräva inloggning för att ge feedback. Om visningen kräver inloggning gäller det även feedback.</p>
         <label>
             <span>Håll mig inloggad (dagar)</span>
             <input type="number" name="session_lifetime_days" min="1" max="365" value="<?= Helpers::e((string) ($config['session_lifetime_days'] ?? 30)) ?>" style="max-width:8rem">

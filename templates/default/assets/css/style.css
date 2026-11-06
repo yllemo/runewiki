@@ -1717,9 +1717,11 @@ button.tag-pick-btn:hover { background: var(--accent-hover); }
 
 /* Article collaboration uses the standard wiki theme and rendering. */
 .gbg-colab-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin-bottom:1rem; }
-.gbg-colab-columns { display:grid; grid-template-columns:minmax(0, 1.6fr) minmax(280px, 1fr); gap:1.5rem; align-items:start; }
+.gbg-colab-columns { display:block; }
 .gbg-colab-article { min-width:0; }
-.gbg-colab-panel { min-width:0; padding:1rem; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-subtle); }
+.gbg-colab-panel { position:fixed; inset:0; margin:auto; width: min(640px, calc(100vw - 2rem)); max-height:calc(100dvh - 2rem); box-sizing:border-box; overflow:auto; min-width:0; padding:1.5rem; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-color); color:var(--text-color); box-shadow:0 12px 48px #0004; }
+.gbg-colab-panel::backdrop { background:#0006; }
+.gbg-colab-close { float:right; }
 .gbg-colab-panel h2 { margin-top:0; }
 .gbg-colab-panel :is(input,textarea,select) { max-width:100%; box-sizing:border-box; background:var(--bg-color); color:var(--text-color); border:1px solid var(--border-color); border-radius:5px; padding:.5rem; }
 .gbg-colab-panel textarea { width:100%; resize:vertical; }
@@ -1730,8 +1732,11 @@ button.tag-pick-btn:hover { background: var(--accent-hover); }
 .gbg-colab-comment blockquote, #colab-context { font-size:.85rem; color:var(--text-secondary); max-height:8rem; overflow:auto; }
 .gbg-colab-reply { margin-left:1rem; padding-left:.75rem; border-left:2px solid var(--border-color); }
 .gbg-colab-comment.is-resolved > strong { color:var(--text-secondary); }
-.gbg-colab-trigger { float:right; position:relative; z-index:1; border:1px solid var(--border-color); border-radius:5px; background:var(--bg-color); color:var(--text-secondary); cursor:pointer; padding:.2rem .4rem; margin:.25rem 0 .25rem .5rem; }
+.gbg-colab-block { position:relative; display:flow-root; padding-inline-end:3.5rem; border-radius:5px; }
+.gbg-colab-block:has(> .gbg-colab-trigger:hover),
+.gbg-colab-block:has(> .gbg-colab-trigger:focus-visible) { outline:2px solid var(--accent); outline-offset:3px; background:var(--bg-subtle); }
+.gbg-colab-trigger { position:absolute; inset-inline-end:.25rem; top:.35rem; z-index:1; border:1px solid var(--border-color); border-radius:5px; background:var(--bg-color); color:var(--text-secondary); cursor:pointer; padding:.2rem .4rem; }
 .gbg-colab-trigger:focus-visible { outline:2px solid var(--accent); }
-.gbg-colab-block.has-comments { border-right:2px solid var(--accent); padding-right:.5rem; }
+.gbg-colab-block:has(> .has-comments) { box-shadow:inset -2px 0 var(--accent); }
 @media(max-width:850px) { .gbg-colab-columns { grid-template-columns:minmax(0,1fr); } }
 .gbg-colab [hidden] { display: none !important; }

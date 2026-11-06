@@ -106,6 +106,39 @@ PHP);
     $resolved = request($base . '/start?do=colab', 'POST', $memberHeaders, http_build_query($resolve));
     check(json_decode($resolved['body'], true)['comments'][0]['resolved'] === true, 'Editor can resolve thread');
     echo "PASS: anonymous collaboration, CSRF, moderation and private comment exports\n";
+    $settings = ['csrf_token' => $csrf, 'action' => 'save_settings', 'auth_enabled' => 'on', 'history_enabled' => 'on', 'colab_require_login' => 'on'];
+    request($base . '/admin/', 'POST', $memberHeaders, http_build_query($settings));
+    $savedConfig = require $fixture . '/config/config.php';
+    check(($savedConfig['colab_require_login'] ?? false) === true, 'Admin can add collaboration login requirement to existing config');
+    check(request($base . '/start?do=colab')['status'] === 302, 'Protected collaboration sends guests to login');
+    check(!str_contains(request($base . '/start')['body'], 'Samarbeta och kommentera'), 'Collaboration menu hidden from guests when view requires login');
+    check(str_contains(request($base . '/start', 'GET', $memberHeaders)['body'], 'Samarbeta och kommentera'), 'Collaboration menu visible to members');
+    foreach (['list', 'export-json', 'export-text'] as $op) {
+        check(request($base . '/start?do=colab&op=' . $op)['status'] === 401, 'Protected collaboration blocks guest data and exports');
+        check(request($base . '/start?do=colab&op=' . $op, 'GET', $memberHeaders)['status'] === 200, 'Protected collaboration allows authenticated readers');
+    }
+    check(request($base . '/start?do=colab', 'POST', $guestHeaders, http_build_query($comment))['status'] === 401, 'Protected collaboration blocks guest writes');
+    check(request($base . '/start?do=colab', 'GET', $memberHeaders)['status'] === 200, 'Protected collaboration allows member view');
+    unset($settings['colab_require_login']);
+    request($base . '/admin/', 'POST', $memberHeaders, http_build_query($settings));
+    check(request($base . '/start?do=colab')['status'] === 200, 'Admin can re-enable guest collaboration');
+    $settings['colab_feedback_require_login'] = 'on';
+    request($base . '/admin/', 'POST', $memberHeaders, http_build_query($settings));
+    check((require $fixture . '/config/config.php')['colab_feedback_require_login'] === true, 'Admin saves separate feedback requirement');
+    $readOnly = request($base . '/start?do=colab');
+    check($readOnly['status'] === 200 && str_contains($readOnly['body'], 'Logga in för att lämna feedback') && str_contains($readOnly['body'], 'id="colab-form" class="gbg-form" hidden'), 'Guests can view comments with login prompt instead of feedback form');
+    check(str_contains(request($base . '/start')['body'], 'Samarbeta och kommentera'), 'Public collaboration menu remains visible with protected feedback');
+    foreach (['list', 'export-json', 'export-text'] as $op) check(request($base . '/start?do=colab&op=' . $op)['status'] === 200, 'Feedback requirement preserves public read/export');
+    foreach (['', $commentId] as $parent) {
+        check(request($base . '/start?do=colab', 'POST', $guestHeaders, http_build_query(array_merge($comment, ['parent' => $parent])))['status'] === 401, 'Guest comments and replies blocked on server');
+    }
+    // Let the real comment throttle expire before testing authorized writes.
+    sleep(5);
+    check(request($base . '/start?do=colab', 'POST', $memberHeaders, http_build_query($privateComment))['status'] === 200, 'Members can still give feedback');
+    unset($settings['colab_feedback_require_login']);
+    request($base . '/admin/', 'POST', $memberHeaders, http_build_query($settings));
+    check(request($base . '/start?do=colab', 'POST', $guestHeaders, http_build_query($comment))['status'] === 200, 'Turning off feedback requirement restores guest posting');
+    echo "PASS: collaboration login setting, view, API, export and admin persistence\n";
     $editRedirect = request($base . '/redirect-test?do=edit', 'GET', ['Cookie: ' . $cookie]);
     check($editRedirect['status'] === 200 && str_contains($editRedirect['body'], 'https://example.com/target'), 'Redirect page remains editable');
     if (extension_loaded('zip')) {

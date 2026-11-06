@@ -320,6 +320,7 @@ class Wiki
 
         $renderedPage = $this->templates->render('page', [
             'metadata' => $page['meta'],
+            'canViewColab' => empty($this->config['colab_require_login']) || $authenticated,
             'metadataSettings' => Metadata::settings($this->root),
             'backlinks' => $backlinks,
             'page'     => array_merge($page['meta'], ['title' => $page['title']]),
@@ -355,6 +356,13 @@ class Wiki
 
     private function handleColab(string $rawId): string
     {
+        header('Cache-Control: private, no-store');
+        if (!empty($this->config['colab_require_login']) && $this->auth->currentUser() === null) {
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_GET['op'])) {
+                return $this->requireLogin($_SERVER['REQUEST_URI'] ?? '/');
+            }
+            return $this->jsonResponse(['error' => 'Du måste logga in för att öppna Samarbeta och läsa eller skriva kommentarer.'], 401);
+        }
         $id = new PageId($rawId);
         if (!$this->canReadNamespace($id->namespace())) return $this->accessDenied($id->namespace(), $_SERVER['REQUEST_URI'] ?? '/');
         $page = $this->pages->load($id);
@@ -363,6 +371,7 @@ class Wiki
         $store = new Comments($this->root . '/data/comments');
         $user = $this->auth->currentUser();
         $moderate = $user !== null && $this->canEditNamespace($id->namespace());
+        $canComment = $user !== null || empty($this->config['colab_feedback_require_login']);
         $operation = (string) ($_GET['op'] ?? '');
         try {
             if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -370,6 +379,7 @@ class Wiki
                 $action = (string) ($_POST['action'] ?? 'add');
                 if ($action !== 'add' && (!$moderate || !in_array($action, ['resolve', 'delete'], true))) return $this->jsonResponse(['error' => 'Du saknar rätt att ändra kommentarer.'], 403);
                 if ($action === 'add') {
+                    if (!$canComment) return $this->jsonResponse(['error' => 'Du måste logga in för att lämna feedback.'], 401);
                     if (time() - ($_SESSION['comment_last'] ?? 0) < 5) return $this->jsonResponse(['error' => 'Vänta några sekunder mellan kommentarerna.'], 429);
                     $visible = Comments::text($this->parser->toHtml($page['body']));
                     $public = Comments::text($this->parser->toHtml(MarkdownVisibility::filter($page['body'], false)));
@@ -389,7 +399,7 @@ class Wiki
                 foreach ($items as $c) $text .= '[' . ($c['resolved'] ? 'Löst' : 'Öppen') . '] ' . $c['author'] . ($c['authenticated'] ? '' : ' (gäst)') . ' — ' . $c['created'] . "\nID: " . $c['id'] . ($c['parent'] ? ' | Svar på: ' . $c['parent'] : '') . "\n" . ($c['quote'] ? '> ' . $c['quote'] . "\n" : '') . $c['text'] . "\n\n";
                 return $text;
             }
-            $html = $this->templates->render('colab', ['pageId' => $id, 'page' => $page, 'articleHtml' => $this->parser->toHtml($page['body']), 'comments' => $items, 'canModerate' => $moderate, 'currentUser' => $user, 'assetUrl' => fn ($p) => $this->templates->assetUrl($p)]);
+            $html = $this->templates->render('colab', ['pageId' => $id, 'page' => $page, 'articleHtml' => $this->parser->toHtml($page['body']), 'comments' => $items, 'canModerate' => $moderate, 'canComment' => $canComment, 'currentUser' => $user, 'assetUrl' => fn ($p) => $this->templates->assetUrl($p)]);
             return $this->templates->render('layout', $this->baseData($id, ['view' => 'colab', 'pageId' => $id, 'page' => ['title' => 'Samarbeta – ' . $page['title']], 'bodyHtml' => $html]));
         } catch (Throwable $e) {
             return $this->jsonResponse(['error' => $e instanceof RuntimeException ? $e->getMessage() : 'Kunde inte läsa eller spara kommentarer.'], 422);

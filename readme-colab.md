@@ -7,7 +7,12 @@ Den vanliga artikeln ändras inte när någon kommenterar.
 ## Lämna synpunkter
 
 - **Kommentera artikeln** skapar en allmän kommentar.
-- Pratbubblan vid ett textblock väljer det stycket som sammanhang.
+- Pratbubblan vid ett textblock öppnar en popup med styckets kommentarer och
+  formulär. Artikeln behåller sin bredd. Stäng med krysset, Escape eller klick
+  utanför popupen. **Visa stycke** stänger popupen och visar textblocket.
+  Hovra över pratbubblan eller fokusera den med Tab för att markera det
+  tillhörande blocket med en ram. Varje bubbla sitter vid sitt eget renderade
+  Markdown-block; exempelvis markeras en hel lista, tabell eller ett kodblock.
 - Ange ett valfritt namn och skriv kommentaren. Gästnamn markeras med **(gäst)**
   och är inte verifierade identiteter. Inloggade visas med sitt wikikonto.
 - **Svara** lägger ett svar i en tråd. **Alla/Öppna/Lösta** filtrerar trådarna.
@@ -16,13 +21,32 @@ Den vanliga artikeln ändras inte när någon kommenterar.
 - Inloggade användare med redigeringsrätt för artikeln kan lösa/återöppna trådar
   och ta bort kommentarer. Radering av en tråd tar också bort dess svar.
 
-Gäster behöver inget konto på offentliga sidor. Namespace-regler gäller fortfarande:
+Gäster behöver som standard inget konto på offentliga sidor.
+Under **Admin → Webbplats → Kräv inloggning för att se Samarbeta och kommentera** kan du
+kräva inloggning för hela samarbetsfunktionen, inklusive läsning, skrivning och
+export av kommentarer. Inställningen sparas i `config/config.php` som
+`'colab_require_login' => true` (standard `false`) och fungerar oberoende av
+`auth_enabled`. Gäster skickas till inloggning när de öppnar vyn; API-anrop och
+export nekas med HTTP 401. Menyvalet döljs också för gäster.
+
+Inställningen **Kräv inloggning för att ge feedback** styr separat om gäster får
+skapa kommentarer och svar. Den sparas som `'colab_feedback_require_login' => true`
+i samma fil (standard `false`). Med offentlig visning och skyddad feedback kan
+gäster läsa kommentarer, men får en inloggningslänk i stället för
+formuläret. Servern nekar också direkta försök att skriva feedback med HTTP 401.
+Om visningen kräver inloggning kan gäster inte använda funktionen alls, oavsett
+feedbackinställning. Namespace-regler gäller fortfarande:
 en sida som kräver inloggning blir inte offentlig genom samarbetsvyn.
 Kommentarer knutna till text som bara finns i `ifAuth` markeras som endast för
 inloggade; även svar och exporter respekterar detta. Allmänna kommentarer är synliga
 för alla som får läsa artikeln, så skriv inte hemligheter i en allmän tråd.
 
 ## Export och lagring
+
+Knapparna **Exportera kommentarer** och **JSON** visas endast för inloggade.
+Detta styr knapparnas synlighet: direkta exportadresser följer samma läsrätt
+som samarbetsvyn. Aktivera `colab_require_login` för att även kräva inloggning
+för direktåtkomst till kommentarer och exporter.
 
 **Exportera kommentarer** laddar ner en textfil. **JSON** exporterar strukturerad
 data med artikel-ID, trådar, författare, tid, citat och status. Exporten innehåller
@@ -47,4 +71,5 @@ På en publik internetinstallation kan ytterligare spambegränsning behövas i p
 Detta är artikelgranskning med kommentarer, inte samtidig redigering av Markdown.
 
 Tester: `php tests/comments.php` och `php tests/mcp-http.php` (mbstring) verifierar
-lagring, trådar, gästinlägg, moderering och filtrering av privata kommentarer/exporter.
+lagring, trådar, gästinlägg, moderering, separata krav för visning och feedback,
+admininställningarnas sparning och filtrering av privata kommentarer/exporter.

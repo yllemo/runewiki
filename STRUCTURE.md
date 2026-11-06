@@ -463,7 +463,7 @@ Funktioner (alla POST + CSRF, ett `action`-fält per formulär):
 | Användare | `delete_user` | `Auth::deleteUser()` — vägrar ta bort det egna inloggade kontot |
 | Texter | `save_strings` | Ett textfält per nyckel i `Helpers::defaultStrings()` (grupperade via `stringGroups()`); `saveStringOverrides()` skriver om `config/strings.php` HELT (till skillnad från `patchConfigValue()`), men bara med de nycklar vars värde skiljer sig från standard — tomt fält = "använd standard" |
 | Texter | `reset_strings` | `saveStringOverrides($path, [])` — töm hela override-filen |
-| Webbplats | `save_settings` | `patchConfigValue()` för `'site_name'`/`'auth_enabled'` i `config/config.php` — bevarar filens kommentarer/formatering (skriver INTE om hela filen) |
+| Webbplats | `save_settings` | `patchConfigValue()` för webbplatsinställningar i `config/config.php`, inklusive `colab_require_login` (visning) och `colab_feedback_require_login` (kommentarer/svar). Bevarar filens kommentarer/formatering. |
 | Webbplats | `upload_logo` / `reset_logo` | Tre `logo_type`-värden: `header`, `header-dark`, `footer` (`logoTypeConfig()`). Validerar `.svg`/`.png` ≤ 2 MB, sparar som `templates/<tema>/assets/img/custom-<header\|header-dark\|footer>-logo.<ext>` (`removeExistingLogo()` städar bort en ev. tidigare uppladdning av andra filändelsen först), `patchConfigValue()` pekar om `'header_logo'`/`'header_logo_dark'`/`'footer_logo'` i `config.php`. `reset_logo` tar bort filen och pekar tillbaka på standardvärdet (`'img/logo.svg'` för header/footer, tom sträng — "ingen egen, visa header_logo" — för header-dark) |
 
 `bin/cli.php`s `create-user`/`delete-user`/`list-users` delegerar till

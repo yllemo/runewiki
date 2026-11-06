@@ -50,6 +50,10 @@ return [
     //         spara/radera/media-uppladdning kräver inloggning.
     // Skapa användare med: php bin/cli.php create-user <användarnamn>
     'auth_enabled'     => false,
+    // Gäller samarbetsvyn, kommentarer och export, oberoende av auth_enabled.
+    'colab_require_login' => false,
+    // Tillåt offentlig läsning men kräv inloggning för nya kommentarer/svar.
+    'colab_feedback_require_login' => false,
 
     // Hur länge en inloggning håller i sig utan att man behöver logga in
     // igen (glidande fönster, förnyas vid varje besök — se Auth::refreshSessionCookie()).

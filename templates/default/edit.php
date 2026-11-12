@@ -23,7 +23,6 @@ $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
             <label for="monaco-container">Innehåll (Markdown)</label>
             <div class="gbg-editor-toolbar-actions">
                 <button type="button" id="editor-import-btn" class="gbg-btn gbg-btn-outline" disabled>Importera fil</button>
-                <button type="button" id="editor-svg-btn" class="gbg-btn gbg-btn-outline" data-svg-new="<?= Helpers::e($pageId->namespace()) ?>" disabled>Redigera SVG</button>
                 <button type="button" id="editor-fullscreen-btn" class="gbg-btn gbg-btn-outline" aria-pressed="false" disabled>Helskärm</button>
                 <span id="media-upload-status" class="gbg-upload-inline-status" aria-live="polite"></span>
                 <button type="button" id="media-upload-btn" class="gbg-btn gbg-btn-outline">Ladda upp bild</button>
@@ -676,8 +675,11 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         pickerModal.innerHTML =
             '<div class="gbg-media-picker-dialog" role="dialog" aria-modal="true" aria-label="Välj en bild">' +
               '<div class="gbg-media-picker-header">' +
-                '<input type="search" class="gbg-media-picker-search" placeholder="Sök bland bilder…">' +
+                '<input type="search" class="gbg-media-picker-search" placeholder="Sök bland bilder…" aria-label="Sök bland bilder">' +
+                '<div class="gbg-media-picker-actions">' +
                 '<button type="button" class="gbg-btn gbg-btn-outline" data-picker-upload>Ladda upp bild</button>' +
+                '<button type="button" class="gbg-btn gbg-btn-outline" data-picker-svg>Redigera SVG</button>' +
+                '</div>' +
                 '<button type="button" class="gbg-media-picker-close" aria-label="Stäng">' +
                   '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>' +
                 '</button>' +
@@ -773,6 +775,15 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
         }
         document.getElementById('media-upload-btn').addEventListener('click', chooseImageFiles);
         pickerModal.querySelector('[data-picker-upload]').addEventListener('click', chooseImageFiles);
+        pickerModal.querySelector('[data-picker-svg]').addEventListener('click', function () {
+            var model = editor.getModel();
+            var range = pickerRangeIds && model.getDecorationRange(pickerRangeIds[0]);
+            if (range) editor.setSelection(range);
+            if (pickerRangeIds) model.deltaDecorations(pickerRangeIds, []);
+            pickerRangeIds = null;
+            pickerModal.hidden = true;
+            window.WikiSvgEditor.open();
+        });
         uploadFileInput.addEventListener('change', async function () {
             var files = Array.from(uploadFileInput.files || []);
             editor.focus();

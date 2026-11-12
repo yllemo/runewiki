@@ -21,31 +21,16 @@ och behörighetskontroll. Se [MCP-konfiguration och säkerhet](readme-mcp.md).
 - [Inloggningskrav per sida med YAML-frontmatter](readme-page-access.md)
 - [SVG-redigerare, förhandsvisning och SVG-kod i Markdown](readme-svg.md)
 
-Markdown-rubriker (`#`–`######`) får automatiska bokmärken, exempelvis
-`## Kom igång` → `#kom-igång`. Vid hover eller tangentbordsfokus visas en
-länkikon till höger om rubriktexten. Klicka för att gå till bokmärket och
-kopiera adressen från adressfältet, eller högerklicka och kopiera länken.
-Använd `[Kom igång](/guide#kom-igång)`, `[[guide#kom-igång|Kom igång]]` eller
-`[[#kom-igång|Hit]]`. Upprepade rubriker får suffix `-2`, `-3` osv.
-Byter du rubriktext ändras bokmärket; uppdatera då länkarna som pekar dit.
-I **Läs- och exportläge** visas inga ankarikoner och de följer inte med exporter.
-Rubrikernas bokmärken finns kvar för länkar och innehållsförteckning.
-
-Versionshistoriken behåller normalt **10 tidigare versioner per sida**, utöver
-den aktuella filen. Ändra med `'history_max_versions' => 10,` i
-`config/config.php`. Saknad inställning eller värden under 1 ger standardvärdet
-10. Överskjutande historik rensas vid nästa sparade version för respektive sida,
-även för tvingade säkerhetskopior vid återställning/flytt. Sätt
-`'history_enabled' => false` för att stänga av den vanliga versionshistoriken.
-
 ## Krav
 
 - PHP 8.1 eller senare med **ext-mbstring**
 - **ext-zip** för ZIP-export/import, **ext-curl + ext-openssl** för OIDC,
-  **ext-ldap** för AD-inloggning (endast för de funktioner som används)
+  **ext-ldap** för AD-inloggning och **ext-dom** för SVG-redigering/rendering
+  (endast för de funktioner som används)
 - Ingen databas eller Composer-installation krävs; YAML-parsern medföljer
 - Apache med `mod_rewrite` (produktion) eller PHPs inbyggda server (lokalt)
-- Internetanslutning vid redigering (Monaco Editor laddas från CDN)
+- Internetanslutning vid redigering (Monaco Editor laddas från CDN;
+  importbibliotek för Word, HTML och PDF laddas vid behov)
 
 ## Snabbstart
 
@@ -114,6 +99,13 @@ vill, det är bara ett förslag på en första struktur.
   bäddar in en sida med valfri titel och höjd. Ctrl+Space → `iframe`
   infogar mallen. En länk under ramen öppnar alltid sidan i ny flik.
   Målsidans regler kan hindra inbäddning; ramen körs isolerad.
+- **SVG-redigerare** — kod och liveförhandsvisning i ett eget fönster från
+  **Bläddra i media → Redigera SVG** i artikelredigeraren och från mediahanteraren.
+  Mallar finns för sammanfattning, publiceringsflöde, systemöversikt, tidslinje
+  och ansvarsfördelning. Öppna lokal SVG, välj exempel,
+  spara som mediefil eller infoga ett `svg`-kodblock. Ctrl+Space ger SVG-exempel.
+  Statisk SVG stöds, högst 1 MiB; skript och externa resurser avvisas vid
+  sparning. Se [SVG-guiden](readme-svg.md).
 - **SVG med zoom** — vanliga Markdown-bilder och SVG-media öppnas vid
   klick i samma zoom- och panoreringsvisare som Mermaid. Mushjul, dra,
   +/−, piltangenter, Anpassa och Escape stöds, även i Läs- och exportläget.
@@ -121,7 +113,8 @@ vill, det är bara ett förslag på en första struktur.
   m.fl., avslutade med `:::`. Egen rubrik och Markdown-innehåll stöds,
   liksom GitHub-alerts (`> [!NOTE]`). Mallar finns via Ctrl+Space → `box`;
   syntaxguiden visar alla typer och exempel. Färgerna följer ljust/mörkt läge.
-- **YAML-frontmatter** — titel, datum, taggar, status m.m. renderas som snygg metadata-rad
+- **YAML-frontmatter** — titel, taggar, OKF-fält och egna metadata.
+  **… → Visa Metadata** öppnar en separat vy; visning på artikeln styrs i admin.
 - **Titel från rubrik** — första H1 (`# Rubrik`) används som visningstitel,
   därefter `title:` i frontmatter och sist sid-ID. H1 går även före en
   tidigare automatiskt sparad frontmatter-titel. Rubriker i kodblock
@@ -130,10 +123,15 @@ vill, det är bara ett förslag på en första struktur.
   `[[sida|Egen text]]` behålls alltid.
 - **Taggar** — klickbara, söker fram alla sidor med samma tagg
 - **Wikilänkar:** `[[namespace:sida]]` och `[[namespace/sida]]`
-- **Röda länkar** — sidor som inte finns visas med röd streckad länk och leder till `?do=edit`
+- **Röda länkar** — sidor som inte finns visas med röd streckad länk och leder till `?do=edit`.
+  Befintliga skyddade sidor visas med vanlig länkfärg och låsikon; gäster
+  skickas till inloggning när de klickar.
 - **Markdown-interlinks:** `[text](/namespace/sida)` kollar existens
 - **Interwiki:** `[[wp>Göteborg]]`, `[[github>…]]` m.fl. (config/interwiki.php)
-- **Media-embeds:** `{{namespace:bild.png}}` — inbäddning eller nedladdningslänk
+- **Media-embeds:** `{{namespace:bild.png}}` — inbäddning eller nedladdningslänk.
+  `{{namespace:bild.png?300}}` anger bredd och `?300x200` anger en bildyta
+  utan beskärning. Samma storlekssyntax fungerar i Markdown-bildadresser.
+  Bilder krymper på mindre skärmar och behåller lightboxen.
 - **Mermaid-diagram** — ett kodblock märkt ```` ```mermaid ```` renderas som
   ett riktigt diagram (mermaid.js laddas bara från CDN på sidor som
   faktiskt har ett); ritas om automatiskt i rätt färgschema om man togglar
@@ -270,7 +268,7 @@ för nya länkar som tillkommer i chatten.
 
 | Fil | Syfte |
 |-----|-------|
-| `config/config.php` | Site-namn, tema, logotyper (header ljust/mörkt + footer), cache, auth, `session_lifetime_days`, history m.m. |
+| `config/config.php` | Site-namn, tema, logotyper (header ljust/mörkt + footer), cache, auth, `session_lifetime_days`, `history_enabled`, `history_max_versions` m.m. |
 | `config/plugins.php` | Aktivera plugins och sätt deras options |
 | `config/menu.php` | Huvudnavigering (åsidosätts av `content/_topbar.md` om den finns) |
 | `config/interwiki.php` | Interwiki-genvägar |
@@ -283,6 +281,18 @@ för nya länkar som tillkommer i chatten.
 | `config/mcp.php` | MCP: betrodda origins, lokal utveckling och diagnostiklogg |
 | `config/metadata.php` | OKF-tidsstämplar, synliga metadatafält och editorförslag |
 
+## Bokmärken till rubriker
+
+Markdown-rubriker (`#`–`######`) får automatiska bokmärken, exempelvis
+`## Kom igång` → `#kom-igång`. Vid hover eller tangentbordsfokus visas en
+länkikon till höger om rubriktexten. Klicka för att gå till bokmärket och
+kopiera adressen från adressfältet, eller högerklicka och kopiera länken.
+Använd `[Kom igång](/guide#kom-igång)`, `[[guide#kom-igång|Kom igång]]` eller
+`[[#kom-igång|Hit]]`. Upprepade rubriker får suffix `-2`, `-3` osv.
+Byter du rubriktext ändras bokmärket; uppdatera då länkarna som pekar dit.
+I **Läs- och exportläge** visas inga ankarikoner och de följer inte med exporter.
+Rubrikernas bokmärken finns kvar för länkar och innehållsförteckning.
+
 ## YAML-frontmatter
 
 Placera ett `---`-block längst upp i en sida:
@@ -292,7 +302,10 @@ Placera ett `---`-block längst upp i en sida:
 title: Min sida
 date: 2026-09-07
 author: Erik Andersson
-tags: [wiki, exempel]
+tags:
+  - wiki
+  - exempel
+require_login: false
 status: Publicerad
 draft: false
 description: En kortare beskrivning
@@ -303,8 +316,34 @@ description: En kortare beskrivning
 Brödtext...
 ```
 
-Frontmatter renderas som en snygg metadata-rad direkt under rubriken.
+Metadata visas via **… → Visa Metadata**. Under **Admin → Metadata** styr du
+vilka fält som visas och om metadata även ska visas direkt på artikeln.
 Taggar är klickbara och söker fram alla sidor med samma tagg.
+
+## Sidlayout för landningssidor
+
+Sätt `page_layout` i sidans YAML-frontmatter:
+
+```yaml
+---
+title: Välkommen
+page_layout: wide
+---
+```
+
+- `default`: vanlig layout med sidomeny.
+- `wide`: innehållet använder sidans tillgängliga bredd utan sidomeny.
+  Toppmeny, sidverktyg och sidfot finns kvar.
+- `fullscreen`: endast artikelns Markdown-innehåll, utan toppmeny, sidomeny,
+  sidfot, sidverktyg eller automatiska metadata/taggar/bakåtlänkar.
+  Detta är en sidlayout, inte webbläsarens helskärmsläge.
+
+Ta bort fältet eller välj `default` för att återställa layouten. Okända värden
+använder standardlayouten. Lägena gäller endast artikelvyn; behörigheter,
+redigering och övriga verktyg fungerar som tidigare. I innehållsläget kan du
+öppna redigeraren genom att lägga till `?do=edit` i sidans adress.
+Fältet finns bland Ctrl+Space-förslagen och kan väljas under **Admin → Metadata**
+(aktivera det där om du redan har en sparad lista med editorfält).
 
 ## Toppmenyn (_topbar.md)
 
@@ -648,12 +687,21 @@ webbadresser och menyer i PHP-konfiguration behöver uppdateras separat.
 
 ## Versionshistorik
 
+Versionshistoriken behåller normalt **10 tidigare versioner per sida**, utöver
+den aktuella filen. Ändra med `'history_max_versions' => 10,` i
+`config/config.php`. Saknad inställning eller värden under 1 ger standardvärdet
+10. Överskjutande historik rensas vid nästa sparade version för respektive sida,
+även för tvingade säkerhetskopior vid återställning/flytt. Sätt
+`'history_enabled' => false` för att stänga av den vanliga versionshistoriken.
+
 Knappen **Versionshistorik** på en sida visar äldre versioner och låter
 redigeringsbehöriga användare läsa deras Markdown och återställa dem.
 Nuvarande innehåll säkerhetskopieras före återställning. Borttagna sidor
 kan återskapas via versionshistoriken på sin gamla adress.
 
-Historiska filer ligger separat i `data/history/<sid-ID:s SHA-256>/<UTC-tid>-<unik kod>.md`,
+Historiska filer ligger separat i `data/history/<sid-ID:s SHA-256>/`.
+Nya filnamn innehåller UTC-tid, mikrosekunder och en unik kod. Äldre filnamn
+utan mikrosekunder stöds också. Historiken ligger
 aldrig i `content/`, och exponeras inte som vanliga wikisidor eller sökträffar.
 Apache blockerar direktåtkomst till `data/` via `.htaccess`. Ge PHP-processen
 skrivrättigheter till `data/history/`, och använd beständig lagring för både

@@ -8,6 +8,7 @@ class Metadata
             'name' => ['label' => 'Namn', 'snippet' => 'name: ${1:Namn}'],
             'title' => ['label' => 'Titel', 'snippet' => 'title: ${1:Titel}'],
             'require_login' => ['label' => 'Kräv inloggning för sidan (alla läsvägar)', 'snippet' => 'require_login: ${1|true,false|}'],
+            'page_layout' => ['label' => 'Sidlayout: standard, bred utan sidomeny eller endast innehåll', 'snippet' => 'page_layout: ${1|default,wide,fullscreen|}'],
             'redirect' => ['label' => 'Omdirigering (redirect-plugin)', 'snippet' => 'redirect: ${1:https://example.com}'],
             'tags' => ['label' => 'Taggar', 'snippet' => "tags:\n  - \${1:example}"],
             'type' => ['label' => 'OKF: begreppstyp', 'snippet' => 'type: ${1|Reference,Playbook,API Endpoint,Metric,Attested Computation|}'],
@@ -31,6 +32,12 @@ class Metadata
             'draft' => ['label' => 'Utkast', 'snippet' => 'draft: ${1|false,true|}'],
             'template' => ['label' => 'Mall', 'snippet' => 'template: ${1:default}'],
         ];
+    }
+
+    public static function pageLayout(array $meta): string
+    {
+        $layout = $meta['page_layout'] ?? 'default';
+        return in_array($layout, ['wide', 'fullscreen'], true) ? $layout : 'default';
     }
 
     public static function settings(string $root): array

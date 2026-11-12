@@ -5,7 +5,7 @@
     </div>
     <div class="gbg-svg-toolbar">
         <label>Befintlig SVG <select id="svg-existing"><option value="">Välj fil…</option></select></label>
-        <label>Exempel <select id="svg-example"><option value="">Välj exempel…</option><option value="card">Informationsruta</option><option value="flow">Flödesdiagram</option><option value="icon">Ikon</option></select></label>
+        <label>Exempel <select id="svg-example"><option value="">Välj exempel…</option><option value="card">Kort sammanfattning</option><option value="flow">Publiceringsflöde</option><option value="architecture">Systemöversikt</option><option value="timeline">Tidslinje</option><option value="roles">Ansvarsfördelning</option></select></label>
         <button type="button" id="svg-local" class="gbg-btn gbg-btn-outline">Öppna lokal SVG</button>
         <input type="file" id="svg-file" accept=".svg,image/svg+xml" hidden>
         <button type="button" id="svg-refresh" class="gbg-btn gbg-btn-outline">Uppdatera förhandsvisning</button>

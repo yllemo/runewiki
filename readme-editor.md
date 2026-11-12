@@ -1,11 +1,35 @@
 # Helskärm och filimport i editorn
 
-För SVG finns även **Redigera SVG** med kodfält, förhandsvisning och sparning
+För SVG finns **Bläddra i media → Redigera SVG** med kodfält, förhandsvisning och sparning
 till media. Se [SVG-guiden](readme-svg.md).
 
 Öppna en artikel med **Redigera**. **Helskärm** låter editorn fylla hela
 webbläsarens yta med verktygsraden och Spara kvar. Välj **Avsluta helskärm**
 eller tryck Escape för att återgå. Texten och markörpositionen bevaras.
+
+## Bilder och SVG i media
+
+**Bläddra i media** öppnar bildväljaren. Sökfält och stängknapp ligger överst;
+**Ladda upp bild** och **Redigera SVG** finns på en egen rad. Välj en miniatyr
+för att infoga bilden vid markören. SVG-redigeraren behåller artikelns markering,
+så ett befintligt `svg`-kodblock kan öppnas och ändras därifrån.
+
+I den separata **Mediahanteraren** visas målmapp vid uppladdningen, filantal
+och filer grupperade per mapp. Filkorten visar hela bilden utan beskärning,
+filnamn, storlek, inbäddningskod och referenser. Redigera SVG och Ta bort
+visas efter samma behörigheter som tidigare.
+
+## Sidlayout via frontmatter
+
+Använd `page_layout: wide` för en bred artikel utan sidomeny eller
+`page_layout: fullscreen` för enbart artikelinnehåll utan navigation,
+sidfot och sidverktyg. `page_layout: default` återställer vanlig layout.
+Fältet ska ligga mellan sidans inledande `---`-rader.
+
+Detta styr artikelvyn, inte editorns helskärmsknapp. Redigeraren behåller
+sin vanliga layout; öppna den med `?do=edit` om sidverktygen är dolda.
+Se [sidlayout för landningssidor](README.md#sidlayout-för-landningssidor)
+för ett komplett exempel och inställningar för Ctrl+Space.
 
 ## Bildstorlekar
 

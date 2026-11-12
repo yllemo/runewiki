@@ -522,3 +522,23 @@ php bin/cli.php help
 ## Licens
 
 MIT — fri att använda, ändra och distribuera.
+
+## Sidlayout och mediaredigering
+
+`Metadata::pageLayout()` validerar YAML-fältet `page_layout` mot `default`,
+`wide` och `fullscreen`. Saknade eller okända värden ger `default`.
+`templates/default/layout.php` använder valet endast när `view` är `page`:
+`wide` tar bort sidomenyn och breddbegränsningen, medan `fullscreen` också
+utelämnar header och footer. `page.php` renderar då enbart artikelns redan
+bearbetade HTML. Behörighetskontroller och innehållsfiltrering ändras inte.
+Editorförslaget registreras i `Metadata::fields()` och styrs som övriga
+fält via `config/metadata.php`. `tests/page-layout.php` kontrollerar
+layoutval, ogiltiga värden, navigation och att editorn behåller standardskalet.
+
+Artikelns mediaväljare byggs i `edit.php`. Dess SVG-knapp återställer den
+sparade markeringen och öppnar `WikiSvgEditor.open()`. De fem wikimallarna
+finns i `assets/js/svg-editor.js` under standardtemat; väljaren definieras i
+`svg-editor.php`. `tests/svg-editor.cjs` validerar mallarna med `SvgDocument`
+och provar dialogen, infogning, ångra och sparning på mobil och skrivbord.
+Mediahanterarens separata uppladdningsyta och filkort renderas av `media.php`.
+Båda vyernas responsiva layout finns i standardtemats `assets/css/style.css`.

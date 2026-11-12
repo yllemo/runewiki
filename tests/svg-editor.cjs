@@ -20,7 +20,14 @@ const fs=require('fs'),{execFileSync}=require('child_process');
  await page.waitForFunction(()=>document.getElementById('svg-preview').naturalWidth>0);
  const box=await page.locator('#svg-editor').boundingBox();if(box.x<0||box.x+box.width>width)throw Error('Dialog overflow');
  if(await page.locator('#svg-editor').evaluate(n=>n.scrollWidth>n.clientWidth))throw Error('Horizontal overflow');
- await page.selectOption('#svg-example','flow');await page.waitForFunction(()=>document.getElementById('svg-preview').naturalWidth===560);
+ for (const sample of ['flow','architecture','timeline','roles','card']) {
+ page.once('dialog', d=>d.accept());
+ await page.selectOption('#svg-example',sample);
+ const source=await page.locator('#svg-source').inputValue();
+ execFileSync(process.env.PHP_BINARY || 'php',['-r',"require 'core/SvgDocument.php'; SvgDocument::validate(stream_get_contents(STDIN));"],{input:source});
+ await page.waitForFunction(()=>document.getElementById('svg-preview').naturalWidth===840);
+ page.removeAllListeners('dialog');
+ }
  page.once('dialog',d=>d.accept());await page.click('#svg-close');
  }
  await page.click('#editor-svg-btn');await page.selectOption('#svg-existing','project:existing.svg');

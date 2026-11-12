@@ -9,7 +9,8 @@
  * Får $page, $pageId, $menu, $sidebarHtml, $bodyHtml, $siteName, $lang,
  * $assetUrl (closure), $currentId, $pageTree från Wiki::baseData().
  */
-$hasSidebar = trim($sidebarHtml ?? '') !== '';
+$pageLayout = ($view ?? '') === 'page' ? Metadata::pageLayout($page ?? []) : 'default';
+$hasSidebar = $pageLayout === 'default' && trim($sidebarHtml ?? '') !== '';
 ?>
 <!DOCTYPE html>
 <html lang="<?= Helpers::e($lang ?? 'sv') ?>" data-theme="light" class="no-js">
@@ -24,9 +25,9 @@ $hasSidebar = trim($sidebarHtml ?? '') !== '';
     <link rel="stylesheet" href="<?= Helpers::e($assetUrl('css/style.css')) ?>">
     <script>(function(h){h.className=h.className.replace(/\bno-js\b/,'js');})(document.documentElement);</script>
 </head>
-<body>
+<body class="gbg-layout-<?= Helpers::e($pageLayout) ?>">
     <div class="gbg-site">
-        <?php include __DIR__ . '/header.php'; ?>
+        <?php if ($pageLayout !== 'fullscreen') include __DIR__ . '/header.php'; ?>
 
         <div class="gbg-main<?= $hasSidebar ? '' : ' gbg-main--full' ?>">
             <?php if ($hasSidebar): ?>
@@ -40,7 +41,7 @@ $hasSidebar = trim($sidebarHtml ?? '') !== '';
             </main>
         </div>
 
-        <?php include __DIR__ . '/footer.php'; ?>
+        <?php if ($pageLayout !== 'fullscreen') include __DIR__ . '/footer.php'; ?>
     </div>
 
     <link rel="stylesheet" href="<?= Helpers::e($assetUrl('css/viewer.css')) ?>">

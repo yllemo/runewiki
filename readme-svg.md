@@ -2,16 +2,18 @@
 
 ## I artikelredigeraren
 
-Välj **Redigera SVG** i verktygsraden. Fönstret visar SVG-kod och en automatisk
+Välj **Bläddra i media → Redigera SVG** i artikelredigeraren. Fönstret visar SVG-kod och en automatisk
 förhandsvisning sida vid sida (staplade på mobil). Här kan du:
 
-- Börja från **Informationsruta**, **Flödesdiagram** eller **Ikon**.
+- Börja från **Kort sammanfattning**, **Publiceringsflöde**, **Systemöversikt**,
+  **Tidslinje** eller **Ansvarsfördelning**. Mallarna har svenska exempeltexter
+  för wikiartiklar; anpassa innehåll, roller och färger i SVG-koden.
 - Öppna en lokal `.svg` eller välja en befintlig SVG från media.
 - Ändra former, färger, text, storlek och `viewBox` i koden.
 - **Infoga SVG-kod** som ett redigerbart `svg`-kodblock i Markdown.
 - **Spara SVG i media**, eller **Spara och infoga bild** som en vanlig bildlänk.
 
-Sätt markören i ett befintligt `svg`-kodblock och välj **Redigera SVG** för att
+Sätt markören i ett befintligt `svg`-kodblock och välj **Bläddra i media → Redigera SVG** för att
 öppna just det blocket. Även markerad råkod som börjar med `<svg` kan öppnas.
 Infogningen går att ångra med Ctrl+Z. Artikeln sparas först med vanliga **Spara**;
 mediefilen sparas direkt när du väljer en av SVG-fönstrets sparknappar.

@@ -9,6 +9,12 @@
 
 // $strings kommer från Wiki::baseData()/handleView() (Helpers::resolveStrings())
 // — alla texter nedan kan skrivas över i config/strings.php.
+// Content-only presentation applies only to the article, never to editor/admin views.
+if (Metadata::pageLayout($page ?? []) === 'fullscreen') {
+    echo '<article class="wiki-page"><div class="wiki-body">' . ($bodyHtml ?? '') . '</div></article>';
+    return;
+}
+
 $strings = $strings ?? Helpers::defaultStrings();
 
 $hasOwnH1 = (bool) preg_match('/<h1[\s>]/i', $bodyHtml ?? '');

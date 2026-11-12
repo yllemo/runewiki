@@ -40,16 +40,27 @@ foreach ($groupedFiles as $groupItems) {
 }
 ?>
 <div class="wiki-media">
-    <h1><?= $isGlobalView ? 'Mediahanterare — alla namespaces' : 'Mediahanterare: ' . Helpers::e($namespace) ?></h1>
+    <header class="gbg-media-header">
+        <div>
+            <h1>Mediahanterare</h1>
+            <p><?= $isGlobalView ? 'Alla mappar' : 'Mapp: ' . Helpers::e($namespace) ?> · <?= array_sum(array_map('count', $groupedFiles)) ?> filer</p>
+        </div>
+        <?php if ($canUpload ?? false): ?>
+            <button type="button" class="gbg-btn gbg-btn-outline" data-svg-new="<?= Helpers::e($namespace) ?>">Skapa SVG</button>
+        <?php endif; ?>
+    </header>
 
     <?php if ($canUpload ?? false): ?>
-    <button type="button" class="gbg-btn gbg-btn-outline" data-svg-new="<?= Helpers::e($namespace) ?>">Skapa SVG</button>
-    <form class="gbg-form" method="post" action="<?= Helpers::e($uploadTarget) ?>?do=upload" enctype="multipart/form-data">
+    <section class="gbg-media-upload" aria-labelledby="media-upload-title">
+    <h2 id="media-upload-title">Ladda upp bild</h2>
+    <p>Filen sparas i <?= $isGlobalView ? 'rotmappen' : Helpers::e($namespace) ?>.</p>
+    <form class="gbg-form gbg-media-upload-form" method="post" action="<?= Helpers::e($uploadTarget) ?>?do=upload" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
-        <input type="file" name="upload" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" required>
+        <input aria-label="Välj bild att ladda upp" aria-describedby="media-upload-formats" type="file" name="upload" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" required>
         <button type="submit" class="gbg-btn gbg-btn-primary">Ladda upp<?= $isGlobalView ? ' (till roten)' : '' ?></button>
     </form>
-    <p class="gbg-admin-lead">Endast bilder: PNG, JPG, GIF, SVG, WEBP.</p>
+    <p id="media-upload-formats" class="gbg-hint">PNG, JPG, GIF, SVG eller WEBP.</p>
+    </section>
     <?php else: ?>
         <p class="gbg-admin-lead">
             <a href="/?do=login&redirect_to=<?= urlencode($uploadTarget) ?>">Logga in</a> för att kunna ladda upp filer.
@@ -89,6 +100,7 @@ foreach ($groupedFiles as $groupItems) {
                         </div>
                         <code class="gbg-media-embed" title="Klistra in i sidans Markdown för att bädda in filen">{{<?= Helpers::e($f['id']) ?>}}</code>
                         <?php if ($canEditByNamespace[$ns] ?? ($canUpload ?? false)): ?>
+                            <div class="gbg-media-item-actions">
                             <?php if (str_ends_with(strtolower($mediaId->filename()), '.svg')): ?>
                             <button type="button" class="gbg-btn gbg-btn-outline" data-svg-open="<?= Helpers::e($f['id']) ?>">Redigera SVG</button>
                             <?php endif; ?>
@@ -101,6 +113,7 @@ foreach ($groupedFiles as $groupItems) {
                                 <input type="hidden" name="media_id" value="<?= Helpers::e($f['id']) ?>">
                                 <button type="submit" class="gbg-btn gbg-btn-outline" aria-label="Ta bort <?= Helpers::e($mediaId->filename()) ?>">Ta bort</button>
                             </form>
+                            </div>
                         <?php endif; ?>
                         <details class="gbg-media-references">
                             <summary>Används på <?= count($f['references']) ?> sidor<?= $f['siteUses'] ? ' · webbplatsikon/logotyp' : '' ?></summary>

@@ -23,6 +23,7 @@ $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
             <label for="monaco-container">Innehåll (Markdown)</label>
             <div class="gbg-editor-toolbar-actions">
                 <button type="button" id="editor-import-btn" class="gbg-btn gbg-btn-outline" disabled>Importera fil</button>
+                <button type="button" id="editor-svg-btn" class="gbg-btn gbg-btn-outline" data-svg-new="<?= Helpers::e($pageId->namespace()) ?>" disabled>Redigera SVG</button>
                 <button type="button" id="editor-fullscreen-btn" class="gbg-btn gbg-btn-outline" aria-pressed="false" disabled>Helskärm</button>
                 <span id="media-upload-status" class="gbg-upload-inline-status" aria-live="polite"></span>
                 <button type="button" id="media-upload-btn" class="gbg-btn gbg-btn-outline">Ladda upp bild</button>
@@ -63,6 +64,7 @@ $mediaNsJson   = json_encode($pageId->namespace(), JSON_UNESCAPED_UNICODE);
     <p class="gbg-hint">Word-bilder importeras inte. PDF läses som text; tabeller och spalter kan behöva justeras. Skannade PDF:er kräver OCR. Ändringen kan ångras med Ctrl+Z och sparas först när du väljer Spara.</p>
 </dialog>
 <script src="<?= Helpers::e($assetUrl('js/editor-tools.js')) ?>"></script>
+<?php $svgNamespace = $pageId->namespace(); include __DIR__ . '/svg-editor.php'; ?>
 
 <script>
 window.WIKI_PAGES     = <?= $allPagesJson ?>;
@@ -110,6 +112,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
 
         var Snippet = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
         window.WikiEditorTools(editor);
+        window.WikiSvgEditor.bindEditor(editor);
         var Kind    = monaco.languages.CompletionItemKind;
 
         // ── Helpers ─────────────────────────────────────────────────────
@@ -409,6 +412,10 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             { label: '[[wp>Wikipedia]]',   ins: '[[wp>${1:Artikel}]]',                                               detail: 'Wikipedia interwiki' },
             { label: '{{media}}',          ins: '{{${1:namespace:fil.png}}}',                                        detail: 'Media-embed (bild/fil)' },
             { label: '{{media|alt}}',      ins: '{{${1:namespace:fil.png}|${2:alt-text}}}',                         detail: 'Media-embed med alt-text' },
+            { label: '{{bild?bredd}}',     ins: '{{${1:namespace:bild.png}?${2:300}|${3:Beskrivning}}}', detail: 'Bild med bredd i pixlar' },
+            { label: 'SVG informationsruta', ins: '```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 160" width="480" height="160">\n  <rect x="2" y="2" width="476" height="156" rx="16" fill="#e8f4fc" stroke="#0077bc"/>\n  <text x="24" y="85" font-family="sans-serif" font-size="26">${1:Rubrik}</text>\n</svg>\n```\n${0}', detail: 'SVG-bild direkt i Markdown' },
+            { label: 'SVG ikon', ins: '```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128">\n  <circle cx="32" cy="32" r="28" fill="${1:#0077bc}"/>\n  <path d="M18 32 L28 42 L46 22" fill="none" stroke="#fff" stroke-width="5"/>\n</svg>\n```\n${0}', detail: 'SVG-ikon med färgval' },
+            { label: '{{bild?breddxhöjd}}', ins: '{{${1:namespace:bild.png}?${2:300}x${3:200}|${4:Beskrivning}}}', detail: 'Bild inom angiven bredd och höjd' },
             // Byråkrazy: formulär på sidan och formulär som skapar en sida från mall.
             { label: 'Byråkrazy: lägg till på sidan',
               ins: '<form>\naction pagemod . add_down\nfieldset "Nytt objekt"\ntextbox "Item"\nfieldset ""\nsubmit "Lägg till"\n</form>\n\n<pagemod add_down output_after>\n* @@Item@@\n</pagemod>\n${0}',

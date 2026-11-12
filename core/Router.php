@@ -30,6 +30,7 @@ class Router
 
         $do = $queryParams['do'] ?? 'view';
         $path = trim($path, '/');
+        if ($do === 'svg') return ['action' => 'svg', 'id' => null, 'namespace' => '', 'query' => ''];
 
         if ($path === 'images' || str_starts_with($path, 'images/')) {
             $namespace = trim(substr($path, 6), '/');

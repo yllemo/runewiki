@@ -61,4 +61,6 @@ return [
 
     // Versionering av sidor (core/History.php)
     'history_enabled'  => true,
+    // Antal tidigare versioner per sida. Saknat/ogiltigt värde ger 10.
+    'history_max_versions' => 10,
 ];

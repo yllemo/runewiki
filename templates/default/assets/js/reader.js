@@ -901,6 +901,8 @@ async function render(mdText) {
     ADD_ATTR: ['type', 'checked', 'disabled']
   });
 
+  // Remove editor/navigation chrome from both reading and every exported clone.
+  content.querySelectorAll('.wiki-heading-anchor').forEach(anchor => anchor.remove());
   resolveImages();
 
   // GFM-checklistor: ersätt inputs med snygga, utskriftsvänliga rutor

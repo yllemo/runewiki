@@ -9,6 +9,9 @@
         "ext-mbstring": "*",
         "ext-zip": "*"
     },
+    "suggest": {
+        "ext-dom": "Krävs för SVG-redigering och rendering av svg-kodblock."
+    },
     "autoload": {
         "classmap": ["core/", "plugins/"]
     }

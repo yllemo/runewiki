@@ -691,6 +691,14 @@ img { max-width: 100%; border-radius: var(--radius); }
 /* ── Wikilänkar (genereras av Parser.php) ────────────────────────── */
 
 a.wikilink-exists { color: var(--link-color); }
+.wiki-heading { position:relative; scroll-margin-top:6rem; }
+.wiki-heading-anchor { display:inline-flex; vertical-align:middle; margin-inline-start:.45em; padding:.15em; border-radius:4px; opacity:0; color:var(--text-secondary); text-decoration:none; }
+.wiki-heading-anchor svg { width:.75em; height:.75em; min-width:16px; min-height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; }
+.wiki-heading:hover > .wiki-heading-anchor, .wiki-heading:focus-within > .wiki-heading-anchor { opacity:1; }
+.wiki-heading-anchor:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.wiki-heading:target { outline:2px solid var(--accent); outline-offset:5px; border-radius:3px; }
+@media (hover:none) { .wiki-heading-anchor { opacity:.65; } }
+@media print { .wiki-heading-anchor { display:none; } }
 .wikilink-lock { display:inline-block; width:.85em; height:.85em; vertical-align:-.05em; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 
 a.wikilink-new {
@@ -1093,6 +1101,20 @@ body.gbg-editor-fullscreen .gbg-media-picker-modal { z-index:1200; }
 #edit-form.is-fullscreen .gbg-edit-actions { display:none; }
 .gbg-import-dialog { width:min(850px, calc(100vw - 2rem)); max-height:calc(100dvh - 2rem); box-sizing:border-box; overflow:auto; padding:1.5rem; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-color); }
 .gbg-import-dialog::backdrop { background:#0006; }
+.gbg-svg-editor { width:min(1200px, calc(100vw - 2rem)); max-height:calc(100dvh - 2rem); box-sizing:border-box; overflow:auto; padding:1.25rem; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-color); color:var(--text-color); }
+.gbg-svg-editor::backdrop { background:#0006; }
+.gbg-svg-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:.65rem; margin:.65rem 0; }
+.gbg-svg-toolbar h2 { flex:1; margin:0; }
+.gbg-svg-columns { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; }
+.gbg-svg-columns > label { min-width:0; }
+.gbg-svg-editor :is(input,select,textarea) { box-sizing:border-box; max-width:100%; color:var(--text-color); background:var(--bg-subtle); border:1px solid var(--border-color); border-radius:5px; padding:.5rem; }
+#svg-source { display:block; width:100%; height:45vh; min-height:200px; font-family:monospace; font-size:14px; tab-size:2; resize:vertical; white-space:pre; }
+.gbg-svg-preview { display:flex; align-items:center; justify-content:center; min-height:240px; padding:1rem; overflow:auto; background:#fff; border:1px solid var(--border-color); border-radius:5px; }
+.gbg-svg-preview img { max-width:100%; max-height:45vh; object-fit:contain; }
+.wiki-svg { margin:1rem 0; }
+.wiki-svg img { max-width:100%; height:auto; }
+.gbg-svg-editor [hidden] { display:none!important; }
+@media(max-width:700px) { .gbg-svg-columns { grid-template-columns:minmax(0,1fr); } #svg-source { height:32vh; } }
 .gbg-import-dialog h2 { margin-top:0; }
 #editor-import-preview { display:block; width:100%; box-sizing:border-box; margin:.5rem 0 1rem; padding:.75rem; resize:vertical; font-family:monospace; background:var(--bg-subtle); color:var(--text-color); border:1px solid var(--border-color); }
 .gbg-import-dialog .gbg-editor-toolbar-actions { flex-wrap:wrap; }

@@ -19,6 +19,24 @@ och behörighetskontroll. Se [MCP-konfiguration och säkerhet](readme-mcp.md).
 - [Samarbeta: feedback i popup, åtkomstinställningar och export](readme-colab.md)
 - [Editor: helskärm och import av Markdown, Word, HTML och PDF](readme-editor.md)
 - [Inloggningskrav per sida med YAML-frontmatter](readme-page-access.md)
+- [SVG-redigerare, förhandsvisning och SVG-kod i Markdown](readme-svg.md)
+
+Markdown-rubriker (`#`–`######`) får automatiska bokmärken, exempelvis
+`## Kom igång` → `#kom-igång`. Vid hover eller tangentbordsfokus visas en
+länkikon till höger om rubriktexten. Klicka för att gå till bokmärket och
+kopiera adressen från adressfältet, eller högerklicka och kopiera länken.
+Använd `[Kom igång](/guide#kom-igång)`, `[[guide#kom-igång|Kom igång]]` eller
+`[[#kom-igång|Hit]]`. Upprepade rubriker får suffix `-2`, `-3` osv.
+Byter du rubriktext ändras bokmärket; uppdatera då länkarna som pekar dit.
+I **Läs- och exportläge** visas inga ankarikoner och de följer inte med exporter.
+Rubrikernas bokmärken finns kvar för länkar och innehållsförteckning.
+
+Versionshistoriken behåller normalt **10 tidigare versioner per sida**, utöver
+den aktuella filen. Ändra med `'history_max_versions' => 10,` i
+`config/config.php`. Saknad inställning eller värden under 1 ger standardvärdet
+10. Överskjutande historik rensas vid nästa sparade version för respektive sida,
+även för tvingade säkerhetskopior vid återställning/flytt. Sätt
+`'history_enabled' => false` för att stänga av den vanliga versionshistoriken.
 
 ## Krav
 

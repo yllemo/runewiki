@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '10';
+    public const VERSION = '13';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
@@ -37,6 +37,8 @@ class Parser
     private ?PageLoader $pageLoader;
     private ?PluginManager $plugins;
     private array $codeBlocks = [];
+    private array $headingIds = [];
+    private bool $headingLinks = true;
 
     public function __construct(array $interwiki = [], ?PageLoader $pageLoader = null, ?PluginManager $plugins = null, private ?Closure $canReadPage = null, private ?Closure $isAuthenticated = null)
     {
@@ -45,9 +47,11 @@ class Parser
         $this->plugins    = $plugins;
     }
 
-    public function toHtml(string $markdown): string
+    public function toHtml(string $markdown, bool $headingLinks = true): string
     {
+        $this->headingLinks = $headingLinks;
         $this->codeBlocks = [];
+        $this->headingIds = [];
 
         $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
         $markdown = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $markdown);
@@ -83,6 +87,13 @@ class Parser
             $token = "\x01CODEBLOCK" . count($this->codeBlocks) . "\x01";
             $lang  = Helpers::e(preg_split('/\s+/', trim($m[2]))[0]);
             $code  = Helpers::e($m[3]);
+            if (strtolower($lang) === 'svg') {
+                try {
+                    $source = SvgDocument::validate($m[3]);
+                    $this->codeBlocks[] = '<figure class="wiki-svg"><img class="gbg-lightbox-img" src="data:image/svg+xml;base64,' . base64_encode($source) . '" alt="SVG-diagram" loading="lazy"></figure>';
+                    return "\n\n" . $token . "\n\n";
+                } catch (RuntimeException) { /* Invalid/active SVG stays escaped code. */ }
+            }
             $this->codeBlocks[] = '<pre><code' . ($lang ? ' class="language-' . $lang . '"' : '') . '>' . $code . '</code></pre>';
             return "\n\n" . $token . "\n\n";
         }, $md);
@@ -137,7 +148,15 @@ class Parser
             }
             if (preg_match('/^ {0,3}(#{1,6})\s+(.+?)\s*#*$/', $line, $m)) {
                 $level = strlen($m[1]);
-                $html[] = "<h{$level}>" . $this->inline($m[2]) . "</h{$level}>";
+                $content = $this->inline($m[2]);
+                $text = html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $slug = trim(preg_replace('/[^\pL\pN_-]+/u', '-', mb_strtolower($text, 'UTF-8')), '-') ?: 'rubrik';
+                $anchor = $slug;
+                for ($suffix = 2; isset($this->headingIds[$anchor]); $suffix++) $anchor = $slug . '-' . $suffix;
+                $this->headingIds[$anchor] = true;
+                $html[] = "<h{$level} id=\"" . Helpers::e($anchor) . '" class="wiki-heading">' . $content
+                    . ($this->headingLinks ? '<a class="wiki-heading-anchor" href="#' . rawurlencode($anchor) . '" aria-label="' . Helpers::e('Länk till rubriken: ' . $text)
+                    . '" title="Länk till denna rubrik"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"/></svg></a>' : '') . "</h{$level}>";
                 $i++; continue;
             }
             if (preg_match('/^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/', $line)) {
@@ -291,9 +310,10 @@ class Parser
         // Standard Markdown images use the same lightbox as wiki media embeds.
         $text = preg_replace_callback('/!\[([^\]\x03]*)\]\(([^()\s"\x03]+)(?:\s+"([^"\x03]*)")?\)/', function ($m) use ($tok) {
             $url = $m[2];
+            [$url, $size] = $this->imageSize($url);
             if (preg_match('/^[a-z][a-z0-9+.-]*:/i', $url) && !preg_match('#^https?://#i', $url)) return $tok(Helpers::e($m[0]));
             return $tok('<img class="gbg-lightbox-img" src="' . Helpers::e($url) . '" alt="' . Helpers::e($m[1]) . '" loading="lazy"'
-                . (isset($m[3]) ? ' title="' . Helpers::e($m[3]) . '"' : '') . '>');
+                . $size . (isset($m[3]) ? ' title="' . Helpers::e($m[3]) . '"' : '') . '>');
         }, $text);
 
         // Media-embed {{id}} eller {{id|Alt}}
@@ -346,6 +366,8 @@ class Parser
         }
 
         // Normalisera snedstreck → kolon ([[namespace/page]] → namespace:page)
+        [$inner, $fragment] = array_pad(explode('#', $inner, 2), 2, null);
+        if ($inner === '' && $fragment !== null) return '<a href="#' . Helpers::e(rawurlencode(rawurldecode($fragment))) . '">' . Helpers::e($label ?? rawurldecode($fragment)) . '</a>';
         $inner = str_replace('/', ':', trim($inner, '/:'));
 
         try {
@@ -354,7 +376,7 @@ class Parser
             return Helpers::e($inner);
         }
 
-        return $this->renderPageLink($pageId, $label);
+        return $this->renderPageLink($pageId, $label, $fragment);
     }
 
     /**
@@ -373,19 +395,20 @@ class Parser
         }
 
         // Intern länk → försök mappa till wiki-sida
+        [$href, $fragment] = array_pad(explode('#', $href, 2), 2, null);
         $pageId = $this->hrefToPageId($href);
         if ($pageId) {
-            return $this->renderPageLink($pageId, $text);
+            return $this->renderPageLink($pageId, $text, $fragment);
         }
 
         // Övriga relativa sökvägar
-        return '<a href="' . Helpers::e($href) . '">' . Helpers::e($text) . '</a>';
+        return '<a href="' . Helpers::e($href . ($fragment !== null ? '#' . $fragment : '')) . '">' . Helpers::e($text) . '</a>';
     }
 
     /**
      * Gemensam renderer: slår upp om sidan finns och väljer rätt klass/URL.
      */
-    private function renderPageLink(PageId $pageId, ?string $label): string
+    private function renderPageLink(PageId $pageId, ?string $label, ?string $fragment = null): string
     {
         $exists = $this->pageLoader ? $this->pageLoader->linkExists($pageId) : true;
         $readable = (!$this->pageLoader || $this->pageLoader->exists($pageId))
@@ -393,6 +416,7 @@ class Parser
         $locked = $exists && !$readable;
         $class  = $exists ? 'wikilink-exists' . ($locked ? ' wikilink-locked' : '') : 'wikilink-new';
         $href   = $exists ? $pageId->url() : $pageId->editUrl();
+        if ($fragment !== null) $href .= '#' . rawurlencode(rawurldecode($fragment));
         $text   = $label ?? $pageId->title();
         if ($label === null && $exists && $this->pageLoader && $readable) {
             $text = $this->pageLoader->load($pageId)['title'] ?? $text;
@@ -441,8 +465,24 @@ class Parser
             . '" rel="nofollow noopener" title="' . Helpers::e($href) . '">' . Helpers::e($text) . '</a>';
     }
 
+    /** Only a complete numeric size query is syntax; ordinary URL queries stay intact. */
+    private function imageSize(string $source): array
+    {
+        if (!preg_match('/\?([1-9][0-9]{0,3})(?:x([1-9][0-9]{0,3}))?$/D', $source, $match)) return [$source, ''];
+        $width = (int) $match[1];
+        $attributes = ' width="' . $width . '"';
+        $style = 'width:' . $width . 'px;max-width:100%;height:auto';
+        if (isset($match[2])) {
+            $height = (int) $match[2];
+            $attributes .= ' height="' . $height . '"';
+            $style .= ';aspect-ratio:' . $width . '/' . $height . ';object-fit:contain';
+        }
+        return [substr($source, 0, -strlen($match[0])), $attributes . ' style="' . $style . '"'];
+    }
+
     private function renderMedia(string $id, ?string $alt): string
     {
+        [$id, $size] = $this->imageSize($id);
         try {
             $mediaId = new MediaId($id);
         } catch (\Throwable) {
@@ -455,7 +495,7 @@ class Parser
             // .gbg-lightbox-img styr theme.js/style.css lightbox (se
             // assets/js/theme.js) — bara embeddade bilder ska öppnas i en
             // lightbox vid klick, inte t.ex. header-loggan.
-            return '<img class="gbg-lightbox-img" src="' . Helpers::e($mediaId->url()) . '" alt="' . Helpers::e($altText) . '" loading="lazy">';
+            return '<img class="gbg-lightbox-img" src="' . Helpers::e($mediaId->url()) . '" alt="' . Helpers::e($altText) . '" loading="lazy"' . $size . '>';
         }
 
         return '<a class="media-download" href="' . Helpers::e($mediaId->url()) . '">' . Helpers::e($altText) . '</a>';

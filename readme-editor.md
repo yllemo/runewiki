@@ -1,8 +1,45 @@
 # Helskärm och filimport i editorn
 
+För SVG finns även **Redigera SVG** med kodfält, förhandsvisning och sparning
+till media. Se [SVG-guiden](readme-svg.md).
+
 Öppna en artikel med **Redigera**. **Helskärm** låter editorn fylla hela
 webbläsarens yta med verktygsraden och Spara kvar. Välj **Avsluta helskärm**
 eller tryck Escape för att återgå. Texten och markörpositionen bevaras.
+
+## Bildstorlekar
+
+Ange storleken i pixlar direkt efter bildnamnet:
+
+```markdown
+{{projekt:bild.png?300|Beskrivning}}
+{{projekt:bild.png?300x200|Beskrivning}}
+![Beskrivning](/images/projekt/bild.png?300)
+![Beskrivning](/images/projekt/bild.png?300x200)
+```
+
+`?300` ger 300 pixlars bredd med proportionell höjd. `?300x200` anger en
+bildyta på 300 × 200 pixlar: hela bilden ryms utan beskärning eller förvrängning.
+Bildytan krymper proportionellt om skärmen är smalare. Storleken ändrar bara
+visningen; originalfilen och lightboxen behålls. Värden från 1 till 9999 stöds.
+Ctrl+Space innehåller förslag för båda storleksformaten.
+
+## Rubriklänkar och läsläge
+
+Rubriker får automatiska bokmärken: `## Kom igång` ger `#kom-igång`.
+I artikelvyn visas en länkikon när musen är över rubriken eller länken får
+tangentbordsfokus. Använd exempelvis `[[guide#kom-igång|Kom igång]]` eller
+`[Kom igång](/guide#kom-igång)`. Upprepade rubriker får numrerade suffix.
+Rubrikbyte ändrar bokmärket. I **Läs- och exportläge** och dess exporter tas
+ikonerna bort, medan rubrikernas ID:n och innehållsförteckningens länkar bevaras.
+
+## Versionshistorik
+
+Som standard behålls 10 tidigare versioner per sida, utöver den aktuella filen.
+Ändra `'history_max_versions' => 10,` i `config/config.php` för en annan gräns.
+Saknad inställning eller värden under 1 ger 10. Gamla versioner rensas när
+nästa snapshot skapas för sidan; även säkerhetskopior vid återställning och
+flytt räknas in. Befintliga historikfiler fungerar även efter uppdateringen.
 
 ## Importera ett dokument
 

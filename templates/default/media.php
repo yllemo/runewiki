@@ -43,6 +43,7 @@ foreach ($groupedFiles as $groupItems) {
     <h1><?= $isGlobalView ? 'Mediahanterare — alla namespaces' : 'Mediahanterare: ' . Helpers::e($namespace) ?></h1>
 
     <?php if ($canUpload ?? false): ?>
+    <button type="button" class="gbg-btn gbg-btn-outline" data-svg-new="<?= Helpers::e($namespace) ?>">Skapa SVG</button>
     <form class="gbg-form" method="post" action="<?= Helpers::e($uploadTarget) ?>?do=upload" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
         <input type="file" name="upload" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" required>
@@ -88,6 +89,9 @@ foreach ($groupedFiles as $groupItems) {
                         </div>
                         <code class="gbg-media-embed" title="Klistra in i sidans Markdown för att bädda in filen">{{<?= Helpers::e($f['id']) ?>}}</code>
                         <?php if ($canEditByNamespace[$ns] ?? ($canUpload ?? false)): ?>
+                            <?php if (str_ends_with(strtolower($mediaId->filename()), '.svg')): ?>
+                            <button type="button" class="gbg-btn gbg-btn-outline" data-svg-open="<?= Helpers::e($f['id']) ?>">Redigera SVG</button>
+                            <?php endif; ?>
                             <?php $usageCount = count($f['references']) + count($f['siteUses']); ?>
                             <form class="gbg-media-delete" method="post" action="<?= Helpers::e($uploadTarget) ?>?do=delete"
                                   data-filename="<?= Helpers::e($mediaId->filename()) ?>"
@@ -114,3 +118,4 @@ foreach ($groupedFiles as $groupItems) {
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
+<?php $svgNamespace = $namespace; include __DIR__ . '/svg-editor.php'; ?>

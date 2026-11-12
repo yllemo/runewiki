@@ -76,7 +76,7 @@ class Wiki
         $this->auth       = new Auth($dataDir . '/users/users.php', (bool) ($config['auth_enabled'] ?? false), (int) ($config['session_lifetime_days'] ?? 30));
         $this->acl        = new Acl($aclConfig['groups'] ?? []);
         $this->aclConfigured = !empty($aclConfig['groups']);
-        $this->history    = new History($dataDir . '/history', (bool) ($config['history_enabled'] ?? true));
+        $this->history    = new History($dataDir . '/history', (bool) ($config['history_enabled'] ?? true), (int) ($config['history_max_versions'] ?? 10));
         $this->namespaces = new NamespaceResolver($namespaceConfig);
         $this->topbarMenu = Helpers::loadTopbarMenu($contentDir, $this->pages);
     }
@@ -92,6 +92,7 @@ class Wiki
         }
 
         echo match ($intent['action']) {
+            'svg'          => $this->handleSvg(),
             'view'         => $this->handleView($intent['id']),
             'metadata'     => $this->handleMetadata($intent['id']),
             'reader'       => $this->handleReader($intent['id']),
@@ -456,7 +457,7 @@ class Wiki
             'readerData' => [
                 'metadata' => Metadata::visible($page['meta'], Metadata::settings($this->root)),
                 'raw' => $page['raw'],
-                'html' => $this->parser->toHtml($page['body']),
+                'html' => $this->parser->toHtml($page['body'], false),
                 'title' => $page['title'],
                 'filename' => str_replace(':', '_', $id->id()),
             ],
@@ -1010,6 +1011,24 @@ class Wiki
         return $this->handleMediaList($namespace, $message);
     }
 
+    private function handleSvg(): string
+    {
+        try {
+            $post = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+            $id = SvgDocument::id((string) (($post ? $_POST['id'] ?? '' : $_GET['id'] ?? '')));
+            if (!$this->canReadNamespace($id->namespace()) || !$this->canEditNamespace($id->namespace())) return $this->jsonResponse(['error' => 'Du saknar behörighet att redigera SVG i detta namespace.'], 403);
+            $mediaDir = $this->root . '/' . ($this->config['media_dir'] ?? 'images');
+            if (!$post) return $this->jsonResponse(SvgDocument::read($mediaDir, $id));
+            if (!Helpers::verifyCsrf($_POST['csrf_token'] ?? null)) return $this->jsonResponse(['error' => 'Sessionen har gått ut. Ladda om sidan.'], 403);
+            $allowed = Helpers::loadConfig($this->root . '/config/media.php')['allowed_extensions'] ?? [];
+            if ($allowed && !in_array('svg', $allowed, true)) return $this->jsonResponse(['error' => 'SVG är inte tillåtet i mediainställningarna.'], 403);
+            return $this->jsonResponse(SvgDocument::save($mediaDir, $this->root . '/data/svg-locks', $id,
+                (string) ($_POST['source'] ?? ''), (string) ($_POST['revision'] ?? '')));
+        } catch (RuntimeException|InvalidArgumentException $e) {
+            return $this->jsonResponse(['error' => $e->getMessage()], 422);
+        }
+    }
+
     private function handleMediaDelete(string $namespace): string
     {
         if (!$this->canEditNamespace($namespace)) {
@@ -1127,6 +1146,7 @@ class Wiki
         $canEditByNamespace = array_combine(array_keys($groupedFiles), array_map(fn ($ns) => $this->canEditNamespace($ns), array_keys($groupedFiles)));
 
         $listHtml = $this->templates->render('media', [
+            'assetUrl'      => fn ($p) => $this->templates->assetUrl($p),
             'namespace'     => $namespace,
             'groupedFiles'  => $groupedFiles,
             'canUpload'     => $this->canEditNamespace($namespace),

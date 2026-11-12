@@ -51,6 +51,7 @@ runewiki/
 │   ├── Metadata.php             ← OKF-policy och editorförslag
 │   ├── MarkdownVisibility.php   ← Gemensam filtrering av ifAuth-block
 │   ├── PageAccess.php           ← Gemensamt require_login-skydd för sida/frontmatter
+│   ├── SvgDocument.php          ← Statisk SVG-validering och sparning med konfliktkontroll
 │   ├── Router.php               ← URL + ?do= → view/edit/save/delete/download/search/
 │   │                              media-*/login/logout
 │   ├── PageId.php               ← Värdesobjekt: ID ↔ filsökväg ↔ URL; saniterar mot path traversal
@@ -65,7 +66,7 @@ runewiki/
 │   ├── TemplateEngine.php       ← Renderar PHP-vyer i templates/<tema>/; fallback till 'default'
 │   ├── PluginManager.php        ← Laddar plugins, hook-register (on/trigger/listAvailable)
 │   ├── PluginInterface.php      ← Kontrakt: register(PluginManager, array $options): void
-│   ├── History.php              ← Ögonblicksbilder vid sparning i data/history/ (av/på via config)
+│   ├── History.php              ← Ögonblicksbilder i data/history/, normalt 10 tidigare versioner per sida
 │   ├── Auth.php                 ← Filbaserad inloggning; startar session med HttpOnly/SameSite=Lax;
 │   │                              canEdit() tillämpas i Wiki::handleEdit/Save/Delete/MediaUpload
 │   └── Helpers.php              ← e(), slugify, sanitizeFilename/PathSegment, csrfToken(), verifyCsrf()
@@ -513,7 +514,7 @@ php bin/cli.php help
 | ZIP-import/export | Admin → Webbplats; delad uppladdning och import i omgångar med paus/fortsätt. Befintliga filer bevaras. |
 | Redirect-plugin | Aktiveras i config/plugins.php; YAML-fältet redirect anger målet. Redigeringsläget påverkas inte. |
 | Sökindex | Filgenomsökning räcker för mindre wikis |
-| Historik-visning i UI | Versionshistorik och återställning via artikelns …-meny. |
+| Historik-visning i UI | Versionshistorik och återställning via artikelns …-meny. `history_max_versions` styr antalet tidigare versioner (standard 10); rensning sker vid nästa snapshot. |
 | Responsiv mobil-layout | Anpassningar för mobil finns i standardtemat. |
 
 ---

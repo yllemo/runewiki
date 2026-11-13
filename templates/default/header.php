@@ -51,22 +51,29 @@ $crumbParts = ($showEditLink && $currentTarget !== '') ? explode(':', $currentTa
             <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
         </button>
         <ul class="gbg-nav-links" id="gbg-nav-links">
-            <?php foreach ($menu as $item): ?>
-                <?php
-                $target = $item['target'] ?? '';
-                // Extern URL eller absolut sökväg (t.ex. från _topbar.md) används
-                // som den är — annars tolkas target som ett sid-ID.
-                $href = (preg_match('#^https?://#i', $target) || str_starts_with($target, '/'))
-                    ? $target
-                    : '/' . str_replace(':', '/', $target);
-                ?>
-                <li>
-                    <a href="<?= Helpers::e($href) ?>"
-                       <?= ($currentTarget === $target) ? 'class="is-active"' : '' ?>>
-                        <?= Helpers::e($item['label']) ?>
-                    </a>
-                </li>
-            <?php endforeach; ?>
+            <?php
+            $renderNav = static function (array $items) use (&$renderNav, $currentTarget): void {
+                foreach ($items as $item) {
+                    $target = $item['target'] ?? '';
+                    $href = (preg_match('#^https?://#i', $target) || str_starts_with($target, '/'))
+                        ? $target : '/' . str_replace(':', '/', $target);
+                    $label = Helpers::e($item['label'] ?? '');
+                    echo '<li>';
+                    if (!empty($item['children'])) {
+                        echo '<details class="gbg-nav-group"><summary>' . $label . '<span aria-hidden="true">⌄</span></summary><ul>';
+                        if (empty($item['plain']) && $target !== '') {
+                            echo '<li><a href="' . Helpers::e($href) . '">' . $label . '</a></li>';
+                        }
+                        $renderNav($item['children']);
+                        echo '</ul></details>';
+                    } else {
+                        echo '<a href="' . Helpers::e($href) . '"' . ($currentTarget === $target ? ' class="is-active" aria-current="page"' : '') . '>' . $label . '</a>';
+                    }
+                    echo '</li>';
+                }
+            };
+            $renderNav($menu);
+            ?>
         </ul>
         <?php endif; ?>
 

@@ -75,6 +75,7 @@ class Router
         $id = $path === '' ? 'start' : str_replace('/', ':', rawurldecode($path));
 
         $action = match (true) {
+            $do === 'mermaid-save' && $method === 'POST' => 'mermaid-save',
             $do === 'metadata' => 'metadata',
             $do === 'colab' => 'colab',
             $do === 'reader' => 'reader',

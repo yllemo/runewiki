@@ -105,3 +105,30 @@ måste tillåta dessa skript och PDF.js worker (inklusive blob-worker).
 Webbläsartest: `node tests/editor-tools.cjs` från projektroten, med Playwright,
 Edge och tillgång till CDN. Testet använder syntetiska dokument och kontrollerar
 konvertering, förhandsgranskning, infogning, undo samt helskärm på desktop/mobil.
+
+## Redigera Mermaid i diagramvisaren
+
+Öppna ett Mermaid-diagram i fullskärm och välj **Visa kod**. På en wikiartikel
+med redigeringsbehörighet kan du ändra koden och välja **Spara i artikeln**.
+**Stäng** eller Escape sparar också ändrad kod när kodpanelen är öppen.
+**Avbryt** stänger kodpanelen och kastar ändringarna. Syntaxfel och sparfel
+visas i panelen utan att koden försvinner.
+
+Sparningen använder artikelns behörigheter, CSRF-skydd, versionshistorik,
+plugins och automatiska tidsstämplar. Om sidan har ändrats sedan den öppnades
+nekas sparningen: kopiera koden och ladda om sidan. Identiska diagramblock
+eller block inuti listor kan behöva ändras i den vanliga artikelredigeraren.
+I chatt, läsvyer utan artikelkoppling och för användare utan redigeringsrätt
+är kodpanelen skrivskyddad.
+
+Vanliga Mermaid-länkar fungerar även i fullskärm, exempelvis:
+
+```mermaid
+flowchart LR
+  A[Guide] --> B[Kontakt]
+  click A href "/guide" "Öppna guiden" _self
+  click B "https://example.com/contact" "Kontakt" _blank
+```
+
+HTTP-, HTTPS- och mailto-länkar stöds. JavaScript-callbacks aktiveras inte.
+Dra i diagrammets övriga yta för panorering; klick på en länk öppnar länken.

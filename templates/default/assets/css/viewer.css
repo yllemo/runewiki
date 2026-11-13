@@ -9,7 +9,8 @@
 .mmd-viewport.is-dragging { cursor: grabbing; }
 .mmd-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 .mmd-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; user-select: none; }
-.mmd-canvas svg { display: block; pointer-events: none; }
+.mmd-canvas svg { display: block; }
+.mmd-canvas a { cursor:pointer; }
 .mmd-help { margin: 0; padding: .6rem 1rem; border-top: 1px solid var(--border-color); font-size: .8rem; color: var(--text-secondary); }
 
 .mmd-canvas img { display:block; pointer-events:none; max-width:none; max-height:none; object-fit:contain; }
@@ -23,3 +24,9 @@ img.gbg-lightbox-img:focus-visible { outline:2px solid var(--accent, #0077bc); o
 .wiki-embed iframe { display:block; width:100%; max-width:100%; border:1px solid var(--border-color, #ccc); border-radius:8px; background:white; }
 .wiki-embed figcaption { margin-top:.5rem; font-size:.9rem; }
 @media print { .mmd-viewer, .wiki-embed iframe { display:none !important; } }
+
+.mmd-viewer [hidden] { display:none !important; }
+.mmd-code-panel { flex:1; min-height:0; padding:1rem; overflow:auto; }
+.mmd-code-panel label { display:flex; flex-direction:column; gap:.5rem; height:75%; min-height:180px; }
+.mmd-code-panel textarea { flex:1; width:100%; box-sizing:border-box; resize:none; font:14px/1.5 monospace; background:var(--bg-card); color:var(--text-color); border:1px solid var(--border-color); padding:.75rem; }
+.mmd-code-panel button { padding:.6rem 1rem; margin:.75rem .5rem 0 0; cursor:pointer; }

@@ -1821,3 +1821,15 @@ button.tag-pick-btn:hover { background: var(--accent-hover); }
 .gbg-layout-wide .gbg-main, .gbg-layout-fullscreen .gbg-main { max-width:none; }
 .gbg-layout-fullscreen .gbg-main { margin:0; padding:0; }
 .gbg-layout-fullscreen .gbg-content-card { min-height:100vh; border:0; border-radius:0; box-shadow:none; padding:clamp(1rem, 3vw, 3rem); }
+
+/* Nested _topbar lists: native disclosure works with keyboard and without JS. */
+.gbg-nav-group { position:relative; }
+.gbg-nav-group > summary { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.85rem 1rem; font-size:.9rem; border-bottom:3px solid transparent; color:#fff; cursor:pointer; list-style:none; }
+.gbg-nav-group > summary::-webkit-details-marker { display:none; }
+.gbg-nav-group > summary:hover, .gbg-nav-group[open] > summary { background:rgba(255,255,255,.1); }
+.gbg-nav-group > summary:focus-visible { outline:2px solid var(--gs-light-blue); outline-offset:-3px; }
+.gbg-nav-group > ul { position:absolute; z-index:100; top:100%; left:0; min-width:220px; max-width:min(320px, calc(100vw - 3rem)); margin:0; padding:.35rem; list-style:none; background:var(--bg-card); border:1px solid var(--border-color); border-radius:6px; box-shadow:var(--shadow-md); }
+.gbg-nav-links .gbg-nav-group ul a, .gbg-nav-group ul summary { color:var(--text-color); padding:.65rem .75rem; border:0; white-space:normal; overflow-wrap:anywhere; }
+.gbg-nav-links .gbg-nav-group ul a:hover, .gbg-nav-group ul summary:hover { background:var(--bg-subtle); color:var(--text-color); }
+.gbg-nav-group .gbg-nav-group > ul { position:static; min-width:0; box-shadow:none; border:0; padding-left:.75rem; }
+@media(max-width:768px) { .gbg-nav-group > ul { position:static; min-width:0; max-width:none; box-shadow:none; } }

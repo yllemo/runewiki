@@ -112,7 +112,8 @@ class Helpers
      * Läser content/_topbar.md om den finns och tolkar dess punktlista till
      * samma format som config/menu.php: [['label' => .., 'target' => ..], ...].
      *
-     * Varje rad i listan ska vara en länk:
+     * Indrag bildar children-listor. Ren text blir grupprubrik med barn,
+     * annars en länk till textens normaliserade sid-ID. Länkformer:
      *   - [[namespace:sida]]                wiki-länk, etikett = sid-titeln
      *   - [[namespace:sida|Egen etikett]]    wiki-länk med egen etikett
      *   - [Etikett](https://exempel.se)      extern (eller absolut) länk
@@ -120,7 +121,7 @@ class Helpers
      * HTML-kommentarer (<!-- ... -->, även flerradiga) tas bort innan
      * parsning, så filen kan dokumentera sin egen syntax utan att
      * exempelrader tolkas som riktiga knappar. Övriga rader som inte
-     * matchar någon av länkformerna (rubriker, brödtext m.m.) ignoreras
+     * är listpunkter (rubriker, brödtext m.m.) ignoreras
      * tyst. Returnerar null om filen saknas eller inte innehåller några
      * giltiga länkar — då används config/menu.php istället.
      *
@@ -140,26 +141,32 @@ class Helpers
         $raw = preg_replace('/<!--.*?-->/s', '', $raw); // ta bort HTML-kommentarer (även flerradiga)
 
         $items = [];
-        foreach (preg_split('/\r?\n/', trim($raw)) as $line) {
-            if (!preg_match('/^[-*]\s+(.+)$/', trim($line), $m)) {
-                continue;
-            }
-            $content = trim($m[1]);
-
-            // [[target]] eller [[target|Etikett]]
+        $stack = [];
+        foreach (preg_split('/\r?\n/', $raw) as $line) {
+            if (!preg_match('/^([ \t]*)[-*]\s+(.+)$/', $line, $m)) continue;
+            $indent = strlen(str_replace("\t", '    ', $m[1]));
+            $content = trim($m[2]);
             if (preg_match('/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/', $content, $wm)) {
                 $target = str_replace('/', ':', trim($wm[1], '/: '));
-                if ($target === '') {
-                    continue;
-                }
-                $items[] = ['label' => isset($wm[2]) ? trim($wm[2]) : $target, 'target' => $target];
-                continue;
+                if ($target === '') continue;
+                $item = ['label' => isset($wm[2]) ? trim($wm[2]) : $target, 'target' => $target];
+            } elseif (preg_match('/^\[([^\]]+)\]\(([^)]+)\)$/', $content, $mm)) {
+                $item = ['label' => trim($mm[1]), 'target' => trim($mm[2])];
+            } else {
+                // Plain list labels become group headings, or page links when leaves.
+                $item = ['label' => $content, 'target' => (new PageId($content))->id(), 'plain' => true];
             }
-
-            // [Etikett](url) — extern länk eller absolut sökväg
-            if (preg_match('/^\[([^\]]+)\]\(([^)]+)\)$/', $content, $mm)) {
-                $items[] = ['label' => trim($mm[1]), 'target' => trim($mm[2])];
+            while ($stack && $stack[count($stack) - 1]['indent'] >= $indent) array_pop($stack);
+            if ($stack) {
+                $parent =& $stack[count($stack) - 1]['node'];
+                $parent['children'][] = $item;
+                $node =& $parent['children'][array_key_last($parent['children'])];
+            } else {
+                $items[] = $item;
+                $node =& $items[array_key_last($items)];
             }
+            $stack[] = ['indent' => $indent, 'node' => &$node];
+            unset($node, $parent);
         }
 
         return $items ?: null;
@@ -189,7 +196,7 @@ class Helpers
             'copyright_text'       => '© {year} {site_name}',
             'powered_by_text'      => 'Drivs av',
             'powered_by_name'      => 'RuneWiki',
-            'powered_by_url'       => 'https://github.com/',
+            'powered_by_url'       => 'https://github.com/yllemo/runewiki',
             'search_placeholder'   => 'Sök…',
             'search_button'        => 'Sök',
             'edit_link'            => 'Redigera sida',

@@ -31,7 +31,7 @@ return [
     // 'copyright_text'  => '© {year} {site_name}',
     // 'powered_by_text' => 'Drivs av',
     // 'powered_by_name' => 'RuneWiki',
-    // 'powered_by_url'  => 'https://github.com/',
+    // 'powered_by_url'  => 'https://github.com/yllemo/runewiki',
 
     // Verktygslänkar i header/sidfot.
     // 'nav_search' => 'Sök i wikin',

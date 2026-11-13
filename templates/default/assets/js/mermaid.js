@@ -38,10 +38,11 @@
     try {
       const { svg } = await window.renderWikiMermaid(source, id, Math.max(960, wrap.clientWidth));
       wrap.innerHTML = svg;
+      window.wikiMermaidLinks(wrap.querySelector('svg'), source);
       wrap.tabIndex = 0;
       wrap.setAttribute('role', 'button');
       wrap.setAttribute('aria-label', 'Öppna diagram i popup');
-      wrap.onclick = () => openDiagram(wrap, wrap);
+      wrap.onclick = e => { if (!e.target.closest('a')) openDiagram(wrap, wrap); };
       wrap.onkeydown = e => {
         if (e.target === wrap && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
@@ -58,7 +59,21 @@
     const original = wrap.querySelector('svg');
     if (!original) return;
     if (!viewer) viewer = window.createWikiViewer();
-    viewer.open(original, trigger, { source: wrap.dataset.mermaidSource, securityLevel: 'strict' });
+    const configEl = document.getElementById('wiki-mermaid-editor');
+    const options = { source: wrap.dataset.mermaidSource, securityLevel: 'strict' };
+    if (configEl) options.onSave = async source => {
+      const config = JSON.parse(configEl.textContent);
+      const body = new FormData();
+      body.set('source', source); body.set('original', wrap.dataset.mermaidSource);
+      body.set('revision', config.revision); body.set('csrf_token', config.csrf);
+      const response = await fetch(config.url, {method:'POST', body, credentials:'same-origin'});
+      let result; try { result = await response.json(); } catch { throw new Error('Kunde inte spara. Kontrollera inloggningen och ladda om sidan.'); }
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Kunde inte spara.');
+      config.revision = result.revision; configEl.textContent = JSON.stringify(config);
+      wrap.dataset.mermaidSource = source;
+      await renderInto(wrap, source, 'wiki-mmd-edit-' + Date.now());
+    };
+    viewer.open(original, trigger, options);
   }
 
   async function renderAll() {

@@ -302,3 +302,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.key === 'Escape' && !lightbox.hidden) closeLightbox();
   });
 });
+
+// Topbar disclosures: dismiss outside, restore keyboard focus on Escape.
+document.addEventListener('click', function (event) {
+  document.querySelectorAll('.gbg-nav-group[open]').forEach(function (group) {
+    if (!group.contains(event.target)) group.open = false;
+  });
+});
+document.addEventListener('keydown', function (event) {
+  if (event.key !== 'Escape') return;
+  var group = document.activeElement.closest('.gbg-nav-group[open]');
+  if (group) { group.open = false; group.querySelector('summary').focus(); }
+  else document.querySelectorAll('.gbg-nav-group[open]').forEach(function (item) { item.open = false; });
+});

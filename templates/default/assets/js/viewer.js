@@ -14,6 +14,28 @@
     renderQueue = task.catch(() => {});
     return task;
   };
+  // Add URL-only flowchart interactions while retaining Mermaid strict mode.
+  window.wikiMermaidLinks = function (svg, source) {
+    for (const line of source.split(/\r?\n/)) {
+      const match = /^\s*click\s+([\w-]+)\s+(?:href\s+)?"([^"\r\n]+)"(?:\s+"([^"\r\n]*)")?(?:\s+(_blank|_self|_parent|_top))?\s*;?\s*$/.exec(line);
+      if (!match) continue;
+      let url; try { url = new URL(match[2], location.href); } catch { continue; }
+      if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) continue;
+      const node = [...svg.querySelectorAll('[id]')].find(el => el.id.includes('flowchart-' + match[1] + '-') && el.classList.contains('node'));
+      if (!node) continue;
+      const existing = node.closest('a');
+      const link = existing || document.createElementNS('http://www.w3.org/2000/svg', 'a');
+      link.setAttribute('href', url.href); link.setAttribute('target', match[4] === '_blank' ? '_blank' : '_self');
+      link.setAttribute('rel', 'noopener noreferrer'); link.setAttribute('aria-label', match[3] || node.textContent.trim());
+      if (!existing) { node.replaceWith(link); link.appendChild(node); }
+    }
+    svg.querySelectorAll('a').forEach(link => {
+      const href = link.getAttribute('href') || link.getAttribute('xlink:href');
+      try { if (!['http:', 'https:', 'mailto:'].includes(new URL(href, location.href).protocol)) throw new Error(); }
+      catch { link.removeAttribute('href'); link.removeAttribute('xlink:href'); }
+      link.setAttribute('rel', 'noopener noreferrer');
+    });
+  };
   function createWikiViewer() {
     const dialog = document.createElement('dialog');
     dialog.className = 'mmd-viewer';
@@ -24,7 +46,9 @@
       '<button type="button" data-action="in" aria-label="Zooma in">+</button>' +
       '<button type="button" data-action="fit">Anpassa</button>' +
       '<button type="button" data-action="refresh" hidden>Uppdatera diagram</button>' +
+      '<button type="button" data-action="code" hidden>Visa kod</button>' +
       '<button type="button" data-action="close" aria-label="Stäng diagram">Stäng ×</button></div>' +
+      '<section class="mmd-code-panel" hidden><label>Mermaid-kod<textarea spellcheck="false" aria-label="Mermaid-kod"></textarea></label><button type="button" data-action="save-code">Spara i artikeln</button><button type="button" data-action="cancel-code">Avbryt</button><p role="status"></p></section>' +
       '<div class="mmd-viewport" tabindex="0" aria-label="Diagram. Dra för att panorera. Använd plus och minus för zoom, piltangenter för panorering och 0 för att anpassa."><div class="mmd-canvas"></div></div>' +
       '<p class="mmd-help">Dra för att panorera · Scrolla eller använd + / − för zoom · 0 anpassar · Esc stänger</p>';
     document.body.appendChild(dialog);
@@ -32,6 +56,10 @@
     const canvas = dialog.querySelector('.mmd-canvas');
     const output = dialog.querySelector('output');
     const refreshButton = dialog.querySelector('[data-action="refresh"]');
+    const codeButton = dialog.querySelector('[data-action="code"]');
+    const codePanel = dialog.querySelector('.mmd-code-panel'), codeInput = codePanel.querySelector('textarea'), codeStatus = codePanel.querySelector('[role="status"]');
+    const saveCode = codePanel.querySelector('[data-action="save-code"]');
+    let saving = false;
     const help = dialog.querySelector('.mmd-help');
     const defaultHelp = help.textContent;
     let diagramOptions, revision = 0, resizeTimer;
@@ -61,6 +89,7 @@
         host.innerHTML = result.svg;
         const svg = host.querySelector('svg');
         if (!svg) throw new Error('Diagrammet saknar SVG.');
+        window.wikiMermaidLinks(svg, options.source);
         showSvg(svg); fit();
         help.textContent = defaultHelp;
       } catch (error) {
@@ -90,9 +119,32 @@
       y = cy - (cy - y) * next / scale;
       scale = next; paint();
     }
+    async function applyCode(closeAfter = false) {
+      if (saving) return;
+      saving = true; saveCode.disabled = true; codeInput.disabled = true;
+      codeStatus.textContent = 'Kontrollerar och sparar…';
+      try {
+        await window.mermaid.parse(codeInput.value);
+        await diagramOptions.onSave(codeInput.value);
+        diagramOptions.source = codeInput.value;
+        codePanel.hidden = true; viewport.hidden = false;
+        await redraw();
+        if (closeAfter) dialog.close();
+      } catch (error) { codeStatus.textContent = error.message || 'Kunde inte spara koden.'; }
+      finally { saving = false; saveCode.disabled = false; codeInput.disabled = false; }
+    }
+    function requestClose() {
+      if (saving) return;
+      if (!codePanel.hidden && diagramOptions?.onSave && codeInput.value !== diagramOptions.source) { applyCode(true); return; }
+      dialog.close();
+    }
+    dialog.addEventListener('cancel', e => { e.preventDefault(); requestClose(); });
     dialog.addEventListener('click', e => {
       const action = e.target.closest('button')?.dataset.action;
-      if (action === 'close' || e.target === dialog) dialog.close();
+      if (action === 'close' || e.target === dialog) requestClose();
+      if (action === 'code' && !saving) { codeInput.value = diagramOptions.source; codeStatus.textContent = diagramOptions.onSave ? 'Spara eller stäng för att uppdatera artikeln. Avbryt kastar ändringarna.' : 'Koden visas skrivskyddad i denna vy.'; codePanel.hidden = false; viewport.hidden = true; codeInput.focus(); }
+      if (action === 'cancel-code' && !saving) { codePanel.hidden = true; viewport.hidden = false; }
+      if (action === 'save-code') applyCode();
       if (action === 'fit') fit();
       if (action === 'refresh') redraw();
       if (action === 'in') zoom(1.25);
@@ -113,7 +165,7 @@
       zoom(Math.exp(-Math.max(-100, Math.min(100, e.deltaY)) * 0.005), e.clientX - rect.left, e.clientY - rect.top);
     }, { passive: false });
     viewport.addEventListener('pointerdown', e => {
-      if (e.button !== 0 || drag) return;
+      if (e.button !== 0 || drag || e.target.closest('a')) return;
       viewport.focus(); viewport.setPointerCapture(e.pointerId);
       drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
       viewport.classList.add('is-dragging');
@@ -139,7 +191,7 @@
       e.preventDefault();
     });
     new ResizeObserver(() => {
-      if (!dialog.open) return;
+      if (!dialog.open || viewport.hidden) return;
       fit();
       if (diagramOptions?.source) {
         ++revision;
@@ -150,6 +202,10 @@
     return { open(svg, trigger, options) {
       ++revision;
       diagramOptions = options;
+      codeButton.hidden = !options?.source;
+      codePanel.hidden = true; viewport.hidden = false;
+      codeInput.readOnly = !options?.onSave;
+      saveCode.hidden = !options?.onSave;
       refreshButton.hidden = !options?.source;
       refreshButton.disabled = false;
       help.textContent = defaultHelp;
@@ -182,6 +238,7 @@
         }
         if (el.tagName.toLowerCase() === 'style') ids.forEach((next, old) => { el.textContent = el.textContent.split('#' + old).join('#' + next); });
       });
+      if (options?.source) window.wikiMermaidLinks(clone, options.source);
       showSvg(clone);
       oldOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';

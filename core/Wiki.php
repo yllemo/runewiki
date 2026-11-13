@@ -92,6 +92,7 @@ class Wiki
         }
 
         echo match ($intent['action']) {
+            'mermaid-save' => $this->handleMermaidSave($intent['id']),
             'svg'          => $this->handleSvg(),
             'view'         => $this->handleView($intent['id']),
             'metadata'     => $this->handleMetadata($intent['id']),
@@ -345,6 +346,7 @@ class Wiki
         ]);
 
         return $this->templates->render('layout', $this->baseData($id, [
+            'mermaidEditor' => $this->canEditNamespace($id->namespace()) ? ['url' => $id->url() . '?do=mermaid-save', 'revision' => hash('sha256', $page['raw']), 'csrf' => Helpers::csrfToken()] : null,
             'view'     => 'page',
             'page'     => array_merge($page['meta'], ['title' => $page['title']]),
             'pageId'   => $id,
@@ -585,6 +587,24 @@ class Wiki
             || !Metadata::settings($this->root)['auto_timestamp']) return $raw;
         [$meta, $body] = FrontMatter::parse($raw, true);
         return FrontMatter::build(Metadata::stamp($meta, $body, $this->pages->load($id), $this->auth->currentUser()), $body);
+    }
+
+    private function handleMermaidSave(string $rawId): string
+    {
+        $id = new PageId($rawId);
+        if (!$this->canEditNamespace($id->namespace()) || !$this->canReadPage($id)) return $this->jsonResponse(['error' => 'Du saknar redigeringsbehörighet.'], 403);
+        if (!Helpers::verifyCsrf(is_string($_POST['csrf_token'] ?? null) ? $_POST['csrf_token'] : null)) return $this->jsonResponse(['error' => 'Sessionen har gått ut. Ladda om sidan.'], 403);
+        $page = $this->pages->load($id);
+        if (!$page) return $this->jsonResponse(['error' => 'Sidan finns inte.'], 404);
+        if (!is_string($_POST['revision'] ?? null) || !hash_equals(hash('sha256', $page['raw']), $_POST['revision'])) return $this->jsonResponse(['error' => 'Sidan har ändrats. Kopiera din kod och ladda om sidan innan du försöker igen.'], 409);
+        try {
+            $raw = MermaidDocument::replace($page['raw'], $_POST['original'] ?? null, $_POST['source'] ?? null);
+        } catch (InvalidArgumentException $e) { return $this->jsonResponse(['error' => $e->getMessage()], 422); }
+        $_POST['body'] = $raw;
+        $result = $this->handleSave($rawId);
+        if ($result !== '') return $this->jsonResponse(['error' => 'Sidan kunde inte sparas. Öppna artikelredigeraren och försök där.'], 422);
+        header_remove('Location');
+        return $this->jsonResponse(['ok' => true, 'revision' => hash('sha256', $this->pages->load($id)['raw'])]);
     }
 
     private function handleSave(string $rawId): string

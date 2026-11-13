@@ -45,6 +45,9 @@ $hasSidebar = $pageLayout === 'default' && trim($sidebarHtml ?? '') !== '';
     </div>
 
     <link rel="stylesheet" href="<?= Helpers::e($assetUrl('css/viewer.css')) ?>">
+    <?php if (!empty($mermaidEditor)): ?>
+    <script type="application/json" id="wiki-mermaid-editor"><?= json_encode($mermaidEditor, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+    <?php endif; ?>
     <script src="<?= Helpers::e($assetUrl('js/viewer.js')) ?>"></script>
     <script src="<?= Helpers::e($assetUrl('js/theme.js')) ?>"<?= Helpers::linkSettingsAttributes($linkSettings ?? []) ?>></script>
 <script src="<?= Helpers::e($assetUrl('js/tables.js')) ?>"></script>

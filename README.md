@@ -281,6 +281,14 @@ för nya länkar som tillkommer i chatten.
 | `config/mcp.php` | MCP: betrodda origins, lokal utveckling och diagnostiklogg |
 | `config/metadata.php` | OKF-tidsstämplar, synliga metadatafält och editorförslag |
 
+## Mermaid-kod i fullskärm
+
+Diagramvisarens **Visa kod** öppnar Mermaid-källan. Med redigeringsrätt på
+artikeln sparar **Spara i artikeln** eller **Stäng** ändringarna permanent,
+med versionshistorik och kontroll mot en ändrad sidversion. **Avbryt** kastar
+ändringarna. Länkar i diagrammet fungerar även i fullskärm. Se
+[Mermaid-redigering och länksyntax](readme-editor.md#redigera-mermaid-i-diagramvisaren).
+
 ## Bokmärken till rubriker
 
 Markdown-rubriker (`#`–`######`) får automatiska bokmärken, exempelvis
@@ -363,7 +371,25 @@ Menyprioritet (`Wiki::menuFor()`):
 - [Om wikin](https://exempel.se)
 ```
 
-Varje rad i punktlistan blir en knapp, i angiven ordning:
+Indragna punkter blir undermenyer. Använd exempelvis:
+
+```markdown
+- [[start|Start]]
+- Meny 1
+  - [[guide|Undermeny 1]]
+  - [Media](/images)
+  - Fler länkar
+    - [RuneWiki](https://github.com/yllemo/runewiki)
+```
+
+En överpunkt med barn blir en rullgardin som öppnas med klick eller
+Enter/Space. Tab flyttar mellan länkarna; Escape eller klick utanför stänger.
+På mobil öppnas underpunkterna inne i hamburgermenyn. Flera nivåer stöds.
+En vanlig textpunkt utan barn länkar till ett sid-ID baserat på texten
+(`Undermeny 1` blir `/undermeny_1`). Använd explicita länkar för att välja
+målsida själv. Om överpunkten har en egen länk visas den först i undermenyn.
+
+Länkar skrivs i angiven ordning:
 
 | Syntax | Resultat |
 |--------|----------|

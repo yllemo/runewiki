@@ -60,7 +60,7 @@ $crumbParts = ($showEditLink && $currentTarget !== '') ? explode(':', $currentTa
                     $label = Helpers::e($item['label'] ?? '');
                     echo '<li>';
                     if (!empty($item['children'])) {
-                        echo '<details class="gbg-nav-group"><summary>' . $label . '<span aria-hidden="true">⌄</span></summary><ul>';
+                        echo '<details class="gbg-nav-group"><summary>' . $label . '<svg class="gbg-nav-chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></summary><ul>';
                         if (empty($item['plain']) && $target !== '') {
                             echo '<li><a href="' . Helpers::e($href) . '">' . $label . '</a></li>';
                         }

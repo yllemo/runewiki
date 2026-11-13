@@ -283,8 +283,8 @@ för nya länkar som tillkommer i chatten.
 
 ## Mermaid-kod i fullskärm
 
-Diagramvisarens **Visa kod** öppnar Mermaid-källan. Med redigeringsrätt på
-artikeln sparar **Spara i artikeln** eller **Stäng** ändringarna permanent,
+Diagramvisarens **Visa kod** öppnar Mermaid-källan i en sidopanel med liveförhandsvisning. Med redigeringsrätt på
+artikeln sparar **Spara i artikeln** ändringarna permanent,
 med versionshistorik och kontroll mot en ändrad sidversion. **Avbryt** kastar
 ändringarna. Länkar i diagrammet fungerar även i fullskärm. Se
 [Mermaid-redigering och länksyntax](readme-editor.md#redigera-mermaid-i-diagramvisaren).

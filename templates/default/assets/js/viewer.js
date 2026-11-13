@@ -59,6 +59,9 @@
     const codeButton = dialog.querySelector('[data-action="code"]');
     const codePanel = dialog.querySelector('.mmd-code-panel'), codeInput = codePanel.querySelector('textarea'), codeStatus = codePanel.querySelector('[role="status"]');
     const saveCode = codePanel.querySelector('[data-action="save-code"]');
+    const workspace = document.createElement('div');
+    workspace.className = 'mmd-workspace';
+    codePanel.before(workspace); workspace.append(codePanel, viewport);
     let saving = false;
     const help = dialog.querySelector('.mmd-help');
     const defaultHelp = help.textContent;
@@ -77,6 +80,7 @@
       if (!dialog.open || !diagramOptions?.source) return;
       const current = ++revision;
       const options = diagramOptions;
+      const previewSource = codePanel.hidden ? options.source : codeInput.value;
       const host = document.createElement('div');
       host.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:0;top:0;';
       host.style.width = Math.max(1, viewport.clientWidth - 48) + 'px';
@@ -84,16 +88,20 @@
       refreshButton.disabled = true;
       viewport.setAttribute('aria-busy', 'true');
       try {
-        const result = await window.renderWikiMermaid(options.source, 'viewer-mmd-' + (++renderSequence), viewport.clientWidth - 48, options.securityLevel, host);
+        const result = await window.renderWikiMermaid(previewSource, 'viewer-mmd-' + (++renderSequence), viewport.clientWidth - 48, options.securityLevel, host);
         if (!dialog.open || current !== revision) return;
         host.innerHTML = result.svg;
         const svg = host.querySelector('svg');
         if (!svg) throw new Error('Diagrammet saknar SVG.');
-        window.wikiMermaidLinks(svg, options.source);
+        window.wikiMermaidLinks(svg, previewSource);
         showSvg(svg); fit();
         help.textContent = defaultHelp;
+        if (!codePanel.hidden && !saving) codeStatus.textContent = previewSource === options.source ? 'Inga osparade ändringar.' : 'Förhandsvisning uppdaterad. Ändringarna är inte sparade.';
       } catch (error) {
-        if (dialog.open && current === revision) help.textContent = 'Kunde inte rita om diagrammet. Föregående vy visas. Försök med Uppdatera diagram.';
+        if (dialog.open && current === revision) {
+          help.textContent = 'Kunde inte rita om diagrammet. Senaste giltiga förhandsvisning visas.';
+          if (!codePanel.hidden && !saving) codeStatus.textContent = 'Diagramfel: ' + (error.message || 'Kontrollera Mermaid-koden.');
+        }
       } finally {
         host.remove();
         if (current === revision) {
@@ -119,7 +127,12 @@
       y = cy - (cy - y) * next / scale;
       scale = next; paint();
     }
-    async function applyCode(closeAfter = false) {
+    codeInput.addEventListener('input', () => {
+      ++revision; clearTimeout(resizeTimer);
+      codeStatus.textContent = 'Uppdaterar förhandsvisningen…';
+      resizeTimer = setTimeout(redraw, 350);
+    });
+    async function applyCode() {
       if (saving) return;
       saving = true; saveCode.disabled = true; codeInput.disabled = true;
       codeStatus.textContent = 'Kontrollerar och sparar…';
@@ -127,23 +140,22 @@
         await window.mermaid.parse(codeInput.value);
         await diagramOptions.onSave(codeInput.value);
         diagramOptions.source = codeInput.value;
-        codePanel.hidden = true; viewport.hidden = false;
         await redraw();
-        if (closeAfter) dialog.close();
+        codeStatus.textContent = 'Sparat i artikeln.';
       } catch (error) { codeStatus.textContent = error.message || 'Kunde inte spara koden.'; }
       finally { saving = false; saveCode.disabled = false; codeInput.disabled = false; }
     }
     function requestClose() {
       if (saving) return;
-      if (!codePanel.hidden && diagramOptions?.onSave && codeInput.value !== diagramOptions.source) { applyCode(true); return; }
+      if (!codePanel.hidden && diagramOptions?.onSave && codeInput.value !== diagramOptions.source && !confirm('Stäng utan att spara dina Mermaid-ändringar?')) return;
       dialog.close();
     }
     dialog.addEventListener('cancel', e => { e.preventDefault(); requestClose(); });
     dialog.addEventListener('click', e => {
       const action = e.target.closest('button')?.dataset.action;
       if (action === 'close' || e.target === dialog) requestClose();
-      if (action === 'code' && !saving) { codeInput.value = diagramOptions.source; codeStatus.textContent = diagramOptions.onSave ? 'Spara eller stäng för att uppdatera artikeln. Avbryt kastar ändringarna.' : 'Koden visas skrivskyddad i denna vy.'; codePanel.hidden = false; viewport.hidden = true; codeInput.focus(); }
-      if (action === 'cancel-code' && !saving) { codePanel.hidden = true; viewport.hidden = false; }
+      if (action === 'code' && !saving && codePanel.hidden) { codeInput.value = diagramOptions.source; codeStatus.textContent = diagramOptions.onSave ? 'Förhandsvisningen uppdateras medan du skriver. Spara för att uppdatera artikeln.' : 'Koden visas skrivskyddad i denna vy.'; codePanel.hidden = false; workspace.classList.add('has-code'); codeButton.setAttribute('aria-expanded', 'true'); codeInput.focus(); redraw(); }
+      if (action === 'cancel-code' && !saving) { codePanel.hidden = true; workspace.classList.remove('has-code'); codeButton.setAttribute('aria-expanded', 'false'); redraw(); }
       if (action === 'save-code') applyCode();
       if (action === 'fit') fit();
       if (action === 'refresh') redraw();
@@ -203,7 +215,7 @@
       ++revision;
       diagramOptions = options;
       codeButton.hidden = !options?.source;
-      codePanel.hidden = true; viewport.hidden = false;
+      codePanel.hidden = true; viewport.hidden = false; workspace.classList.remove('has-code'); codeButton.setAttribute('aria-expanded', 'false');
       codeInput.readOnly = !options?.onSave;
       saveCode.hidden = !options?.onSave;
       refreshButton.hidden = !options?.source;

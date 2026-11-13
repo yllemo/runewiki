@@ -110,8 +110,11 @@ konvertering, förhandsgranskning, infogning, undo samt helskärm på desktop/mo
 
 Öppna ett Mermaid-diagram i fullskärm och välj **Visa kod**. På en wikiartikel
 med redigeringsbehörighet kan du ändra koden och välja **Spara i artikeln**.
-**Stäng** eller Escape sparar också ändrad kod när kodpanelen är öppen.
-**Avbryt** stänger kodpanelen och kastar ändringarna. Syntaxfel och sparfel
+Koden visas i en sidopanel bredvid diagrammet, med liveförhandsvisning medan
+du skriver. På mobil staplas kod och diagram. Endast **Spara i artikeln**
+sparar permanent; panelen ligger kvar efter sparningen. **Stäng** eller Escape
+ber om bekräftelse innan osparade ändringar kastas. **Avbryt** stänger
+kodpanelen och återställer det sparade diagrammet. Syntaxfel och sparfel
 visas i panelen utan att koden försvinner.
 
 Sparningen använder artikelns behörigheter, CSRF-skydd, versionshistorik,

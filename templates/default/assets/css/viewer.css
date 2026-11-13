@@ -26,7 +26,16 @@ img.gbg-lightbox-img:focus-visible { outline:2px solid var(--accent, #0077bc); o
 @media print { .mmd-viewer, .wiki-embed iframe { display:none !important; } }
 
 .mmd-viewer [hidden] { display:none !important; }
-.mmd-code-panel { flex:1; min-height:0; padding:1rem; overflow:auto; }
+.mmd-workspace { display:flex; flex:1; min-height:0; min-width:0; }
+.mmd-code-panel { flex:0 0 clamp(280px, 34%, 520px); box-sizing:border-box; min-height:0; padding:1rem; overflow:auto; border-right:1px solid var(--border-color); }
+.mmd-workspace > .mmd-viewport { min-width:0; }
 .mmd-code-panel label { display:flex; flex-direction:column; gap:.5rem; height:75%; min-height:180px; }
 .mmd-code-panel textarea { flex:1; width:100%; box-sizing:border-box; resize:none; font:14px/1.5 monospace; background:var(--bg-card); color:var(--text-color); border:1px solid var(--border-color); padding:.75rem; }
 .mmd-code-panel button { padding:.6rem 1rem; margin:.75rem .5rem 0 0; cursor:pointer; }
+
+@media(max-width:700px) {
+  .mmd-workspace.has-code { flex-direction:column; }
+  .mmd-workspace.has-code .mmd-code-panel { flex:0 0 45%; min-height:0; border-right:0; border-bottom:1px solid var(--border-color); padding:.5rem; }
+  .mmd-code-panel label { min-height:90px; height:60%; }
+  .mmd-code-panel [role="status"] { margin:.25rem 0; font-size:.8rem; }
+}

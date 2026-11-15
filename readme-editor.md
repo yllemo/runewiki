@@ -28,7 +28,7 @@ Fältet ska ligga mellan sidans inledande `---`-rader.
 
 Detta styr artikelvyn, inte editorns helskärmsknapp. Redigeraren behåller
 sin vanliga layout; öppna den med `?do=edit` om sidverktygen är dolda.
-Se [sidlayout för landningssidor](README.md#sidlayout-för-landningssidor)
+Se [sidlayout för landningssidor](HANDBOOK.md#sidlayout-för-landningssidor)
 för ett komplett exempel och inställningar för Ctrl+Space.
 
 ## Bildstorlekar

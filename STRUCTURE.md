@@ -542,3 +542,16 @@ finns i `assets/js/svg-editor.js` under standardtemat; väljaren definieras i
 och provar dialogen, infogning, ångra och sparning på mobil och skrivbord.
 Mediahanterarens separata uppladdningsyta och filkort renderas av `media.php`.
 Båda vyernas responsiva layout finns i standardtemats `assets/css/style.css`.
+
+## Admin: Content-filer
+
+`admin/index.php?do=content_files` går genom adminpanelens vanliga sessions-
+och användarkontroll innan `admin/content-files-api.php` körs. Alla anrop
+kräver POST och CSRF, inklusive listning/läsning. `ContentFiles` begränsar
+sökvägar, filtyp, textformat och filstorlek, kontrollerar namespace-rättigheter,
+avvisar symlänkar och kolliderande mål, samt kontrollerar SHA-256-version vid
+sparning/flytt. Ett lås serialiserar filhanterarens skrivningar. Råtexten
+sparas utan artikelredigerarens metadataomskrivning eller plugin-hooks.
+HTML-cachen rensas efter ändringar. Klienten finns i standardtemats
+`assets/js/content-files.js`. Testerna finns i `tests/content-files.php`
+och filhanteraravsnittet i `tests/mcp-http.php`.

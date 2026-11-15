@@ -780,3 +780,28 @@ editorsparning visar ett fel och behåller den inskrivna texten.
 ## Licens
 
 MIT — fri att använda, ändra och distribuera, kommersiellt eller privat.
+
+## Rå filredigering under admin
+
+**Admin → Content-filer** ger en sökbar lista över `.md`-filer i `/content`,
+inklusive `_sidebar.md` och `_topbar.md`. Öppna en fil för att redigera hela
+råtexten, inklusive YAML-frontmatter. **Spara fil** sparar exakt texten utan
+att automatiskt formatera metadata eller lägga till tidsstämplar.
+
+Navigera med mapplistan och sökvägen ovanför editorn. **Ny fil** skapar en tom
+Markdown-fil; **Ny mapp** skapar en mapp/namespace, som syns även när den är tom.
+**Döp om** ändrar filnamnet och **Flytta** väljer en annan målmapp under `/content`.
+Välj flera `.md`-filer via **Ladda upp**, eller dra och släpp dem på fileditorn.
+Filerna laddas upp till den öppna mappen, en i taget, och resultatet visas i
+statusraden. En felaktig fil hindrar inte övriga uppladdningar. Saknade mappar skapas. Befintliga
+målfiler skrivs inte över. Flytt ändrar endast filens plats; länkar, referenser
+och tidigare versionshistorik flyttas inte med. Kontrollera länkar efteråt.
+
+Funktionen kräver en inloggad, befintlig användare och följer samma
+redigeringsbehörighet per namespace som artikelredigeraren. Endast relativa
+sökvägar till `.md` inom `/content` accepteras; symlänkar följs inte.
+Filerna ska vara UTF-8-text och får vara högst 512 KB. PHP:s uppladdningsgränser
+gäller också. Vid sparning kontrolleras filens version så att en ändrad fil
+inte skrivs över med ett äldre utkast. Före sparning eller flytt tas en
+säkerhetskopia i versionshistoriken, även om vanlig versionshistorik är
+avstängd; den konfigurerade versionsgränsen gäller fortfarande.

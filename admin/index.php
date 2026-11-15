@@ -60,6 +60,8 @@ header('Cache-Control: no-store');
 $mcpKeys = new McpKeys($root . '/data/users/mcp', $auth);
 $newMcpKey = null;
 
+if (($_GET['do'] ?? '') === 'content_files') require __DIR__ . '/content-files-api.php';
+
 if (($_GET['do'] ?? '') === 'import_api') {
     header('Content-Type: application/json; charset=utf-8');
     try {
@@ -551,12 +553,44 @@ ob_start();
 <?php endif; ?>
 
 <?php
-$tabLabels = ['konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata' => 'Metadata', 'anvandare' => 'Användare', 'auth' => 'Inloggning', 'texter' => 'Texter', 'webbplats' => 'Webbplats'];
+$tabLabels = ['filer' => 'Content-filer', 'konto' => 'Mitt lösenord', 'mcp' => 'Min MCP-nyckel', 'metadata' => 'Metadata', 'anvandare' => 'Användare', 'auth' => 'Inloggning', 'texter' => 'Texter', 'webbplats' => 'Webbplats'];
 ?>
 <div class="gbg-admin-tabs" role="tablist">
     <?php foreach ($tabLabels as $tabKey => $tabLabel): ?>
         <button type="button" class="gbg-admin-tab<?= $tabKey === $activeTab ? ' active' : '' ?>" data-tab="<?= Helpers::e($tabKey) ?>"><?= Helpers::e($tabLabel) ?></button>
     <?php endforeach; ?>
+</div>
+
+<div class="gbg-admin-panel" data-panel="filer" hidden>
+    <h2>Content-filer</h2>
+    <div id="content-files" data-csrf="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <div class="content-files-toolbar">
+            <button type="button" class="gbg-btn gbg-btn-outline" data-file-action="create">Ny fil</button>
+            <button type="button" class="gbg-btn gbg-btn-outline" data-file-action="mkdir">Ny mapp</button>
+            <button type="button" class="gbg-btn gbg-btn-outline" data-file-action="upload">Ladda upp</button>
+            <input type="file" accept=".md" multiple data-file-upload hidden>
+            <button type="button" class="gbg-btn gbg-btn-outline" data-file-action="refresh" aria-label="Uppdatera fillistan">↻</button>
+        </div>
+        <nav data-file-breadcrumb class="content-files-breadcrumb" aria-label="Aktuell mapp"></nav>
+        <div class="content-files-columns">
+            <aside class="content-files-browser">
+                <input type="search" data-file-filter placeholder="Sök i mappen…" aria-label="Sök filer och mappar">
+                <div data-file-list class="content-files-list"></div>
+                <p class="content-files-drop-hint">Släpp .md-filer här för att ladda upp</p>
+            </aside>
+            <div class="content-files-editor">
+                <div class="content-files-editor-toolbar">
+                    <span data-file-name>Välj en fil</span>
+                    <button type="button" class="gbg-btn gbg-btn-primary" data-file-action="save" disabled>Spara</button>
+                    <button type="button" class="gbg-btn gbg-btn-outline" data-file-action="rename" disabled>Döp om</button>
+                    <button type="button" class="gbg-btn gbg-btn-outline" data-file-action="move" disabled>Flytta</button>
+                </div>
+                <textarea data-file-raw aria-label="Rå Markdown" spellcheck="false" disabled placeholder="Öppna eller skapa en Markdown-fil"></textarea>
+            </div>
+        </div>
+        <p data-file-status role="status" aria-live="polite"></p>
+    </div>
+    <script src="<?= Helpers::e($assetUrl('js/content-files.js')) ?>"></script>
 </div>
 
 <div class="gbg-admin-panel" data-panel="konto" <?= $activeTab === 'konto' ? '' : 'hidden' ?>>

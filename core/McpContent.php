@@ -10,6 +10,7 @@ class McpContent
     private function canRead(PageId $id, array $identity): bool
     {
         if (!$this->auth->userExists($identity['user'])) return false;
+        if ($this->namespaces->requiresLogin($id->namespace()) && ($identity['ifAuth'] ?? false) !== true) return false;
         // MCP always enforces namespace rules, even when browser auth is disabled.
         $mode = $this->namespaces->settingsFor($id->namespace())['acl'] ?? 'public';
         return match ($mode) {

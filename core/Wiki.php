@@ -140,9 +140,10 @@ class Wiki
                 : PageAccess::canReadRaw($raw, $this->auth->currentUser() !== null));
     }
 
-    /** Namespace rules retain their existing auth_enabled behavior. */
+    /** Explicit namespace login requirements also apply when global auth is disabled. */
     private function canReadNamespace(string $namespace): bool
     {
+        if ($this->namespaces->requiresLogin($namespace) && $this->auth->currentUser() === null) return false;
         if (!$this->auth->isEnabled()) {
             return true;
         }
@@ -306,7 +307,7 @@ class Wiki
         // Länktitlar kan bero på besökarens läsrättigheter.
         $cacheTitles = !$this->aclConfigured && empty($this->config['auth_enabled'])
             && !str_contains($page['body'], '[[') && !str_contains($page['body'], '](');
-        $dynamicPage = $this->plugins->hasHook('page_markdown');
+        $dynamicPage = $this->plugins->hasHook('page_markdown') || str_contains($page['body'], '{{recent');
         $bodyHtml = $cacheTitles && !$dynamicPage ? $this->cache->get($cacheKey) : null;
 
         if ($bodyHtml === null) {

@@ -12,6 +12,24 @@ class PageLoader
     {
     }
 
+    /** Recent readable pages; filter before limiting and never expose hidden titles. */
+    public function recent(int $limit, bool $authenticated): array
+    {
+        $items = [];
+        foreach ($this->listAll() as $rawId) {
+            $id = new PageId($rawId);
+            $page = $this->load($id);
+            if (!$page || !PageAccess::canReadRaw($page['raw'], $authenticated)) continue;
+            [$meta, $body] = FrontMatter::parse(MarkdownVisibility::filter($page['raw'], $authenticated));
+            $date = $meta['updated'] ?? $meta['generated']['at'] ?? null;
+            $time = is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}(?:T.*)?$/D', $date) ? strtotime($date . (strlen($date) === 10 ? ' UTC' : '')) : false;
+            if ($time === false) $time = filemtime($id->toFilePath($this->contentDir));
+            $items[] = ['id' => $rawId, 'url' => $id->url(), 'title' => self::displayTitle($id, $meta, $body), 'time' => $time];
+        }
+        usort($items, static fn($a, $b) => ($b['time'] <=> $a['time']) ?: strcmp($a['id'], $b['id']));
+        return array_slice($items, 0, max(1, min(100, $limit)));
+    }
+
     public function exists(PageId $id): bool
     {
         return (!$this->canRead || ($this->canRead)($id)) && is_file($id->toFilePath($this->contentDir));

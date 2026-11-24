@@ -120,3 +120,15 @@ tags:
 
 Kravet gäller även andra läsvägar som nedladdning och MCP, enligt respektive
 åtkomstregler. Se [åtkomstguiden](readme-page-access.md) innan du delar länken.
+
+## Visa de senaste uppdateringarna
+
+Lägg detta på en egen rad i teamets startsida:
+
+```markdown
+{{recent#5}}
+```
+
+Det visar de fem senast ändrade sidor som besökaren får läsa, med titel och
+datum. Använd `{{recent}}` för tio sidor. Kommandot finns också via Ctrl+Space.
+[Detaljer om datum och sortering](HANDBOOK.md#senast-ändrade-sidor).

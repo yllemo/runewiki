@@ -37,12 +37,12 @@ kontext i AI-chatt. Innehållet ligger kvar som vanliga filer på din server.
 | --- | --- |
 | **Skriv och redigera** | Monaco-editor, Ctrl+Space-förslag, helskärm och import av Markdown, Word, HTML och textbaserad PDF. |
 | **Visualisera** | Mermaid med zoom och liveförhandsvisning, SVG-editor med wikimallar och bildstorlekar direkt i Markdown. |
-| **Hitta och länka** | Sökning, taggar, wikilänkar, bakåtlänkar, rubrikbokmärken och menyer med underpunkter. |
+| **Hitta och länka** | Sökning, taggar, wikilänkar, bakåtlänkar, rubrikbokmärken, menyer med underpunkter och listor över senast ändrade sidor. |
 | **Samarbeta** | Kommentarer kopplade till artikelblock, med separata inställningar för läsning och feedback. |
 | **Använd AI** | Klientdriven chatt med sidkontext, skills och en OpenAI-kompatibel modellanslutning. |
 | **Anslut verktyg** | MCP-server med personliga nycklar för att lista, söka och läsa innehåll. |
 | **Administrera** | Rå fileditor, mappar, flervalsuppladdning, versionshistorik, ZIP-export och import i delar. |
-| **Styr åtkomst** | Lokala konton, OIDC och AD/LDAP, namespace-behörigheter och inloggningskrav per sida. |
+| **Styr åtkomst** | Lokala konton, OIDC och AD/LDAP, namespace-behörigheter, skyddade namespaces via admin och inloggningskrav per sida. |
 
 ## Så hänger det ihop
 
@@ -108,6 +108,26 @@ Sidan får adressen `/team/start`. Du kan arbeta i wiki-editorn eller med
 filerna direkt. Det är lätt att läsa innehållet även utan RuneWiki.
 
 [Se fler exempel: diagram, menyer och landningssidor →](EXAMPLES.md)
+
+## Håll kunskapsbanken aktuell
+
+Visa nyligen ändrade sidor direkt på startsidan eller i en artikel:
+
+```markdown
+{{recent#10}}
+```
+
+Listan **Senast ändrat** visar titel, länk och uppdateringstid för upp till tio
+sidor som besökaren får läsa. Byt antalet till 1–100; utan `#antal` används tio.
+Fältet `updated` sätts automatiskt när artikelinnehåll eller metadata ändras,
+när automatiska tidsstämplar är aktiverade (standard).
+[Mer om listan och datumen](HANDBOOK.md#senast-ändrade-sidor).
+
+Under **Admin → Inloggning → Skyddade namespaces** kan exempelvis `internt`
+kräva inloggning på alla artikelns läsvägar, inklusive sökning och chatt.
+MCP kräver då en personlig nyckel som tillåter inloggat innehåll (`ifAuth`).
+Det gäller även om global redigeringsinloggning är avstängd. Direktlänkade
+bilder i `images/` omfattas inte. [Läs om skyddade namespaces](readme-page-access.md#skyddade-namespaces).
 
 ## Välj nästa steg
 

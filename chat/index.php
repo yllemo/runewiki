@@ -70,6 +70,7 @@ $auth       = new Auth($root . '/data/users/users.php', (bool) ($config['auth_en
  */
 function chatCanReadNamespace(Auth $auth, NamespaceResolver $namespaces, Acl $acl, string $namespace): bool
 {
+    if ($namespaces->requiresLogin($namespace) && $auth->currentUser() === null) return false;
     if (!$auth->isEnabled()) {
         return true;
     }

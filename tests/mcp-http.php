@@ -381,6 +381,28 @@ PHP);
     check(in_array('Cache-Control: private, no-store', request($base . '/protected', 'GET', $memberHeaders)['headers'], true), 'Private responses cannot enter shared HTTP cache');
     echo "PASS: page frontmatter protection across views, writes, search, chat, menus, history and cache\n";
     echo "PASS: real HTTP endpoint, admin CSRF, reauthentication, owner isolation, rotation, revocation and ifAuth\n";
+    mkdir($fixture . '/content/restricted', 0700, true);
+    file_put_contents($fixture . '/content/restricted/secret.md', "# RESTRICTED_MARKER\nNamespace secret");
+    file_put_contents($fixture . '/config/config.php', '<?php return ["auth_enabled" => false];');
+    $restrictionPost = ['action'=>'save_restricted_namespaces','active_tab'=>'auth','restricted_namespaces'=>'restricted','csrf_token'=>$csrf];
+    $badRestriction = request($base.'/admin/', 'POST', $svgHeaders, http_build_query(array_merge($restrictionPost,['csrf_token'=>'bad'])));
+    check(!str_contains(file_get_contents($fixture.'/config/namespaces.php'), 'require_login'), 'Restriction settings require CSRF');
+    $restrictionSave = request($base.'/admin/', 'POST', $svgHeaders, http_build_query($restrictionPost));
+    check($restrictionSave['status']===200 && str_contains($restrictionSave['body'],'Skyddade namespaces sparade'), 'Restriction saved from admin');
+    $nsConfig = require $fixture.'/config/namespaces.php';
+    check($nsConfig['restricted']['require_login']===true && isset($nsConfig['']['acl']), 'Restrictions preserve existing ACL');
+    foreach (['','download','reader','focus','metadata','colab','edit','history','move'] as $operation) {
+        $url=$base.'/restricted/secret'.($operation?'?do='.$operation:'');
+        check(request($url)['status']===302,'Namespace blocks guest: '.$operation);
+        check(request($url,'GET',$memberHeaders)['status']===200,'Namespace allows member: '.$operation);
+    }
+    check(!str_contains(request($base.'/?do=search&q=RESTRICTED_MARKER')['body'],'Namespace secret'),'Namespace filtered from wiki search');
+    foreach (['list-content','search-content&q=RESTRICTED_MARKER','get-content&id=restricted:secret','list-namespaces'] as $query) check(!str_contains(request($base.'/chat/?action='.$query)['body'],'RESTRICTED_MARKER'),'Namespace filtered from chat: '.$query);
+    $restrictedContent = new McpContent($fixture.'/content', $auth, new NamespaceResolver($nsConfig), new Acl([]));
+    check($restrictedContent->read('restricted:secret',['user'=>'alice','ifAuth'=>false])===null,'MCP unscoped key cannot read restricted namespace');
+    check($restrictedContent->read('restricted:secret',['user'=>'alice','ifAuth'=>true])!==null,'MCP scoped key can read restricted namespace');
+    check((new NamespaceResolver([''=>['require_login'=>true],'restricted'=>['require_login'=>false]]))->requiresLogin('restricted'),'Root restriction cannot be overridden by child');
+    echo "PASS: restricted namespaces admin persistence, CSRF, views, chat, search and MCP with auth disabled\n";
 } finally {
     if (is_resource($process)) { proc_terminate($process); proc_close($process); }
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($fixture, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);

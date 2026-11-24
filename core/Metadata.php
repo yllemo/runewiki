@@ -27,7 +27,7 @@ class Metadata
             'attester' => ['label' => 'OKF: attestering', 'snippet' => "attester:\n  resource: \${1:references/attester.py}"],
             'okf_version' => ['label' => 'OKF-version (bundle-index)', 'snippet' => 'okf_version: "0.2"'],
             'date' => ['label' => 'Datum (befintligt fält)', 'snippet' => 'date: ${1:ÅÅÅÅ-MM-DD}'],
-            'updated' => ['label' => 'Uppdaterad (befintligt fält)', 'snippet' => 'updated: ${1:ÅÅÅÅ-MM-DD}'],
+            'updated' => ['label' => 'Senast uppdaterad', 'snippet' => "updated: '\${1:__NOW__}'"],
             'author' => ['label' => 'Författare', 'snippet' => 'author: ${1:Namn}'],
             'draft' => ['label' => 'Utkast', 'snippet' => 'draft: ${1|false,true|}'],
             'template' => ['label' => 'Mall', 'snippet' => 'template: ${1:default}'],
@@ -76,7 +76,7 @@ class Metadata
     public static function stamp(array $meta, string $body, ?array $previous, ?string $user, ?string $now = null): array
     {
         if (!isset($meta['type']) || $meta['type'] === '') $meta['type'] = 'Reference';
-        $compare = static function (array $value): array { unset($value['generated'], $value['verified'], $value['stale_after']); return $value; };
+        $compare = static function (array $value): array { unset($value['generated'], $value['verified'], $value['stale_after'], $value['updated']); return $value; };
         $changed = $previous === null || trim($body) !== trim($previous['body']) || $compare($meta) != $compare($previous['meta']);
         if (!$changed && isset($previous['meta']['generated'])) {
             $meta['generated'] = $previous['meta']['generated'];
@@ -84,6 +84,9 @@ class Metadata
             $generated = is_array($meta['generated'] ?? null) ? $meta['generated'] : [];
             $meta['generated'] = array_replace($generated, ['by' => $user !== null ? 'human:' . $user : 'process:runewiki', 'at' => $now ?? gmdate('Y-m-d\TH:i:s\Z')]);
         }
+        $meta['updated'] = $changed
+            ? ($now ?? gmdate('Y-m-d\TH:i:s\Z'))
+            : ($previous['meta']['updated'] ?? $previous['meta']['generated']['at'] ?? ($now ?? gmdate('Y-m-d\TH:i:s\Z')));
         return $meta;
     }
 }

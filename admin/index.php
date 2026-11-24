@@ -294,6 +294,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (function_exists('opcache_invalidate')) opcache_invalidate($mcpPath, true);
             $success = 'MCP-loggningens inställning sparades.';
         }
+    } elseif ($action === 'save_restricted_namespaces') {
+        try {
+            $path = $root . '/config/namespaces.php';
+            $options = Helpers::loadConfig($path);
+            $input = $_POST['restricted_namespaces'] ?? '';
+            if (!is_string($input) || strlen($input) > 10000) throw new RuntimeException('Ogiltig namespace-lista.');
+            $selected = [];
+            foreach (preg_split('/\R/', $input) as $line) {
+                $ns = trim($line); if ($ns === '') continue;
+                if ($ns === '*') { $selected[''] = true; continue; }
+                if (str_contains($ns, ':') || str_contains($ns, '/') || (new PageId($ns))->id() !== $ns) throw new RuntimeException('Ange ett namespace per rad, exempelvis internt eller projekt.');
+                $selected[$ns] = true;
+            }
+            foreach ($options as &$entry) unset($entry['require_login']);
+            unset($entry);
+            foreach ($selected as $ns => $_) $options[$ns]['require_login'] = true;
+            $temp = $path . '.' . bin2hex(random_bytes(8)) . '.tmp';
+            $php = "<?php\nreturn " . var_export($options, true) . ";\n";
+            if (file_put_contents($temp, $php, LOCK_EX) !== strlen($php) || !rename($temp, $path)) {
+                if (is_file($temp)) unlink($temp);
+                throw new RuntimeException('Kunde inte spara namespace-inställningarna.');
+            }
+            if (function_exists('opcache_invalidate')) opcache_invalidate($path, true);
+            (new Cache($root . '/data/cache'))->clear();
+            $success = 'Skyddade namespaces sparade.';
+        } catch (Throwable $e) { $errors[] = $e->getMessage(); }
     } elseif ($action === 'save_metadata') {
         $knownFields = array_keys(Metadata::fields());
         $selection = static fn (string $name) => array_values(array_intersect($knownFields, array_filter((array) ($_POST[$name] ?? []), 'is_string')));
@@ -619,6 +645,18 @@ $tabLabels = ['filer' => 'Content-filer', 'konto' => 'Mitt lösenord', 'mcp' => 
 </div>
 
 <div class="gbg-admin-panel" data-panel="auth" <?= $activeTab === 'auth' ? '' : 'hidden' ?>>
+    <h2>Skyddade namespaces</h2>
+    <form method="post" class="gbg-form">
+        <input type="hidden" name="csrf_token" value="<?= Helpers::e(Helpers::csrfToken()) ?>">
+        <input type="hidden" name="active_tab" value="auth">
+        <input type="hidden" name="action" value="save_restricted_namespaces">
+        <?php $restricted = []; foreach (Helpers::loadConfig($root . '/config/namespaces.php') as $ns => $settings) if (!empty($settings['require_login'])) $restricted[] = $ns === '' ? '*' : $ns; ?>
+        <label>Namespaces som kräver inloggning
+            <textarea name="restricted_namespaces" rows="5" placeholder="internt&#10;projekt"><?= Helpers::e(implode("\n", $restricted)) ?></textarea>
+        </label>
+        <p class="gbg-hint">Ett namespace (första mappen under content) per rad. Underliggande sidor omfattas. * skyddar hela wikin. Gäller även sökning, chatt, nedladdning och MCP. MCP-nyckeln måste tillåta inloggat innehåll (ifAuth).</p>
+        <button class="gbg-btn gbg-btn-primary" type="submit">Spara namespaces</button>
+    </form>
     <?php $authOptions = ExternalAuth::settings($root); ?>
     <h2>Alternativa inloggningsmetoder</h2>
     <p>Inställningarna sparas i <code>config/auth.php</code> och kan också ändras direkt i filen. Lokal inloggning finns alltid kvar. Aktivera webbplatsens inloggningskrav under Webbplats om wikin ska kräva autentisering för redigering.</p>

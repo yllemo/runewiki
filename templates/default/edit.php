@@ -412,6 +412,7 @@ window.WIKI_MEDIA_NS  = <?= $mediaNsJson ?>;
             { label: '{{media}}',          ins: '{{${1:namespace:fil.png}}}',                                        detail: 'Media-embed (bild/fil)' },
             { label: '{{media|alt}}',      ins: '{{${1:namespace:fil.png}|${2:alt-text}}}',                         detail: 'Media-embed med alt-text' },
             { label: '{{bild?bredd}}',     ins: '{{${1:namespace:bild.png}?${2:300}|${3:Beskrivning}}}', detail: 'Bild med bredd i pixlar' },
+            { label: 'Senast ändrat', ins: '{{recent#${1:10}}}\n${0}', detail: 'Lista nyligen ändrade sidor (1–100)' },
             { label: 'SVG informationsruta', ins: '```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 160" width="480" height="160">\n  <rect x="2" y="2" width="476" height="156" rx="16" fill="#e8f4fc" stroke="#0077bc"/>\n  <text x="24" y="85" font-family="sans-serif" font-size="26">${1:Rubrik}</text>\n</svg>\n```\n${0}', detail: 'SVG-bild direkt i Markdown' },
             { label: 'SVG ikon', ins: '```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128">\n  <circle cx="32" cy="32" r="28" fill="${1:#0077bc}"/>\n  <path d="M18 32 L28 42 L46 22" fill="none" stroke="#fff" stroke-width="5"/>\n</svg>\n```\n${0}', detail: 'SVG-ikon med färgval' },
             { label: '{{bild?breddxhöjd}}', ins: '{{${1:namespace:bild.png}?${2:300}x${3:200}|${4:Beskrivning}}}', detail: 'Bild inom angiven bredd och höjd' },

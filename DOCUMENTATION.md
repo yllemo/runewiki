@@ -42,3 +42,5 @@
 | YAML-fält, taggar och OKF | [Metadata](HANDBOOK.md#yaml-frontmatter-och-okf-metadata) |
 | Antal sparade versioner | [Versionshistorik](HANDBOOK.md#versionshistorik) |
 | Filer och mappar direkt i admin | [Rå filredigering](HANDBOOK.md#rå-filredigering-under-admin) |
+| Visa nyligen ändrade sidor i en artikel | [Senast ändrat](HANDBOOK.md#senast-ändrade-sidor) |
+| Kräva inloggning för ett helt namespace | [Skyddade namespaces](readme-page-access.md#skyddade-namespaces) |

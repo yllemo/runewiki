@@ -389,7 +389,9 @@ Enter/Space. Tab flyttar mellan länkarna; Escape eller klick utanför stänger.
 På mobil öppnas underpunkterna inne i hamburgermenyn. Flera nivåer stöds.
 En vanlig textpunkt utan barn länkar till ett sid-ID baserat på texten
 (`Undermeny 1` blir `/undermeny_1`). Använd explicita länkar för att välja
-målsida själv. Om överpunkten har en egen länk visas den först i undermenyn.
+målsida själv. Överpunkten används endast som dropdown-rubrik när den har
+underpunkter, även om den är skriven som en länk. Endast underpunkterna visas
+i rullgardinsmenyn.
 
 Länkar skrivs i angiven ordning:
 
@@ -807,3 +809,40 @@ gäller också. Vid sparning kontrolleras filens version så att en ändrad fil
 inte skrivs över med ett äldre utkast. Före sparning eller flytt tas en
 säkerhetskopia i versionshistoriken, även om vanlig versionshistorik är
 avstängd; den konfigurerade versionsgränsen gäller fortfarande.
+
+## Skyddade namespaces via admin
+
+**Admin → Inloggning → Skyddade namespaces** kräver inloggning för alla sidor
+i angivna namespaces, även när global redigeringsinloggning är avstängd.
+Ange första mappen under `content/`, en per rad, eller `*` för hela wikin.
+Inställningen sparas som `require_login` i `config/namespaces.php` och
+används även av sökning, chatt och MCP. MCP-nycklar måste tillåta inloggat
+innehåll (`ifAuth`). Se [åtkomstguiden](readme-page-access.md#skyddade-namespaces).
+
+### Senast uppdaterad
+
+När automatiska tidsstämplar är aktiverade (standard) sätts `updated` vid
+skapande och ändring av en artikel, med UTC-datum och tid i ISO 8601-format.
+Oförändrad sparning behåller tiden. Metadata-vyn visar fältet som
+**Senast uppdaterad**. OKF-fältet `generated` finns kvar som tidigare.
+Äldre artiklar uppdateras vid nästa sparning; inga filer skrivs om i bakgrunden.
+Adminens råeditor ändrar fortfarande bara den råtext du sparar.
+
+## Senast ändrade sidor
+
+Skriv kommandot på en egen rad i en artikel:
+
+```markdown
+{{recent#10}}
+```
+
+Det visar **Senast ändrat** med länkar och datum för de tio senaste sidorna.
+`{{recent#5}}` visar fem; `{{recent}}` använder standardvärdet tio. Antalet
+begränsas till 1–100. Kommandot finns även i editorns Ctrl+Space-lista.
+
+Sorteringen använder `updated`, därefter `generated.at` om `updated` saknas,
+och filens ändringstid när inget användbart datum finns. Tider visas i UTC.
+Listan följer läsbehörigheter och sidornas inloggningskrav; dolda sidor räknas
+inte mot antalsgränsen. Styrfiler ingår inte. Sidor med kommandot renderas på
+nytt vid sidladdning så att listan inte fastnar i HTML-cachen. I kodblock
+visas kommandot som vanlig kod.

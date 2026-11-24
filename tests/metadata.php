@@ -66,3 +66,8 @@ foreach (['true', 'null', '2026', '2026-10-03', 'Namn: exempel', ' leading', 'Sv
     check($roundtrip['name'] === $name && $roundtrip['tags'] === [], 'Names keep their string type and exact value');
 }
 echo "PASS: readable names and tag list formatting\n";
+
+check($stamped['updated'] === '2026-09-27T12:00:00Z', 'Updated records last edit');
+check($changed['updated'] === '2026-09-28T12:00:00Z', 'Updated follows content changes');
+$unchanged = Metadata::stamp($changed, 'same', ['meta' => $changed, 'body' => 'same'], 'bob', '2026-10-01T00:00:00Z');
+check($unchanged['updated'] === $changed['updated'], 'No-op save retains last edit time');

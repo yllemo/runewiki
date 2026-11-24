@@ -13,6 +13,13 @@ class NamespaceResolver
     {
     }
 
+    /** Independent of auth_enabled; a root restriction applies to every namespace. */
+    public function requiresLogin(string $namespace): bool
+    {
+        return !empty($this->namespaceConfig['']['require_login'])
+            || !empty($this->namespaceConfig[$namespace]['require_login']);
+    }
+
     public function settingsFor(string $namespace): array
     {
         $root = $this->namespaceConfig[''] ?? [];

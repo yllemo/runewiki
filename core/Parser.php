@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '13';
+    public const VERSION = '14';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
@@ -115,6 +115,18 @@ class Parser
         for ($i = 0, $count = count($lines); $i < $count;) {
             $line = $lines[$i];
             if (trim($line) === '') { $i++; continue; }
+            if (preg_match('/^ {0,3}\{\{recent(?:#([0-9]+))?\}\}[ \t]*$/', $line, $recent)) {
+                $limit = max(1, min(100, (int)($recent[1] ?? 10)));
+                $items = $this->pageLoader?->recent($limit, $this->isAuthenticated !== null && ($this->isAuthenticated)()) ?? [];
+                $list = '<section class="wiki-recent" aria-label="Senast ändrat"><h2>Senast ändrat</h2><ul>';
+                foreach ($items as $item) {
+                    $list .= '<li><a href="' . Helpers::e($item['url']) . '">' . Helpers::e($item['title']) . '</a>'
+                        . '<time datetime="' . gmdate('Y-m-d\TH:i:s\Z', $item['time']) . '">' . gmdate('Y-m-d H:i', $item['time']) . ' UTC</time></li>';
+                }
+                $html[] = $list . '</ul>' . (!$items ? '<p>Inga ändrade sidor att visa.</p>' : '') . '</section>';
+                $i++; continue;
+            }
+
             if (preg_match('/^ {0,3}\{\{iframe:([^|{}]+)(?:\|([^|{}]*))?(?:\|(\d+))?\}\}[ \t]*$/', $line, $frame)) {
                 $url = trim($frame[1]);
                 $absolute = filter_var($url, FILTER_VALIDATE_URL) && in_array(strtolower(parse_url($url, PHP_URL_SCHEME) ?? ''), ['http', 'https'], true);
@@ -242,6 +254,7 @@ class Parser
 
     private function startsBlock(array $lines, int $i): bool
     {
+        if (preg_match('/^ {0,3}\{\{recent(?:#[0-9]+)?\}\}[ \t]*$/', $lines[$i])) return true;
         return $this->calloutOpening($lines[$i]) !== null
             || preg_match('/^ {0,3}\{\{iframe:/', $lines[$i])
             || preg_match('/^\s*(?:#{1,6}\s|>|[-+*]\s|\d+[.)]\s|\x01CODEBLOCK|(?:-\s*){3,}$|(?:\*\s*){3,}$|(?:_\s*){3,}$)/', $lines[$i])

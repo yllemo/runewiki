@@ -239,3 +239,29 @@ eller återkalla någon annans nyckel. Det kräver att `proc_open` är tillgäng
 - [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http)
 - [Schema och metadata](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2026-07-28/schema.ts)
 - [MCP 2025-11-25: transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
+
+## Skyddade namespaces
+
+Under **Admin → Inloggning → Skyddade namespaces** kan du ange ett namespace
+per rad, exempelvis `internt` och `projekt`. Namespace är första mappen under
+`content/`; dess sidor och underliggande sökvägar omfattas. `*` kräver
+inloggning för hela wikin. En tom lista tar bort just dessa krav utan att
+ändra befintliga ACL-regler eller sidornas `require_login`.
+
+Inställningen sparas i `config/namespaces.php`, exempelvis:
+
+```php
+return [
+    'internt' => ['require_login' => true],
+];
+```
+
+Lägg till fältet i befintlig konfiguration; behåll övriga inställningar.
+Kravet gäller oavsett `auth_enabled`. Utloggade besökare får inte läsa
+artiklarna via visning, nedladdning, historik, läsläge, samarbete, sökning
+eller AI-chattens innehålls-API. MCP kräver en giltig personlig nyckel med
+`ifAuth: true`; namespace-ACL gäller fortfarande. En global restriktion
+under nyckeln `''` kan inte kringgås med `require_login: false` i ett namespace.
+
+Skyddet gäller wikiinnehåll. Direktlänkade filer i `images/` är separata
+medieresurser och skyddas inte av artikelns namespace-inställning.

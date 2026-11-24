@@ -1864,6 +1864,8 @@ button.tag-pick-btn:hover { background: var(--accent-hover); }
 #content-files.is-file-drop { outline:3px dashed var(--accent); outline-offset:-4px; }
 @media(max-width:700px) { .content-files-browser { border-right:0; border-bottom:1px solid var(--border-color); } }
 
-.wiki-recent ul { list-style:none; padding:0; }
-.wiki-recent li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.4rem 1rem; padding:.55rem 0; border-bottom:1px solid var(--border-color); }
-.wiki-recent time { font-size:.85rem; color:var(--text-secondary); white-space:nowrap; }
+.wiki-recent ul { list-style:none; padding:0; margin:.5rem 0; }
+.wiki-recent li { margin:0; padding:0; }
+.wiki-recent li a { display:block; padding:.55rem .75rem; border-radius:6px; overflow-wrap:anywhere; text-decoration:none; }
+.wiki-recent li a:hover { background:var(--bg-subtle); text-decoration:underline; }
+.wiki-recent li a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }

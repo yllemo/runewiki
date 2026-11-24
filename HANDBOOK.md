@@ -836,12 +836,12 @@ Skriv kommandot på en egen rad i en artikel:
 {{recent#10}}
 ```
 
-Det visar **Senast ändrat** med länkar och datum för de tio senaste sidorna.
+Det visar **Senast ändrat** med länkar till de tio senaste sidorna.
 `{{recent#5}}` visar fem; `{{recent}}` använder standardvärdet tio. Antalet
 begränsas till 1–100. Kommandot finns även i editorns Ctrl+Space-lista.
 
 Sorteringen använder `updated`, därefter `generated.at` om `updated` saknas,
-och filens ändringstid när inget användbart datum finns. Tider visas i UTC.
+och filens ändringstid när inget användbart datum finns. Datum används för sortering men visas inte i listan.
 Listan följer läsbehörigheter och sidornas inloggningskrav; dolda sidor räknas
 inte mot antalsgränsen. Styrfiler ingår inte. Sidor med kommandot renderas på
 nytt vid sidladdning så att listan inte fastnar i HTML-cachen. I kodblock

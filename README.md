@@ -117,7 +117,7 @@ Visa nyligen ändrade sidor direkt på startsidan eller i en artikel:
 {{recent#10}}
 ```
 
-Listan **Senast ändrat** visar titel, länk och uppdateringstid för upp till tio
+Listan **Senast ändrat** visar sidtitlar som klickbara länkar för upp till tio
 sidor som besökaren får läsa. Byt antalet till 1–100; utan `#antal` används tio.
 Fältet `updated` sätts automatiskt när artikelinnehåll eller metadata ändras,
 när automatiska tidsstämplar är aktiverade (standard).

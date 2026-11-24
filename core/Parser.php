@@ -25,7 +25,7 @@
 
 class Parser
 {
-    public const VERSION = '14';
+    public const VERSION = '15';
     private const CALLOUTS = [
         'simple' => '', 'info' => 'Information', 'note' => 'Notering',
         'tip' => 'Tips', 'important' => 'Viktigt', 'warning' => 'Varning',
@@ -120,8 +120,7 @@ class Parser
                 $items = $this->pageLoader?->recent($limit, $this->isAuthenticated !== null && ($this->isAuthenticated)()) ?? [];
                 $list = '<section class="wiki-recent" aria-label="Senast ändrat"><h2>Senast ändrat</h2><ul>';
                 foreach ($items as $item) {
-                    $list .= '<li><a href="' . Helpers::e($item['url']) . '">' . Helpers::e($item['title']) . '</a>'
-                        . '<time datetime="' . gmdate('Y-m-d\TH:i:s\Z', $item['time']) . '">' . gmdate('Y-m-d H:i', $item['time']) . ' UTC</time></li>';
+                    $list .= '<li><a href="' . Helpers::e($item['url']) . '">' . Helpers::e($item['title']) . '</a></li>';
                 }
                 $html[] = $list . '</ul>' . (!$items ? '<p>Inga ändrade sidor att visa.</p>' : '') . '</section>';
                 $i++; continue;

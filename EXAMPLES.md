@@ -129,6 +129,5 @@ Lägg detta på en egen rad i teamets startsida:
 {{recent#5}}
 ```
 
-Det visar de fem senast ändrade sidor som besökaren får läsa, med titel och
-datum. Använd `{{recent}}` för tio sidor. Kommandot finns också via Ctrl+Space.
+Det visar de fem senast ändrade sidor som besökaren får läsa, som klickbara sidtitlar utan datum. Använd `{{recent}}` för tio sidor. Kommandot finns också via Ctrl+Space.
 [Detaljer om datum och sortering](HANDBOOK.md#senast-ändrade-sidor).

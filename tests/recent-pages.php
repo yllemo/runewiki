@@ -11,6 +11,7 @@ try {
  $parser=new Parser([], $pages);
  $html=$parser->toHtml("Intro\n{{recent#1}}");
  check(str_contains($html,'href="/new"')&&!str_contains($html,'href="/old"'),'Sorted and limited');
+ check(!str_contains($html,'<time')&&!str_contains($html,'2026-10-01'),'Recent list shows links without dates');
  check(!str_contains($html,'Secret')&&!str_contains($html,'Denied'),'Protected pages excluded before limit');
  check(str_contains($parser->toHtml('{{recent}}'),'href="/old"'),'Default count');
  check(!str_contains($parser->toHtml("```text\n{{recent#1}}\n```"),'wiki-recent'),'Code examples stay literal');
